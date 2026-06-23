@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tostu Şahane — Gizlilik Politikası</title>
+  <meta name="description" content="Tostu Şahane mobil uygulaması gizlilik politikası ve kişisel verilerin korunması.">
+  <style>
+    :root {
+      color-scheme: light;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #ea004b;
+      --bg: #ffffff;
+      --card: #f9fafb;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+    }
+    header {
+      padding: 2.5rem 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff5f8 0%, #fff 100%);
+    }
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.75rem;
+      color: var(--accent);
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 48rem;
+    }
+    main {
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+    h2 {
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      font-size: 1.2rem;
+    }
+    h3 {
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+    p, li { font-size: 0.98rem; }
+    ul { padding-left: 1.25rem; }
+    li { margin: 0.35rem 0; }
+    .box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      margin: 1rem 0;
+    }
+    a { color: var(--accent); }
+    footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .lang-switch {
+      margin-top: 1rem;
+      font-size: 0.92rem;
+    }
+    .en { display: none; margin-top: 3rem; padding-top: 2rem; border-top: 2px solid var(--border); }
+    .show-en .tr { display: none; }
+    .show-en .en { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Tostu Şahane</h1>
+    <p>Gizlilik Politikası / Privacy Policy</p>
+    <p class="lang-switch"><a href="#" id="toggle-lang">English version</a></p>
+  </header>
+
+  <main id="content">
+    <section class="tr">
+      <p><strong>Son güncelleme:</strong> 22 Haziran 2026</p>
+
+      <div class="box">
+        <p>
+          Bu Gizlilik Politikası, <strong>Tostu Şahane</strong> mobil uygulamasını
+          (<em>“Uygulama”</em>) kullanan kişilerin kişisel verilerinin nasıl toplandığını,
+          işlendiğini ve korunduğunu açıklar. Uygulama; müşterilerin yemek siparişi
+          vermesi, şube/kurye/garson operasyonlarının yürütülmesi amacıyla
+          <strong>alanyaproje.com</strong> altyapısı ve ilgili hizmet sağlayıcılar
+          üzerinden sunulmaktadır.
+        </p>
+        <p>
+          <strong>Veri sorumlusu:</strong> Tostu Şahane<br>
+          <strong>İletişim:</strong> <a href="mailto:info@alanyaproje.com">info@alanyaproje.com</a><br>
+          <strong>Web:</strong> <a href="https://alanyaproje.com/Tostusahane/">https://alanyaproje.com/Tostusahane/</a>
+        </p>
+        <p><em>Not: Tüzel kişi unvanı, adres ve KVKK başvuru e-postasını kendi bilgilerinizle güncelleyin.</em></p>
+      </div>
+
+      <h2>1. Toplanan veriler</h2>
+      <p>Uygulama kullanımınıza ve seçtiğiniz role göre aşağıdaki veriler işlenebilir:</p>
+
+      <h3>Müşteriler</h3>
+      <ul>
+        <li>Telefon numarası (OTP ile giriş ve sipariş iletişimi)</li>
+        <li>Ad, soyad veya profil adı</li>
+        <li>Teslimat adresi, adres notu ve harita üzerinden seçilen konum (enlem/boylam)</li>
+        <li>Sipariş içeriği, sipariş notu, ödeme yöntemi tercihi</li>
+        <li>Kupon kullanımı ve sipariş geçmişi</li>
+        <li>Ürün değerlendirme puanı ve yorumu (onay sonrası yayınlanabilir)</li>
+        <li>Push bildirim cihaz anahtarı (FCM token)</li>
+        <li>İsteğe bağlı: konum bilgisi (yakın şube, teslimat bölgesi kontrolü)</li>
+        <li>Online kart ödemelerinde: PayTR ödeme süreci (kart bilgileri uygulamamızda saklanmaz)</li>
+      </ul>
+
+      <h3>Şube, garson, kurye ve yönetici kullanıcıları</h3>
+      <ul>
+        <li>Kullanıcı adı, ad, rol ve bağlı olduğu şube bilgisi</li>
+        <li>E-posta ve/veya telefon (operasyon hesapları için)</li>
+        <li>Sipariş işleme kayıtları, masa/salon siparişleri, teslimat durumu</li>
+        <li>Kurye modunda: anlık konum (teslimat takibi için)</li>
+      </ul>
+
+      <h3>Otomatik / teknik veriler</h3>
+      <ul>
+        <li>Cihaz türü, işletim sistemi sürümü, uygulama sürümü</li>
+        <li>Oturum ve güvenlik anahtarları (cihazda şifreli depolama)</li>
+        <li>Hata günlükleri ve performans kayıtları (sınırlı ölçüde)</li>
+      </ul>
+
+      <h2>2. Verilerin kullanım amaçları</h2>
+      <ul>
+        <li>Hesap oluşturma, kimlik doğrulama ve oturum yönetimi</li>
+        <li>Sipariş alma, hazırlama, teslimat ve müşteri desteği</li>
+        <li>Ödeme işlemlerinin güvenli şekilde tamamlanması</li>
+        <li>Teslimat bölgesi, mesafe ve tahmini süre hesaplaması</li>
+        <li>Sipariş durumu ve kampanya bildirimleri gönderilmesi</li>
+        <li>Operasyon ekiplerinin (şube, garson, kurye) görevlerini yürütmesi</li>
+        <li>Dolandırıcılık/ kötüye kullanımın önlenmesi ve hizmet güvenliği</li>
+        <li>Yasal yükümlülüklerin yerine getirilmesi</li>
+      </ul>
+
+      <h2>3. Hukuki dayanak (KVKK m.5)</h2>
+      <ul>
+        <li>Sözleşmenin kurulması ve ifası (sipariş ve teslimat)</li>
+        <li>Açık rıza (push bildirim, isteğe bağlı konum gibi)</li>
+        <li>Meşru menfaat (hizmet güvenliği, operasyonel verimlilik)</li>
+        <li>Hukuki yükümlülük (muhasebe, resmi talepler)</li>
+      </ul>
+
+      <h2>4. Üçüncü taraflarla paylaşım</h2>
+      <p>Kişisel verileriniz yalnızca hizmetin sunulması için gerekli olduğu ölçüde paylaşılır:</p>
+      <ul>
+        <li><strong>Google Firebase / Google Cloud</strong> — veritabanı, bildirim altyapısı</li>
+        <li><strong>PayTR</strong> — online kredi kartı ödemeleri (PCI-DSS kapsamında)</li>
+        <li><strong>Google Maps / OpenStreetMap</strong> — harita ve konum görselleştirme</li>
+        <li><strong>Google Play</strong> — uygulama dağıtımı</li>
+        <li>İlgili <strong>şube, mutfak, kurye</strong> operasyon ekipleri (siparişin yerine getirilmesi için)</li>
+      </ul>
+      <p>Kişisel verileriniz reklam amacıyla üçüncü taraflara satılmaz.</p>
+
+      <h2>5. Saklama süresi</h2>
+      <p>
+        Veriler, hizmet ilişkisi devam ettiği sürece ve ilgili mevzuatta öngörülen
+        zamanaşımı süreleri boyunca saklanır. Yasal zorunluluk veya uyuşmazlık
+        durumlarında daha uzun süre saklanabilir. Gereksiz veriler silinir,
+        anonimleştirilir veya erişime kapatılır.
+      </p>
+
+      <h2>6. Güvenlik</h2>
+      <p>
+        Veriler; şifreli bağlantı (HTTPS/TLS), erişim yetkilendirme, rol tabanlı
+        erişim ve güvenli cihaz depolama yöntemleriyle korunur. Ödeme kartı
+        bilgileri uygulama sunucularımızda tutulmaz; PayTR altyapısı üzerinden işlenir.
+      </p>
+
+      <h2>7. Haklarınız (KVKK m.11)</h2>
+      <p>KVKK kapsamında aşağıdaki haklara sahipsiniz:</p>
+      <ul>
+        <li>Kişisel verilerinizin işlenip işlenmediğini öğrenme</li>
+        <li>İşlenmişse bilgi talep etme</li>
+        <li>Amacına uygun kullanılıp kullanılmadığını öğrenme</li>
+        <li>Eksik veya yanlış işlenmişse düzeltilmesini isteme</li>
+        <li>Silinmesini veya yok edilmesini isteme</li>
+        <li>İşlemenin kısıtlanmasını talep etme</li>
+        <li>Aktarıldığı üçüncü kişileri öğrenme</li>
+        <li>İtiraz etme ve zarara uğramanız hâlinde tazmin talep etme</li>
+      </ul>
+      <p>
+        Taleplerinizi <a href="mailto:info@alanyaproje.com">info@alanyaproje.com</a>
+        adresine iletebilirsiniz. Başvurular en geç 30 gün içinde yanıtlanır.
+      </p>
+
+      <h2>8. Çocukların gizliliği</h2>
+      <p>
+        Uygulama 13 yaş altına yönelik değildir. Bilerek 13 yaş altından kişisel
+        veri toplanmaz.
+      </p>
+
+      <h2>9. Uluslararası aktarım</h2>
+      <p>
+        Firebase/Google gibi hizmet sağlayıcıları verileri yurt dışındaki
+        sunucularda işleyebilir. Bu aktarımlar, hizmet sağlayıcıların
+        sözleşmesel ve teknik güvenlik taahhütleri çerçevesinde yapılır.
+      </p>
+
+      <h2>10. Politika değişiklikleri</h2>
+      <p>
+        Bu politika güncellenebilir. Önemli değişiklikler uygulama içinde veya
+        web sitemizde duyurulur. Güncel sürüm her zaman bu sayfada yayımlanır.
+      </p>
+
+      <h2>11. İletişim</h2>
+      <div class="box">
+        <p><strong>Tostu Şahane — Gizlilik / KVKK</strong><br>
+        E-posta: <a href="mailto:info@alanyaproje.com">info@alanyaproje.com</a><br>
+        Telefon: 0242 515 06 57 / 0532 512 03 49</p>
+      </div>
+    </section>
+
+    <section class="en">
+      <p><strong>Last updated:</strong> June 22, 2026</p>
+      <p>
+        This Privacy Policy explains how <strong>Tostu Sahane</strong> (“App”)
+        collects, uses, and protects personal data. The App enables food ordering
+        and restaurant operations through infrastructure operated by
+        <strong>alanyaproje.com</strong> and related service providers.
+      </p>
+      <p>
+        <strong>Data controller:</strong> Tostu Sahane<br>
+        <strong>Contact:</strong> <a href="mailto:info@alanyaproje.com">info@alanyaproje.com</a>
+      </p>
+      <h2>Data we collect</h2>
+      <ul>
+        <li>Phone number, name, delivery address and map coordinates</li>
+        <li>Order details, notes, payment method, order history</li>
+        <li>Product ratings and reviews</li>
+        <li>Push notification token</li>
+        <li>Optional location for branch/delivery zone checks</li>
+        <li>Staff account data for branch, waiter, courier, and admin roles</li>
+        <li>Courier live location during active deliveries</li>
+      </ul>
+      <h2>How we use data</h2>
+      <ul>
+        <li>Authentication, order fulfillment, delivery, and support</li>
+        <li>Secure payments via PayTR (card data is not stored in our app)</li>
+        <li>Operational notifications and fraud prevention</li>
+        <li>Legal compliance</li>
+      </ul>
+      <h2>Third parties</h2>
+      <ul>
+        <li>Google Firebase / Google Cloud</li>
+        <li>PayTR (payments)</li>
+        <li>Google Maps / OpenStreetMap</li>
+        <li>Google Play</li>
+      </ul>
+      <p>We do not sell personal data for advertising.</p>
+      <h2>Your rights</h2>
+      <p>
+        You may request access, correction, deletion, or restriction of your data
+        by emailing <a href="mailto:info@alanyaproje.com">info@alanyaproje.com</a>.
+      </p>
+      <h2>Children</h2>
+      <p>The App is not intended for users under 13.</p>
+    </section>
+
+    <footer>
+      © 2026 Tostu Şahane · Paket adı: com.tostusahane.tostu_sahane
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById('toggle-lang').addEventListener('click', function (e) {
+      e.preventDefault();
+      document.getElementById('content').classList.toggle('show-en');
+      this.textContent = document.getElementById('content').classList.contains('show-en')
+        ? 'Türkçe sürüm'
+        : 'English version';
+    });
+  </script>
+</body>
+</html>

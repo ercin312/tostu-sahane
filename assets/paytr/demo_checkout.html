@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayTR Demo Ödeme</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #f5f5f5; }
+    .card { background: #fff; border-radius: 16px; padding: 24px; max-width: 420px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+    h1 { color: #EA004B; font-size: 22px; margin-top: 0; }
+    p { color: #555; line-height: 1.5; }
+    button { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+    .success { background: #EA004B; color: #fff; }
+    .fail { background: #fff; color: #EA004B; border: 2px solid #EA004B; }
+    .badge { display: inline-block; background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">DEMO MOD</span>
+    <h1>PayTR Güvenli Ödeme</h1>
+    <p>Bu ekran production ortamında gerçek PayTR iframe'i ile değiştirilir. Backend <code>/payments/paytr/init</code> endpoint'i token üretir.</p>
+    <button class="success" onclick="completePayment(true)">Ödemeyi Başarılı Tamamla</button>
+    <button class="fail" onclick="completePayment(false)">Ödemeyi İptal Et</button>
+  </div>
+  <script>
+    function completePayment(success) {
+      if (window.PayTRBridge) {
+        PayTRBridge.postMessage(success ? 'success' : 'fail');
+      } else if (window.parent) {
+        window.parent.postMessage(success ? 'paytr:success' : 'paytr:fail', '*');
+      }
+    }
+  </script>
+</body>
+</html>

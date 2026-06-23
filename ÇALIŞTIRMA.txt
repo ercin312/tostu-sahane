@@ -1,0 +1,11 @@
+Sahane123! 
+
+Windows ops (restoran PC)
+cd "C:\Users\excalibur\Desktop\Tostu Sahane"
+.\scripts\pack_windows_desktop.ps1
+
+Masaustune "Tostu Sahane Windows" klasoru cikar.
+Diger PC'ye TUM klasoru kopyalayin (exe + data + *.dll).
+Hata: msvcp140.dll -> once pack script ile yeniden paketleyin veya 1_VC_Runtime_Kur.bat
+
+Demo garson (mock): garson1 / Sahane123!

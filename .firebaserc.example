@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "tostu-sahane-demo": {
+      "projectId": "tostu-sahane-demo",
+      "storageBucket": "tostu-sahane-demo.appspot.com"
+    }
+  }
+}

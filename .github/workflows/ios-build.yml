@@ -1,0 +1,59 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build iOS (no codesign)
+        run: |
+          cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
+          flutter build ios --release \
+            --no-codesign \
+            --dart-define=USE_MOCK_API=true
+
+      - name: Show app version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "App version: $VERSION"
+
+      - name: Upload iOS build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ github.sha }}
+          path: build/ios/iphoneos/Runner.app
+          if-no-files-found: error

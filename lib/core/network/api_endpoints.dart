@@ -1,0 +1,20 @@
+abstract final class ApiEndpoints {
+  static const authSendOtp = '/auth/otp/send';
+  static const authVerifyOtp = '/auth/otp/verify';
+  static const authSendEmailOtp = '/auth/email-otp/send';
+  static const authVerifyEmailOtp = '/auth/email-otp/verify';
+  static const authEmailLogin = '/auth/email/login';
+  static const authRefresh = '/auth/refresh';
+  static const branches = '/branches';
+  static const products = '/products';
+  static const orders = '/orders';
+  static const ordersStatus = '/orders/{id}/status';
+  static const ordersAssignCourier = '/orders/{id}/assign-courier';
+  static const pushToken = '/users/push-token';
+  static const paytrInit = '/payments/paytr/init';
+  static const paytrVerify = '/payments/paytr/verify';
+  static const adminBranches = '/admin/branches';
+  static const adminUsers = '/admin/users';
+  static const adminReports = '/admin/reports';
+  static const adminProducts = '/admin/products';
+}

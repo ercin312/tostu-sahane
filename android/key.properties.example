@@ -1,0 +1,15 @@
+# Google Play upload keystore ayarlari.
+# 1) Bu dosyayi "key.properties" olarak kopyalayin (android/key.properties).
+# 2) upload-keystore.jks dosyanizi android/ klasorune koyun.
+# 3) Asagidaki degerleri doldurun.
+#
+# Beklenen Play Console upload sertifikasi SHA1:
+# 5A:98:1A:E9:2D:E8:25:92:89:21:5A:23:9F:44:43:E8:60:06:64:17
+#
+# Parmak izini dogrulamak icin:
+#   .\scripts\verify_android_signing.ps1
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks
