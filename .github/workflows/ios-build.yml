@@ -27,6 +27,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Prepare Firebase config for CI
+        run: cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
+
       - name: Flutter version
         run: flutter --version
 
@@ -40,11 +43,7 @@ jobs:
         run: flutter test
 
       - name: Build iOS (no codesign)
-        run: |
-          cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
-          flutter build ios --release \
-            --no-codesign \
-            --dart-define=USE_MOCK_API=true
+        run: flutter build ios --release --no-codesign --dart-define=USE_MOCK_API=true
 
       - name: Show app version
         run: |
