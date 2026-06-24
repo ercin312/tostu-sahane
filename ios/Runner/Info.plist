@@ -68,5 +68,7 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ürün ve kampanya görselleri yüklemek için fotoğraf galerisine erişim gereklidir.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır.</string>
 </dict>
 </plist>
