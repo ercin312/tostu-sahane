@@ -30,6 +30,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Patch Windows ops plugins
+        shell: pwsh
+        run: |
+          ./scripts/patch_windows_plugins.ps1
+          flutter pub get
+          ./scripts/patch_windows_plugins.ps1
+          ./scripts/patch_windows_ops_plugins.ps1
+
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
