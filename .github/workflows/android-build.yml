@@ -1,11 +1,7 @@
 name: Android Build
 
+# Otomatik çalışmaz — sadece Actions → Run workflow
 on:
-  push:
-    branches: [main, develop]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -31,7 +27,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          cache: false
 
       - name: Prepare Firebase config for CI
         run: cp android/app/google-services.json.example android/app/google-services.json
@@ -54,3 +50,4 @@ jobs:
           name: android-release-${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          retention-days: 3

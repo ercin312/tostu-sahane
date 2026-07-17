@@ -1,5 +1,6 @@
 name: iOS TestFlight
 
+# Otomatik çalışmaz — sadece Actions → Run workflow
 on:
   workflow_dispatch:
     inputs:
@@ -7,9 +8,6 @@ on:
         description: Use mock API (demo mode)
         type: boolean
         default: false
-  push:
-    tags:
-      - 'v*'
 
 concurrency:
   group: ios-testflight-${{ github.ref }}
@@ -45,7 +43,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          cache: false
 
       - name: Install dependencies
         run: flutter pub get
@@ -109,6 +107,7 @@ jobs:
           name: ios-testflight-${{ github.run_number }}
           path: build/ios/ipa/*.ipa
           if-no-files-found: error
+          retention-days: 3
 
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v3

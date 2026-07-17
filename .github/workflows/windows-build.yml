@@ -1,11 +1,7 @@
 name: Windows Build
 
+# Otomatik çalışmaz — sadece Actions → Run workflow
 on:
-  push:
-    branches: [main, develop]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -25,7 +21,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          cache: false
 
       - name: Install dependencies
         run: flutter pub get
@@ -56,3 +52,4 @@ jobs:
           name: windows-ops-${{ github.sha }}
           path: build/windows/x64/runner/Release/
           if-no-files-found: error
+          retention-days: 3

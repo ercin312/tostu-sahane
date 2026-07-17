@@ -1,11 +1,7 @@
 name: iOS Build
 
+# Otomatik çalışmaz — sadece Actions → Run workflow
 on:
-  push:
-    branches: [main, develop]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -25,7 +21,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          cache: false
 
       - name: Prepare Firebase config for CI
         run: cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
@@ -56,3 +52,4 @@ jobs:
           name: ios-release-${{ github.sha }}
           path: build/ios/iphoneos/Runner.app
           if-no-files-found: error
+          retention-days: 3
