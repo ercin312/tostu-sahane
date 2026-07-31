@@ -101,18 +101,26 @@ jobs:
             --export-options-plist=ios/ExportOptions.plist \
             --dart-define=USE_MOCK_API=${USE_MOCK_API}
 
+      - name: Resolve IPA path
+        id: ipa
+        run: |
+          IPA_PATH="$(ls -1 build/ios/ipa/*.ipa | head -n 1)"
+          test -f "$IPA_PATH" || (echo "No IPA found under build/ios/ipa" && ls -la build/ios/ipa || true; exit 1)
+          echo "path=$IPA_PATH" >> "$GITHUB_OUTPUT"
+          echo "Found IPA: $IPA_PATH ($(du -h "$IPA_PATH" | cut -f1))"
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-testflight-${{ github.run_number }}
-          path: build/ios/ipa/*.ipa
+          path: ${{ steps.ipa.outputs.path }}
           if-no-files-found: error
           retention-days: 3
 
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v3
         with:
-          app-path: build/ios/ipa/*.ipa
+          app-path: ${{ steps.ipa.outputs.path }}
           issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_CONNECT_API_KEY }}
