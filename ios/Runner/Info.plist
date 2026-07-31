@@ -70,5 +70,7 @@
 	<string>Ürün ve kampanya görselleri yüklemek için fotoğraf galerisine erişim gereklidir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır. Uygulama arka planda sürekli konum takibi yapmaz.</string>
 </dict>
 </plist>
