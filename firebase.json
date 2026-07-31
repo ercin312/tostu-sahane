@@ -1,7 +1,11 @@
 {
   "auth": {
     "providers": {
-      "emailPassword": true
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Tostu Sahane",
+        "supportEmail": "ercin312@gmail.com"
+      }
     }
   },
   "firestore": {

@@ -294,7 +294,7 @@ class _CustomerOrderCard extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                DateFormat('dd.MM.yyyy HH:mm').format(order.createdAt),
+                FormatUtils.dateTimeTr(order.createdAt),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
                     ),

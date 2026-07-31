@@ -65,12 +65,28 @@ void main() {
           OrderStatus.preparing,
           OrderStatus.delivered,
         ),
+        isFalse,
+      );
+      expect(
+        OrderStatusUtils.isValidTransition(
+          OrderStatus.preparing,
+          OrderStatus.delivered,
+          dineIn: true,
+        ),
         isTrue,
       );
       expect(
         OrderStatusUtils.isValidTransition(
           OrderStatus.received,
           OrderStatus.delivered,
+        ),
+        isFalse,
+      );
+      expect(
+        OrderStatusUtils.isValidTransition(
+          OrderStatus.received,
+          OrderStatus.delivered,
+          dineIn: true,
         ),
         isTrue,
       );
@@ -142,6 +158,23 @@ void main() {
       final merged = OrderMerge.resolve(local, remote);
 
       expect(merged.status, OrderStatus.delivered);
+    });
+
+    test('preserves customer identity when remote advances to onTheWay', () {
+      final local = _sample(status: OrderStatus.waitingCourier);
+      final remote = local.copyWith(
+        status: OrderStatus.onTheWay,
+        courierId: 'u2',
+        courierName: 'Kurye',
+        customerId: 'u2',
+        customerName: 'courier',
+      );
+
+      final merged = OrderMerge.resolve(local, remote);
+
+      expect(merged.status, OrderStatus.onTheWay);
+      expect(merged.customerId, 'customer_555');
+      expect(merged.courierId, 'u2');
     });
   });
 }

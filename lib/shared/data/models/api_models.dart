@@ -115,6 +115,7 @@ class ProductModel {
     this.isCombo = false,
     this.comboItems = const [],
     this.isRecommended = false,
+    this.qrNavCategoryId,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(
@@ -144,6 +145,7 @@ class ProductModel {
                 .toList() ??
             [],
         isRecommended: json['is_recommended'] as bool? ?? false,
+        qrNavCategoryId: json['qr_nav_category_id'] as String?,
       );
 
   final String id;
@@ -159,6 +161,7 @@ class ProductModel {
   final bool isCombo;
   final List<ProductComboItemModel> comboItems;
   final bool isRecommended;
+  final String? qrNavCategoryId;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -174,6 +177,8 @@ class ProductModel {
         'is_combo': isCombo,
         'combo_items': comboItems.map((e) => e.toJson()).toList(),
         'is_recommended': isRecommended,
+        if (qrNavCategoryId != null && qrNavCategoryId!.isNotEmpty)
+          'qr_nav_category_id': qrNavCategoryId,
       };
 }
 
@@ -248,7 +253,7 @@ class CartItemModel {
         productId: json['product_id'] as String,
         productNameKey: json['product_name_key'] as String,
         unitPrice: (json['unit_price'] as num).toDouble(),
-        quantity: json['quantity'] as int,
+        quantity: (json['quantity'] as num).toInt(),
         selectedOptions: (json['selected_options'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
@@ -319,6 +324,16 @@ class OrderModel {
     this.waiterId,
     this.waiterName,
     this.waiterCode,
+    this.isPickup = false,
+    this.isTableAddon = false,
+    this.orderSource = 'app',
+    this.phoneIncomplete = false,
+    this.phoneFailed = false,
+    this.phoneCancelReason,
+    this.phoneCancelPrintPending = false,
+    this.phoneStatusInquiry = false,
+    this.phoneStatusInquiryNote,
+    this.phoneStatusInquiryMinutes,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -335,17 +350,17 @@ class OrderModel {
 
     return OrderModel(
         id: json['id'] as String,
-        orderNumber: json['order_number'] as int,
+        orderNumber: (json['order_number'] as num).toInt(),
         customerId: json['customer_id'] as String,
         customerName: json['customer_name'] as String,
         branchId: json['branch_id'] as String,
-        items: (json['items'] as List<dynamic>)
+        items: (json['items'] as List<dynamic>? ?? const [])
             .map((e) => CartItemModel.fromJson(e as Map<String, dynamic>))
             .toList(),
-        totalAmount: (json['total_amount'] as num).toDouble(),
+        totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0,
         status: json['status'] as String,
         createdAt: json['created_at'] as String,
-        address: json['address'] as String,
+        address: json['address'] as String? ?? '',
         paymentMethod: json['payment_method'] as String,
         courierId: json['courier_id'] as String?,
         courierName: json['courier_name'] as String?,
@@ -380,6 +395,18 @@ class OrderModel {
         waiterId: json['waiter_id'] as String?,
         waiterName: json['waiter_name'] as String?,
         waiterCode: json['waiter_code'] as String?,
+        isPickup: json['is_pickup'] as bool? ?? false,
+        isTableAddon: json['is_table_addon'] as bool? ?? false,
+        orderSource: json['order_source'] as String? ?? 'app',
+        phoneIncomplete: json['phone_incomplete'] as bool? ?? false,
+        phoneFailed: json['phone_failed'] as bool? ?? false,
+        phoneCancelReason: json['phone_cancel_reason'] as String?,
+        phoneCancelPrintPending:
+            json['phone_cancel_print_pending'] as bool? ?? false,
+        phoneStatusInquiry: json['phone_status_inquiry'] as bool? ?? false,
+        phoneStatusInquiryNote: json['phone_status_inquiry_note'] as String?,
+        phoneStatusInquiryMinutes:
+            (json['phone_status_inquiry_minutes'] as num?)?.toInt(),
       );
   }
 
@@ -422,6 +449,16 @@ class OrderModel {
   final String? waiterId;
   final String? waiterName;
   final String? waiterCode;
+  final bool isPickup;
+  final bool isTableAddon;
+  final String orderSource;
+  final bool phoneIncomplete;
+  final bool phoneFailed;
+  final String? phoneCancelReason;
+  final bool phoneCancelPrintPending;
+  final bool phoneStatusInquiry;
+  final String? phoneStatusInquiryNote;
+  final int? phoneStatusInquiryMinutes;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -463,6 +500,16 @@ class OrderModel {
         'waiter_id': waiterId,
         'waiter_name': waiterName,
         'waiter_code': waiterCode,
+        'is_pickup': isPickup,
+        'is_table_addon': isTableAddon,
+        'order_source': orderSource,
+        'phone_incomplete': phoneIncomplete,
+        'phone_failed': phoneFailed,
+        'phone_cancel_reason': phoneCancelReason,
+        'phone_cancel_print_pending': phoneCancelPrintPending,
+        'phone_status_inquiry': phoneStatusInquiry,
+        'phone_status_inquiry_note': phoneStatusInquiryNote,
+        'phone_status_inquiry_minutes': phoneStatusInquiryMinutes,
       };
 }
 

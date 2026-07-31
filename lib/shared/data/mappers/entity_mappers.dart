@@ -8,6 +8,14 @@ import '../../domain/entities/user.dart';
 import '../models/api_models.dart';
 
 abstract final class EntityMappers {
+  static OrderStatus? tryParseOrderStatus(String key) {
+    try {
+      return OrderStatus.values.byName(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Branch toBranch(BranchModel model) => Branch(
         id: model.id,
         name: model.name,
@@ -36,7 +44,8 @@ abstract final class EntityMappers {
         nameKey: model.nameKey,
         descriptionKey: model.descriptionKey,
         price: model.price,
-        category: ProductCategory.values.byName(model.category),
+        category: ProductCategory.values.asNameMap()[model.category] ??
+            ProductCategory.tost,
         isAvailable: model.isAvailable,
         imageColorValue: model.imageColorValue,
         imageUrl: model.imageUrl,
@@ -45,6 +54,7 @@ abstract final class EntityMappers {
         isCombo: model.isCombo,
         comboItems: model.comboItems.map(toProductComboItem).toList(),
         isRecommended: model.isRecommended,
+        qrNavCategoryId: model.qrNavCategoryId,
       );
 
   static ProductComboItem toProductComboItem(ProductComboItemModel model) =>
@@ -64,18 +74,21 @@ abstract final class EntityMappers {
   static Order toOrder(OrderModel model) {
     final stamps = <OrderStatus, DateTime>{};
     model.statusTimestamps.forEach((key, value) {
-      final parsed = DateTime.tryParse(value);
-      if (parsed != null) {
-        stamps[OrderStatus.values.byName(key)] = parsed;
+      final status = tryParseOrderStatus(key);
+      final parsed = _parseInstant(value);
+      if (status != null && parsed != null) {
+        stamps[status] = parsed;
       }
     });
     final actorIds = <OrderStatus, String>{};
     model.statusActorIds.forEach((key, value) {
-      actorIds[OrderStatus.values.byName(key)] = value;
+      final status = tryParseOrderStatus(key);
+      if (status != null) actorIds[status] = value;
     });
     final actorNames = <OrderStatus, String>{};
     model.statusActorNames.forEach((key, value) {
-      actorNames[OrderStatus.values.byName(key)] = value;
+      final status = tryParseOrderStatus(key);
+      if (status != null) actorNames[status] = value;
     });
     return Order(
         id: model.id,
@@ -86,7 +99,7 @@ abstract final class EntityMappers {
         items: model.items.map(toCartItem).toList(),
         totalAmount: model.totalAmount,
         status: OrderStatus.values.byName(model.status),
-        createdAt: DateTime.parse(model.createdAt),
+        createdAt: _parseInstant(model.createdAt) ?? DateTime.now().toUtc(),
         address: model.address,
         paymentMethod: PaymentMethod.values.byName(model.paymentMethod),
         courierId: model.courierId,
@@ -95,7 +108,7 @@ abstract final class EntityMappers {
         preparationTags: List<String>.from(model.preparationTags),
         deliveryNow: model.deliveryNow,
         scheduledAt: model.scheduledAt != null
-            ? DateTime.tryParse(model.scheduledAt!)
+            ? _parseInstant(model.scheduledAt!)
             : null,
         deliveryLatitude: model.deliveryLatitude,
         deliveryLongitude: model.deliveryLongitude,
@@ -119,7 +132,26 @@ abstract final class EntityMappers {
         waiterId: model.waiterId,
         waiterName: model.waiterName,
         waiterCode: model.waiterCode,
+        isPickup: model.isPickup,
+        isTableAddon: model.isTableAddon,
+        orderSource: OrderSource.values.asNameMap()[model.orderSource] ??
+            OrderSource.app,
+        phoneIncomplete: model.phoneIncomplete,
+        phoneFailed: model.phoneFailed,
+        phoneCancelReason: model.phoneCancelReason,
+        phoneCancelPrintPending: model.phoneCancelPrintPending,
+        phoneStatusInquiry: model.phoneStatusInquiry,
+        phoneStatusInquiryNote: model.phoneStatusInquiryNote,
+        phoneStatusInquiryMinutes: model.phoneStatusInquiryMinutes,
       );
+  }
+
+  /// Firestore / API anını mutlak UTC DateTime olarak okur.
+  static DateTime? _parseInstant(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final parsed = DateTime.tryParse(raw.trim());
+    if (parsed == null) return null;
+    return parsed.isUtc ? parsed : parsed.toUtc();
   }
 
   static CartItem toCartItem(CartItemModel model) => CartItem(
@@ -136,7 +168,7 @@ abstract final class EntityMappers {
   static OrderModel fromOrder(Order order) {
     final stamps = <String, String>{};
     order.statusTimestamps.forEach((key, value) {
-      stamps[key.name] = value.toIso8601String();
+      stamps[key.name] = value.toUtc().toIso8601String();
     });
     final actorIds = <String, String>{};
     order.statusActorIds.forEach((key, value) {
@@ -155,7 +187,7 @@ abstract final class EntityMappers {
         items: order.items.map(fromCartItem).toList(),
         totalAmount: order.totalAmount,
         status: order.status.name,
-        createdAt: order.createdAt.toIso8601String(),
+        createdAt: order.createdAt.toUtc().toIso8601String(),
         address: order.address,
         paymentMethod: order.paymentMethod.name,
         courierId: order.courierId,
@@ -163,7 +195,7 @@ abstract final class EntityMappers {
         orderNote: order.orderNote,
         preparationTags: List<String>.from(order.preparationTags),
         deliveryNow: order.deliveryNow,
-        scheduledAt: order.scheduledAt?.toIso8601String(),
+        scheduledAt: order.scheduledAt?.toUtc().toIso8601String(),
         deliveryLatitude: order.deliveryLatitude,
         deliveryLongitude: order.deliveryLongitude,
         customerPhone: order.customerPhone,
@@ -186,6 +218,16 @@ abstract final class EntityMappers {
         waiterId: order.waiterId,
         waiterName: order.waiterName,
         waiterCode: order.waiterCode,
+        isPickup: order.isPickup,
+        isTableAddon: order.isTableAddon,
+        orderSource: order.orderSource.name,
+        phoneIncomplete: order.phoneIncomplete,
+        phoneFailed: order.phoneFailed,
+        phoneCancelReason: order.phoneCancelReason,
+        phoneCancelPrintPending: order.phoneCancelPrintPending,
+        phoneStatusInquiry: order.phoneStatusInquiry,
+        phoneStatusInquiryNote: order.phoneStatusInquiryNote,
+        phoneStatusInquiryMinutes: order.phoneStatusInquiryMinutes,
       );
   }
 
@@ -239,6 +281,7 @@ abstract final class EntityMappers {
         isCombo: product.isCombo,
         comboItems: product.comboItems.map(fromProductComboItem).toList(),
         isRecommended: product.isRecommended,
+        qrNavCategoryId: product.qrNavCategoryId,
       );
 
   static ProductComboItemModel fromProductComboItem(ProductComboItem item) =>

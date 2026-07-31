@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/localization/locale_keys.dart';
-import '../../../../../core/widgets/role_logout_action.dart';import '../../../../../shared/domain/entities/order.dart';
+import '../../../../../core/widgets/daily_order_stats_header.dart';
+import '../../../../../core/widgets/role_logout_action.dart';
+import '../../../../../shared/domain/entities/order.dart';
 import '../../../../../shared/presentation/providers/orders_provider.dart';
 import '../../../presentation/widgets/branch_order_list_view.dart';
 
@@ -14,6 +16,7 @@ class BranchOrdersPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activeOrders = ref.watch(branchOrdersProvider);
     final historyOrders = ref.watch(branchHistoryOrdersProvider);
+    final stats = ref.watch(branchDailyStatsProvider);
 
     return DefaultTabController(
       length: 2,
@@ -28,16 +31,27 @@ class BranchOrdersPage extends ConsumerWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _OrdersList(
-              orders: activeOrders,
-              emptyMessage: LocaleKeys.branchNoOrders.tr(),
+            DailyOrderStatsHeader(
+              revenue: stats.revenue,
+              orderCount: stats.count,
             ),
-            _OrdersList(
-              orders: historyOrders,
-              emptyMessage: LocaleKeys.branchNoHistoryOrders.tr(),
-              showNewBadge: false,
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _OrdersList(
+                    orders: activeOrders,
+                    emptyMessage: LocaleKeys.branchNoOrders.tr(),
+                  ),
+                  _OrdersList(
+                    orders: historyOrders,
+                    emptyMessage: LocaleKeys.branchNoHistoryOrders.tr(),
+                    showNewBadge: false,
+                  ),
+                ],
+              ),
             ),
           ],
         ),

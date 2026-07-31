@@ -12,8 +12,14 @@ abstract final class OrderMerge {
     } else if (_shouldRejectRemoteStatus(local, remote)) {
       picked = _mergeFields(statusSource: local, fieldSource: remote);
     } else {
-      final localStep = OrderStatusUtils.fulfillmentStepIndex(local.status);
-      final remoteStep = OrderStatusUtils.fulfillmentStepIndex(remote.status);
+      final localStep = OrderStatusUtils.fulfillmentStepIndex(
+        local.status,
+        dineIn: local.isDineIn,
+      );
+      final remoteStep = OrderStatusUtils.fulfillmentStepIndex(
+        remote.status,
+        dineIn: remote.isDineIn,
+      );
       if (localStep != remoteStep) {
         picked = remoteStep > localStep ? remote : local;
       } else {
@@ -24,6 +30,7 @@ abstract final class OrderMerge {
     }
 
     picked = _mergeContent(local, remote, picked);
+    picked = _preserveCustomerIdentity(local, remote, picked);
 
     final rating = picked.rating ?? local.rating ?? remote.rating;
     final ratingComment =
@@ -69,8 +76,14 @@ abstract final class OrderMerge {
 
   static bool _shouldRejectRemoteStatus(Order local, Order remote) {
     if (local.status == remote.status) return false;
-    final localStep = OrderStatusUtils.fulfillmentStepIndex(local.status);
-    final remoteStep = OrderStatusUtils.fulfillmentStepIndex(remote.status);
+    final localStep = OrderStatusUtils.fulfillmentStepIndex(
+      local.status,
+      dineIn: local.isDineIn,
+    );
+    final remoteStep = OrderStatusUtils.fulfillmentStepIndex(
+      remote.status,
+      dineIn: remote.isDineIn,
+    );
     if (remoteStep <= localStep) return false;
     if (remote.status == OrderStatus.delivered &&
         remote.atStatus(OrderStatus.delivered) == null) {
@@ -81,14 +94,75 @@ abstract final class OrderMerge {
         OrderStatusUtils.isDineInBillCloseStatus(local.status)) {
       return false;
     }
-    return !OrderStatusUtils.isValidTransition(local.status, remote.status);
+    return !OrderStatusUtils.isValidTransition(
+      local.status,
+      remote.status,
+      dineIn: local.isDineIn,
+    );
+  }
+
+  /// Teslimat siparişlerinde müşteri kimliği alanlarının senkronla silinmesini önler.
+  static Order _preserveCustomerIdentity(
+    Order local,
+    Order remote,
+    Order merged,
+  ) {
+    if (!merged.isDelivery) return merged;
+
+    final customerId = _pickCustomerId(local, remote, merged);
+    final customerName = _pickCustomerName(local, remote, merged);
+    final customerPhone =
+        _pickOptional(merged.customerPhone, local.customerPhone, remote.customerPhone);
+
+    if (customerId == merged.customerId &&
+        customerName == merged.customerName &&
+        customerPhone == merged.customerPhone) {
+      return merged;
+    }
+
+    return merged.copyWith(
+      customerId: customerId,
+      customerName: customerName,
+      customerPhone: customerPhone,
+    );
+  }
+
+  static String _pickCustomerId(Order local, Order remote, Order merged) {
+    if (_isCustomerIdentity(merged.customerId)) return merged.customerId;
+    if (_isCustomerIdentity(local.customerId)) return local.customerId;
+    if (_isCustomerIdentity(remote.customerId)) return remote.customerId;
+    return merged.customerId;
+  }
+
+  static String _pickCustomerName(Order local, Order remote, Order merged) {
+    final mergedName = merged.customerName.trim();
+    if (mergedName.isNotEmpty && mergedName != 'customer') return merged.customerName;
+    if (local.customerName.trim().isNotEmpty) return local.customerName;
+    if (remote.customerName.trim().isNotEmpty) return remote.customerName;
+    return merged.customerName;
+  }
+
+  static String? _pickOptional(String? a, String? b, String? c) {
+    if (a != null && a.trim().isNotEmpty) return a;
+    if (b != null && b.trim().isNotEmpty) return b;
+    if (c != null && c.trim().isNotEmpty) return c;
+    return a ?? b ?? c;
+  }
+
+  static bool _isCustomerIdentity(String id) {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.startsWith('customer_')) return true;
+    if (trimmed.startsWith('phone_')) return true;
+    if (trimmed == 'u1' || trimmed == 'u2' || trimmed == 'u3') return false;
+    return trimmed.replaceAll(RegExp(r'\D'), '').length >= 10;
   }
 
   static Order _mergeFields({
     required Order statusSource,
     required Order fieldSource,
   }) {
-    return statusSource.copyWith(
+    final merged = statusSource.copyWith(
       courierId: fieldSource.courierId ?? statusSource.courierId,
       courierName: fieldSource.courierName ?? statusSource.courierName,
       courierLatitude: fieldSource.courierLatitude ?? statusSource.courierLatitude,
@@ -127,5 +201,6 @@ abstract final class OrderMerge {
       paymentTransactionId:
           fieldSource.paymentTransactionId ?? statusSource.paymentTransactionId,
     );
+    return _preserveCustomerIdentity(statusSource, fieldSource, merged);
   }
 }

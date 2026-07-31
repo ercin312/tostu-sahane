@@ -20,6 +20,7 @@ class Product extends Equatable {
     this.isCombo = false,
     this.comboItems = const [],
     this.isRecommended = false,
+    this.qrNavCategoryId,
   });
 
   final String id;
@@ -35,6 +36,13 @@ class Product extends Equatable {
   final bool isCombo;
   final List<ProductComboItem> comboItems;
   final bool isRecommended;
+  /// QR menü navbar kategorisi (yoksa [category].name kullanılır).
+  final String? qrNavCategoryId;
+
+  String get effectiveQrNavCategoryId =>
+      (qrNavCategoryId != null && qrNavCategoryId!.isNotEmpty)
+          ? qrNavCategoryId!
+          : category.name;
 
   Product copyWith({
     String? id,
@@ -50,6 +58,8 @@ class Product extends Equatable {
     bool? isCombo,
     List<ProductComboItem>? comboItems,
     bool? isRecommended,
+    String? qrNavCategoryId,
+    bool clearQrNavCategoryId = false,
   }) {
     return Product(
       id: id ?? this.id,
@@ -65,6 +75,9 @@ class Product extends Equatable {
       isCombo: isCombo ?? this.isCombo,
       comboItems: comboItems ?? this.comboItems,
       isRecommended: isRecommended ?? this.isRecommended,
+      qrNavCategoryId: clearQrNavCategoryId
+          ? null
+          : (qrNavCategoryId ?? this.qrNavCategoryId),
     );
   }
 
@@ -82,5 +95,6 @@ class Product extends Equatable {
         isCombo,
         comboItems,
         isRecommended,
+        qrNavCategoryId,
       ];
 }

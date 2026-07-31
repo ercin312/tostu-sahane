@@ -2,6 +2,9 @@ abstract final class RoutePaths {
   static const splash = '/';
   static const authLogin = '/auth/login';
   static const authOtp = '/auth/otp';
+  static const authRegister = '/auth/register';
+  static const authPhoneOnboarding = '/auth/phone-onboarding';
+  static const authAddressOnboarding = '/auth/address-onboarding';
 
   static const customerHome = '/customer/home';
   static const customerOrders = '/customer/orders';
@@ -26,6 +29,7 @@ abstract final class RoutePaths {
   static const branchReports = '/branch/reports';
   static const branchCashRemittances = '/branch/cash-remittances';
   static const branchWaiter = '/branch/waiter';
+  static const branchWaiterPickup = '/branch/waiter/pickup';
   static String branchWaiterOrder(int tableNumber) =>
       '/branch/waiter/table/$tableNumber';
   static String branchWaiterBill(int tableNumber) =>
@@ -55,6 +59,10 @@ abstract final class RoutePaths {
   static const adminCashRemittances = '/admin/cash-remittances';
   static const adminPendingReviews = '/admin/pending-reviews';
   static const adminWaiterSettings = '/admin/waiter-settings';
+  static const adminQrMenu = '/admin/qr-menu';
+  static const adminPhoneCustomers = '/admin/phone-customers';
+  static const adminPhoneFailedOrders = '/admin/phone-failed-orders';
+  static const adminPhoneAiTraining = '/admin/phone-ai-training';
   static const adminPaytrSettings = '/admin/paytr-settings';
   static const adminPromotions = '/admin/promotions';
   static const adminTools = '/admin/tools';

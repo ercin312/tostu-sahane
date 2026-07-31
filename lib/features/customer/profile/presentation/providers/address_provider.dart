@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../../core/config/app_config.dart';
 import '../../../../../core/services/geocoding_service.dart';
 import '../../../../../shared/data/datasources/local/local_datasources.dart';
-import '../../../../../shared/data/mock/mock_data.dart';
 import '../../../../../shared/domain/entities/delivery_address.dart';
+import '../../../../../shared/presentation/providers/repository_providers.dart';
 
 class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
   final _local = AddressLocalDataSource();
@@ -15,19 +16,37 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
     final auth = ref.watch(authProvider);
     if (auth == null) return [];
 
-    var addresses = await _local.loadAddresses(auth.user.id);
-    if (addresses.isEmpty) {
-      addresses = [
-        DeliveryAddress(
-          id: 'addr_default',
-          title: 'address_title_home',
-          fullAddress: MockData.defaultAddress,
-          isDefault: true,
-        ),
-      ];
-      await _local.saveAddresses(auth.user.id, addresses);
+    if (AppConfig.useFirestore && !AppConfig.useMockApi) {
+      try {
+        var remote =
+            await ref.read(authRepositoryProvider).getUserAddresses(auth.user.id);
+        if (remote.isEmpty) {
+          final local = await _local.loadAddresses(auth.user.id);
+          if (local.isNotEmpty) {
+            await ref
+                .read(authRepositoryProvider)
+                .saveUserAddresses(auth.user.id, local);
+            remote = local;
+          }
+        }
+        return remote;
+      } catch (_) {
+        return _local.loadAddresses(auth.user.id);
+      }
     }
-    return addresses;
+
+    return _local.loadAddresses(auth.user.id);
+  }
+
+  Future<void> _persist(String userId, List<DeliveryAddress> addresses) async {
+    await _local.saveAddresses(userId, addresses);
+    if (AppConfig.useFirestore && !AppConfig.useMockApi) {
+      try {
+        await ref
+            .read(authRepositoryProvider)
+            .saveUserAddresses(userId, addresses);
+      } catch (_) {}
+    }
   }
 
   Future<void> addAddress({
@@ -48,7 +67,7 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
             );
     final current = List<DeliveryAddress>.from(state.value ?? []);
     final id = 'addr_${DateTime.now().millisecondsSinceEpoch}';
-    var updated = [
+    final updated = [
       ...current.map((a) => setDefault ? a.copyWith(isDefault: false) : a),
       DeliveryAddress(
         id: id,
@@ -60,7 +79,7 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
         longitude: coords?.$2,
       ),
     ];
-    await _local.saveAddresses(auth.user.id, updated);
+    await _persist(auth.user.id, updated);
     state = AsyncData(updated);
   }
 
@@ -93,7 +112,7 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
         else
           address,
     ];
-    await _local.saveAddresses(auth.user.id, updated);
+    await _persist(auth.user.id, updated);
     state = AsyncData(updated);
   }
 
@@ -108,7 +127,7 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
         ...updated.skip(1),
       ];
     }
-    await _local.saveAddresses(auth.user.id, updated);
+    await _persist(auth.user.id, updated);
     state = AsyncData(updated);
   }
 
@@ -120,7 +139,7 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
       for (final address in state.value ?? [])
         address.copyWith(isDefault: address.id == id),
     ];
-    await _local.saveAddresses(auth.user.id, updated);
+    await _persist(auth.user.id, updated);
     state = AsyncData(updated);
   }
 }
@@ -131,15 +150,12 @@ final addressProvider =
 );
 
 final defaultAddressProvider = Provider<DeliveryAddress?>((ref) {
-  final addresses = ref.watch(addressProvider).value ?? [];
-  if (addresses.isEmpty) return null;
-  return addresses.firstWhere(
-    (a) => a.isDefault,
-    orElse: () => addresses.first,
-  );
+  final addresses = ref.watch(addressProvider).value ?? const [];
+  for (final address in addresses) {
+    if (address.isDefault) return address;
+  }
+  return addresses.isEmpty ? null : addresses.first;
 });
 
 final selectedCheckoutAddressProvider =
-    StateProvider<DeliveryAddress?>((ref) {
-  return ref.watch(defaultAddressProvider);
-});
+    StateProvider<DeliveryAddress?>((ref) => null);

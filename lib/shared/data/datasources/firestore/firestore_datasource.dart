@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/auth/sms_otp_client.dart';
 import '../../../../core/orders/order_item_edits.dart';
+import '../../../../core/utils/phone_digits.dart';
 
+import '../../../domain/entities/delivery_address.dart';
 import '../../../domain/entities/auth.dart';
 import '../../../domain/entities/branch.dart';
 import '../../../domain/entities/coupon.dart';
@@ -12,6 +15,7 @@ import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_review.dart';
 import '../../../domain/entities/courier_cash_remittance.dart';
 import '../../../domain/entities/waiter_mode_settings.dart';
+import '../../../domain/entities/qr_menu_settings.dart';
 import '../../../domain/entities/paytr_settings.dart';
 import '../../../domain/entities/print_routing_settings.dart';
 import '../../../domain/entities/delivery_settings.dart';
@@ -53,6 +57,8 @@ class FirestoreDataSource {
   static const _meta = 'meta';
   static const _orderCounter = 'order_counter';
   static const _waiterSettings = 'waiter_settings';
+  static const _qrMenuSettings = 'qr_menu_settings';
+  static const _tableServiceRequests = 'table_service_requests';
   static const _paytrSettings = 'paytr_settings';
   static const _printRoutingSettings = 'print_routing_settings';
   static const _deliverySettings = 'delivery_settings';
@@ -128,16 +134,12 @@ class FirestoreDataSource {
         promo.toJson(),
       );
     }
-    for (final opsUser in MockData.demoOpsUsers) {
-      batch.set(
-        _activeDb.collection(_opsUsers).doc(opsUser.id),
-        _opsUserToMap(opsUser),
-      );
-    }
     await batch.commit();
   }
 
   Future<void> _ensureDemoOpsUsersSeeded() async {
+    // Production'da demo personel seed edilmez; yönetici oluşturur.
+    if (!AppConfig.useMockApi) return;
     for (final user in MockData.demoOpsUsers) {
       final username = user.username?.trim().toLowerCase();
       if (username == null || username.isEmpty) continue;
@@ -189,7 +191,7 @@ class FirestoreDataSource {
     WaiterModeSettings settings,
   ) async {
     final normalized = settings.copyWith(
-      tableCount: settings.tableCount.clamp(1, 99),
+      tableCount: settings.tableCount.clamp(1, WaiterModeSettings.maxTableCount),
     );
     if (_rest != null) {
       return _rest!.updateWaiterModeSettings(normalized);
@@ -199,6 +201,63 @@ class FirestoreDataSource {
         .doc(_waiterSettings)
         .set(normalized.toJson(), SetOptions(merge: true));
     return normalized;
+  }
+
+  // ── QR menu settings ───────────────────────────────────────────────────────
+
+  Future<QrMenuSettings> getQrMenuSettings() async {
+    if (_rest != null) return _rest!.getQrMenuSettings();
+    final doc = await _activeDb.collection(_meta).doc(_qrMenuSettings).get(
+          const GetOptions(source: Source.server),
+        );
+    if (!doc.exists || doc.data() == null) return QrMenuSettings.defaults;
+    return QrMenuSettings.fromJson(doc.data()!);
+  }
+
+  Future<QrMenuSettings> updateQrMenuSettings(QrMenuSettings settings) async {
+    if (_rest != null) return _rest!.updateQrMenuSettings(settings);
+    await _activeDb
+        .collection(_meta)
+        .doc(_qrMenuSettings)
+        .set(settings.toJson(), SetOptions(merge: true));
+    return settings;
+  }
+
+  Stream<List<TableServiceRequest>> watchPendingTableServiceRequests({
+    String? branchId,
+  }) {
+    if (_rest != null) {
+      return _rest!.watchPendingTableServiceRequests(branchId: branchId);
+    }
+    Query<Map<String, dynamic>> q = _activeDb
+        .collection(_tableServiceRequests)
+        .where('status', isEqualTo: 'pending');
+    if (branchId != null && branchId.isNotEmpty) {
+      q = q.where('branch_id', isEqualTo: branchId);
+    }
+    return q.snapshots().map((snap) {
+      final items = snap.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        final created = data['created_at'];
+        if (created is Timestamp) {
+          data['created_at'] = created.toDate().toIso8601String();
+        }
+        return TableServiceRequest.fromJson(doc.id, data);
+      }).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    });
+  }
+
+  Future<void> acknowledgeTableServiceRequest(String requestId) async {
+    if (_rest != null) {
+      await _rest!.acknowledgeTableServiceRequest(requestId);
+      return;
+    }
+    await _activeDb.collection(_tableServiceRequests).doc(requestId).update({
+      'status': 'acked',
+      'acked_at': FieldValue.serverTimestamp(),
+    });
   }
 
   // ── Print routing ──────────────────────────────────────────────────────────
@@ -417,6 +476,7 @@ class FirestoreDataSource {
   // ── Branches ──────────────────────────────────────────────────────────────
 
   Future<List<Branch>> getBranches() async {
+    if (_rest != null) return _rest!.getBranches();
     await ensureSeeded();
     final snap = await _activeDb.collection(_branches).get();
     return snap.docs.map((d) => EntityMappers.toBranch(BranchModel.fromJson({
@@ -426,22 +486,29 @@ class FirestoreDataSource {
   }
 
   Future<Branch> createBranch(Branch branch) async {
+    if (_rest != null) return _rest!.createBranch(branch);
     await _activeDb.collection(_branches).doc(branch.id).set(_branchToMap(branch));
     return branch;
   }
 
   Future<Branch> updateBranch(Branch branch) async {
+    if (_rest != null) return _rest!.updateBranch(branch);
     await _activeDb.collection(_branches).doc(branch.id).update(_branchToMap(branch));
     return branch;
   }
 
   Future<void> deleteBranch(String branchId) async {
+    if (_rest != null) {
+      await _rest!.deleteBranch(branchId);
+      return;
+    }
     await _activeDb.collection(_branches).doc(branchId).delete();
   }
 
   // ── Products ──────────────────────────────────────────────────────────────
 
   Future<List<Product>> getProducts({String? branchId}) async {
+    if (_rest != null) return _rest!.getProducts();
     await ensureSeeded();
     final snap = await _activeDb.collection(_products).get();
     return snap.docs
@@ -452,6 +519,9 @@ class FirestoreDataSource {
   }
 
   Future<Product> updateProductAvailability(String productId, bool available) async {
+    if (_rest != null) {
+      return _rest!.updateProductAvailability(productId, available);
+    }
     await _activeDb.collection(_products).doc(productId).update({
       'is_available': available,
     });
@@ -462,12 +532,14 @@ class FirestoreDataSource {
   }
 
   Future<Product> createProduct(Product product) async {
+    if (_rest != null) return _rest!.createProduct(product);
     final data = EntityMappers.fromProduct(product).toJson();
     await _activeDb.collection(_products).doc(product.id).set(data);
     return product;
   }
 
   Future<Product> updateProduct(Product product) async {
+    if (_rest != null) return _rest!.updateProduct(product);
     await _activeDb.collection(_products).doc(product.id).update(
           EntityMappers.fromProduct(product).toJson(),
         );
@@ -475,6 +547,7 @@ class FirestoreDataSource {
   }
 
   Future<void> deleteProduct(String productId) async {
+    if (_rest != null) return _rest!.deleteProduct(productId);
     await _activeDb.collection(_products).doc(productId).delete();
   }
 
@@ -508,6 +581,7 @@ class FirestoreDataSource {
   }
 
   Future<ProductExtra> createCatalogExtra(ProductExtra extra) async {
+    if (_rest != null) return _rest!.createCatalogExtra(extra);
     await _activeDb
         .collection(_catalogExtras)
         .doc(extra.id)
@@ -516,6 +590,7 @@ class FirestoreDataSource {
   }
 
   Future<ProductExtra> updateCatalogExtra(ProductExtra extra) async {
+    if (_rest != null) return _rest!.updateCatalogExtra(extra);
     await _activeDb
         .collection(_catalogExtras)
         .doc(extra.id)
@@ -524,6 +599,7 @@ class FirestoreDataSource {
   }
 
   Future<void> deleteCatalogExtra(String extraId) async {
+    if (_rest != null) return _rest!.deleteCatalogExtra(extraId);
     await _activeDb.collection(_catalogExtras).doc(extraId).delete();
   }
 
@@ -569,14 +645,49 @@ class FirestoreDataSource {
 
   static String? _asIsoString(dynamic value) {
     if (value == null) return null;
-    if (value is String) return value;
-    if (value is Timestamp) return value.toDate().toIso8601String();
-    if (value is DateTime) return value.toIso8601String();
+    if (value is String) {
+      // Z / offset yoksa Türkiye duvar saati varsay; mutlak an için UTC ISO üret.
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null) return value;
+      if (parsed.isUtc) return parsed.toIso8601String();
+      // Offset'siz string: cihazda yazılmış yerel an → UTC'ye çevir.
+      return parsed.toUtc().toIso8601String();
+    }
+    if (value is Timestamp) {
+      return value.toDate().toUtc().toIso8601String();
+    }
+    if (value is DateTime) {
+      return value.toUtc().toIso8601String();
+    }
     return value.toString();
   }
 
   static Map<String, dynamic> normalizeOrderJson(Map<String, dynamic> data) {
     return _normalizeOrderData(data);
+  }
+
+  /// Firestore REST yaziminda null alanlari atar (SDK set() ile uyumlu).
+  static Map<String, dynamic> stripNullFields(Map<String, dynamic> json) {
+    final out = <String, dynamic>{};
+    json.forEach((key, value) {
+      if (value == null) return;
+      if (value is Map) {
+        out[key] = stripNullFields(Map<String, dynamic>.from(value));
+      } else if (value is List) {
+        out[key] = value.map((item) {
+          if (item is Map<String, dynamic>) {
+            return stripNullFields(item);
+          }
+          if (item is Map) {
+            return stripNullFields(Map<String, dynamic>.from(item));
+          }
+          return item;
+        }).toList();
+      } else {
+        out[key] = value;
+      }
+    });
+    return out;
   }
 
   static Map<String, dynamic> _normalizeOrderData(Map<String, dynamic> data) {
@@ -609,20 +720,170 @@ class FirestoreDataSource {
   Future<List<Order>> getOrders() async {
     if (_rest != null) return _rest!.getOrders();
     await ensureSeeded();
-    final snap = await _ordersCol
-        .orderBy('created_at', descending: true)
-        .limit(200)
-        .get();
-    return _parseOrderDocs(snap.docs);
+    final byId = <String, Order>{};
+    try {
+      final snap = await _ordersCol
+          .orderBy('created_at', descending: true)
+          .limit(300)
+          .get();
+      for (final doc in snap.docs) {
+        try {
+          byId[doc.id] = _docToOrder(doc);
+        } catch (_) {}
+      }
+    } catch (_) {
+      final snap = await _ordersCol.limit(300).get();
+      for (final doc in snap.docs) {
+        try {
+          byId[doc.id] = _docToOrder(doc);
+        } catch (_) {}
+      }
+    }
+    try {
+      final phoneSnap =
+          await _ordersCol.where('order_source', isEqualTo: 'phone').limit(100).get();
+      for (final doc in phoneSnap.docs) {
+        try {
+          byId[doc.id] = _docToOrder(doc);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    try {
+      final failedSnap =
+          await _ordersCol.where('phone_failed', isEqualTo: true).limit(50).get();
+      for (final doc in failedSnap.docs) {
+        try {
+          byId[doc.id] = _docToOrder(doc);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  Future<List<Order>> getCustomerOrders({
+    required Set<String> customerIds,
+    String? phoneDigits,
+  }) async {
+    if (_rest != null) {
+      return _rest!.getCustomerOrders(
+        customerIds: customerIds,
+        phoneDigits: phoneDigits,
+      );
+    }
+    await ensureSeeded();
+    final byId = <String, Order>{};
+    final ten = normalizeTrPhoneDigits(phoneDigits);
+    final ids = <String>{...customerIds};
+    if (ten != null) {
+      ids.addAll({
+        'phone_$ten',
+        'customer_$ten',
+        'customer_0$ten',
+        'customer_+90$ten',
+        ten,
+        '0$ten',
+      });
+    }
+
+    for (final customerId in ids) {
+      try {
+        final snap = await _ordersCol
+            .where('customer_id', isEqualTo: customerId)
+            .orderBy('created_at', descending: true)
+            .limit(50)
+            .get();
+        for (final doc in snap.docs) {
+          try {
+            byId[doc.id] = _docToOrder(doc);
+          } catch (_) {}
+        }
+      } catch (_) {
+        final snap =
+            await _ordersCol.where('customer_id', isEqualTo: customerId).get();
+        for (final doc in snap.docs) {
+          try {
+            byId[doc.id] = _docToOrder(doc);
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (ten != null) {
+      // Telefon AI: customer_phone_digits = 10 hane
+      try {
+        final snap = await _ordersCol
+            .where('customer_phone_digits', isEqualTo: ten)
+            .limit(50)
+            .get();
+        for (final doc in snap.docs) {
+          try {
+            byId[doc.id] = _docToOrder(doc);
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Eski kayıtlar: formatlı telefon string
+      for (final phone in [
+        ten,
+        '0$ten',
+        '+90$ten',
+        '0${ten.substring(0, 3)} ${ten.substring(3, 6)} ${ten.substring(6)}',
+      ]) {
+        try {
+          final snap = await _ordersCol
+              .where('customer_phone', isEqualTo: phone)
+              .limit(50)
+              .get();
+          for (final doc in snap.docs) {
+            try {
+              byId[doc.id] = _docToOrder(doc);
+            } catch (_) {}
+          }
+        } catch (_) {}
+      }
+    }
+
+    return byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Stream<List<Order>> watchOrders() {
     if (_rest != null) return _rest!.watchOrders();
     return _ordersCol
         .orderBy('created_at', descending: true)
-        .limit(200)
+        .limit(300)
         .snapshots()
-        .map((snap) => _parseOrderDocs(snap.docs));
+        .asyncMap((snap) async {
+          final byId = <String, Order>{};
+          for (final order in _parseOrderDocs(snap.docs)) {
+            byId[order.id] = order;
+          }
+          try {
+            final phoneSnap = await _ordersCol
+                .where('order_source', isEqualTo: 'phone')
+                .limit(100)
+                .get();
+            for (final doc in phoneSnap.docs) {
+              try {
+                byId[doc.id] = _docToOrder(doc);
+              } catch (_) {}
+            }
+          } catch (_) {}
+          try {
+            final failedSnap = await _ordersCol
+                .where('phone_failed', isEqualTo: true)
+                .limit(50)
+                .get();
+            for (final doc in failedSnap.docs) {
+              try {
+                byId[doc.id] = _docToOrder(doc);
+              } catch (_) {}
+            }
+          } catch (_) {}
+          return byId.values.toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        });
   }
 
   Future<Order> createOrder(Order order) async {
@@ -709,32 +970,38 @@ class FirestoreDataSource {
     required List<CartItem> items,
     required double totalAmount,
     required String branchId,
-    required int tableNumber,
+    int? tableNumber,
     required String waiterId,
     required String waiterName,
     String? waiterCode,
     String? orderNote,
     List<String> preparationTags = const [],
+    PaymentMethod paymentMethod = PaymentMethod.cashOnDelivery,
+    bool isPickup = false,
+    bool isTableAddon = false,
   }) async {
     if (_db != null) await ensureSeeded();
     final orderNumber = await _nextOrderNumber();
     final now = DateTime.now();
     final id = 'order_$orderNumber';
+    final tableLabel = isPickup
+        ? 'Gel Al #$orderNumber'
+        : 'Masa $tableNumber';
 
     return Order(
       id: id,
       orderNumber: orderNumber,
       customerId: waiterId,
-      customerName: 'Masa $tableNumber',
+      customerName: tableLabel,
       branchId: branchId,
       items: List.of(items),
       totalAmount: totalAmount,
       status: OrderStatus.preparing,
       createdAt: now,
-      address: 'Salon - Masa $tableNumber',
-      paymentMethod: PaymentMethod.cashOnDelivery,
+      address: isPickup ? 'Gel Al' : 'Salon - Masa $tableNumber',
+      paymentMethod: paymentMethod,
       orderType: OrderType.dineIn,
-      tableNumber: tableNumber,
+      tableNumber: isPickup ? null : tableNumber,
       waiterId: waiterId,
       waiterName: waiterName,
       waiterCode: waiterCode,
@@ -743,6 +1010,8 @@ class FirestoreDataSource {
       statusTimestamps: {OrderStatus.preparing: now},
       statusActorIds: {OrderStatus.preparing: waiterId},
       statusActorNames: {OrderStatus.preparing: waiterName},
+      isPickup: isPickup,
+      isTableAddon: isTableAddon,
     );
   }
 
@@ -825,6 +1094,41 @@ class FirestoreDataSource {
       cancelled.add(await _updateOrder(order.id, patch));
     }
     return cancelled;
+  }
+
+  Future<List<Order>> moveDineInTableOrders({
+    required String branchId,
+    required int fromTableNumber,
+    required int toTableNumber,
+  }) async {
+    if (fromTableNumber == toTableNumber) return const [];
+
+    if (_rest != null) {
+      return _rest!.moveDineInTableOrders(
+        branchId: branchId,
+        fromTableNumber: fromTableNumber,
+        toTableNumber: toTableNumber,
+      );
+    }
+
+    final snap = await _ordersCol.where('branch_id', isEqualTo: branchId).get();
+    final moved = <Order>[];
+    for (final doc in snap.docs) {
+      final order = _docToOrder(doc);
+      if (order.tableNumber != fromTableNumber ||
+          order.isPickup ||
+          !order.isDineIn ||
+          !order.isActive) {
+        continue;
+      }
+      final patch = <String, dynamic>{
+        'table_number': toTableNumber,
+        'address': 'Salon - Masa $toTableNumber',
+        'customer_name': 'Masa $toTableNumber',
+      };
+      moved.add(await _updateOrder(order.id, patch));
+    }
+    return moved;
   }
 
   Future<Order> removeDineInOrderItem(
@@ -1026,15 +1330,70 @@ class FirestoreDataSource {
 
   // ── Auth / Push ───────────────────────────────────────────────────────────
 
-  Future<void> sendOtp(String phone, String role) async {}
-
-  Future<void> sendEmailOtp(String email, String role) async {}
-
-  Future<AuthUserModel> verifyOtp(String phone, String otp, String role) async {
-    if (otp != MockData.demoOtp) {
-      throw const AuthCredentialsException('auth_invalid_otp');
+  Future<void> sendOtp(String phone, String role) async {
+    if (role != 'customer') {
+      throw const AuthCredentialsException('auth_invalid_credentials');
     }
-    return _authUser(role: role, phone: phone);
+    try {
+      await SmsOtpClient.sendOtp(phone);
+    } on StateError catch (e) {
+      throw AuthCredentialsException(e.message);
+    }
+  }
+
+  Future<void> sendEmailOtp(String email, String role) async {
+    throw const AuthCredentialsException('auth_email_otp_disabled');
+  }
+
+  Future<AuthUserModel> verifyOtp(
+    String phone,
+    String otp,
+    String role, {
+    String? name,
+    String? password,
+  }) async {
+    if (role != 'customer') {
+      throw const AuthCredentialsException('auth_invalid_credentials');
+    }
+    try {
+      final user = await SmsOtpClient.verifyOtp(
+        phone: phone,
+        code: otp,
+        password: password ?? '',
+        name: name,
+      );
+      return AuthUserModel(
+        id: user['id'] as String,
+        name: user['name'] as String? ?? 'Müşteri',
+        role: 'customer',
+        phone: user['phone'] as String? ??
+            SmsOtpClient.normalizePhone(phone),
+        accessToken: user['access_token'] as String? ?? 'firestore_token',
+        refreshToken: user['refresh_token'] as String? ?? 'firestore_refresh',
+      );
+    } on StateError catch (e) {
+      throw AuthCredentialsException(e.message);
+    }
+  }
+
+  Future<AuthUserModel> loginCustomerPhonePassword(
+    String phone,
+    String password,
+  ) async {
+    try {
+      final user = await SmsOtpClient.login(phone: phone, password: password);
+      return AuthUserModel(
+        id: user['id'] as String,
+        name: user['name'] as String? ?? 'Müşteri',
+        role: 'customer',
+        phone: user['phone'] as String? ??
+            SmsOtpClient.normalizePhone(phone),
+        accessToken: user['access_token'] as String? ?? 'firestore_token',
+        refreshToken: user['refresh_token'] as String? ?? 'firestore_refresh',
+      );
+    } on StateError catch (e) {
+      throw AuthCredentialsException(e.message);
+    }
   }
 
   Future<AuthUserModel> verifyEmailOtp(
@@ -1042,10 +1401,7 @@ class FirestoreDataSource {
     String otp,
     String role,
   ) async {
-    if (otp != MockData.demoOtp) {
-      throw const AuthCredentialsException('auth_invalid_otp');
-    }
-    return _authUser(role: role, phone: email);
+    throw const AuthCredentialsException('auth_email_otp_disabled');
   }
 
   Future<AuthUserModel> loginWithEmailPassword(
@@ -1053,33 +1409,24 @@ class FirestoreDataSource {
     String password,
     String role,
   ) async {
-    if (role == 'waiter' || role == 'kitchenStaff') {
-      return _loginOpsUsername(email, password, role);
-    }
-    if (password != MockData.demoPassword) {
-      throw const AuthCredentialsException('auth_invalid_credentials');
-    }
-    return _authUser(role: role, phone: email);
+    return _loginOpsUsername(email, password);
   }
 
   Future<AuthUserModel> _loginOpsUsername(
     String username,
     String password,
-    String expectedRole,
   ) async {
-    await _ensureDemoOpsUsersSeeded();
-
     final normalized = username.trim().toLowerCase();
-    if (normalized.isEmpty || password.isEmpty) {
+    final passwordTrimmed = password.trim();
+    if (normalized.isEmpty || passwordTrimmed.isEmpty) {
       throw const AuthCredentialsException('auth_invalid_credentials');
     }
 
     if (_rest != null) {
       final user = await _rest!.findOpsUserByUsername(normalized);
       if (user == null ||
-          user.role != expectedRole ||
           user.isActive != true ||
-          user.password != password) {
+          (user.password?.trim() ?? '') != passwordTrimmed) {
         throw const AuthCredentialsException('auth_invalid_credentials');
       }
       return AuthUserModel(
@@ -1103,9 +1450,8 @@ class FirestoreDataSource {
       throw const AuthCredentialsException('auth_invalid_credentials');
     }
     final data = snap.docs.first.data();
-    if (data['role'] != expectedRole ||
-        data['is_active'] != true ||
-        data['password'] != password) {
+    if (data['is_active'] != true ||
+        (data['password'] as String? ?? '').trim() != passwordTrimmed) {
       throw const AuthCredentialsException('auth_invalid_credentials');
     }
     return AuthUserModel(
@@ -1121,6 +1467,9 @@ class FirestoreDataSource {
   }
 
   AuthUserModel _authUser({required String role, required String phone}) {
+    final identityKey = phone.contains('@')
+        ? phone.trim().toLowerCase()
+        : phone.replaceAll(RegExp(r'\D'), '');
     final branchId =
         role == 'branchManager' ||
             role == 'branchStaff' ||
@@ -1133,13 +1482,13 @@ class FirestoreDataSource {
       'branchManager' => 'u1',
       'courier' => 'u2',
       'branchStaff' => 'u3',
-      _ => '${role}_$phone',
+      _ => '${role}_$identityKey',
     };
     return AuthUserModel(
       id: id,
       name: role,
       role: role,
-      phone: phone,
+      phone: identityKey,
       branchId: branchId,
       accessToken: 'firestore_token',
       refreshToken: 'firestore_refresh',
@@ -1158,6 +1507,38 @@ class FirestoreDataSource {
       'branch_id': branchId,
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  CollectionReference<Map<String, dynamic>> _userAddresses(String userId) =>
+      _activeDb.collection(_users).doc(userId).collection('addresses');
+
+  Future<List<DeliveryAddress>> getUserAddresses(String userId) async {
+    if (_rest != null) return const [];
+    final snap = await _userAddresses(userId).get();
+    return snap.docs
+        .map((d) => DeliveryAddress.fromJson({...d.data(), 'id': d.id}))
+        .toList()
+      ..sort((a, b) {
+        if (a.isDefault == b.isDefault) return a.title.compareTo(b.title);
+        return a.isDefault ? -1 : 1;
+      });
+  }
+
+  Future<void> saveUserAddresses(
+    String userId,
+    List<DeliveryAddress> addresses,
+  ) async {
+    if (_rest != null) return;
+    final col = _userAddresses(userId);
+    final existing = await col.get();
+    final batch = _activeDb.batch();
+    for (final doc in existing.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final address in addresses) {
+      batch.set(col.doc(address.id), address.toJson());
+    }
+    await batch.commit();
   }
 
   // ── Admin ─────────────────────────────────────────────────────────────────

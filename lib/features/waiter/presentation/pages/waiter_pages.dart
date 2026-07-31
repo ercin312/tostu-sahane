@@ -5,20 +5,22 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/route_paths.dart';
 import '../../../../core/localization/locale_keys.dart';
+import '../../../../core/media/media_storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/localized_text.dart';
-import '../../../../core/utils/platform_layout_utils.dart';
 import '../../../../core/utils/waiter_utils.dart';
-import '../../../../core/widgets/product_thumbnail.dart';
+import '../../../../core/utils/waiter_preparation_tags.dart';
 import '../../../../core/widgets/role_logout_action.dart';
 import '../../../customer/home/presentation/providers/branch_provider.dart';
-import '../../../../shared/domain/entities/product.dart';
+import '../../../../shared/domain/entities/order.dart';
 import '../providers/waiter_cart_provider.dart';
 import '../providers/waiter_products_provider.dart';
-import '../widgets/waiter_addons_sheet.dart';
+import '../../../../core/widgets/preparation_tags_chips.dart';
 import '../widgets/waiter_preparation_tags_sheet.dart';
+import '../widgets/waiter_pos_menu_panel.dart';
+import '../../domain/waiter_pos_catalog.dart';
 import '../providers/table_sessions_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/presentation/providers/orders_provider.dart';
@@ -26,6 +28,7 @@ import '../../../../shared/domain/entities/waiter_mode_settings.dart';
 import '../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 import '../../domain/table_session.dart';
 import '../widgets/waiter_table_chip.dart';
+import '../widgets/waiter_table_picker_dialog.dart';
 
 class WaiterTablePage extends ConsumerStatefulWidget {
   const WaiterTablePage({super.key});
@@ -35,8 +38,6 @@ class WaiterTablePage extends ConsumerStatefulWidget {
 }
 
 class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
-  final _customTableController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -46,10 +47,9 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
     });
   }
 
-  @override
-  void dispose() {
-    _customTableController.dispose();
-    super.dispose();
+  void _openPickup() {
+    ref.read(waiterCartProvider.notifier).clear();
+    context.push(RoutePaths.branchWaiterPickup);
   }
 
   void _openTable(int tableNumber) {
@@ -89,21 +89,78 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                 context.push(RoutePaths.branchWaiterOrder(tableNumber));
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: Text(LocaleKeys.waiterChangeTable.tr()),
+              onTap: () {
+                Navigator.pop(context);
+                _changeTableNumber(tableNumber);
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _openCustomTable() {
-    final value = int.tryParse(_customTableController.text.trim());
-    if (value == null || value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(LocaleKeys.waiterInvalidTable.tr())),
+  Future<void> _changeTableNumber(int fromTable) async {
+    final toTable = await showWaiterTablePicker(
+      context,
+      title: LocaleKeys.waiterChangeTableTitle.tr(),
+      subtitle: LocaleKeys.waiterChangeTableHint.tr(),
+      excludeTable: fromTable,
+      highlightTable: fromTable,
+    );
+    if (toTable == null || !mounted) return;
+    if (toTable == fromTable) return;
+
+    final target = ref.read(tableSessionProvider(toTable));
+    if (target != null && target.isOpen) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(LocaleKeys.waiterChangeTable.tr()),
+          content: Text(LocaleKeys.waiterChangeTableOccupied.tr()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(LocaleKeys.commonCancel.tr()),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(LocaleKeys.commonOk.tr()),
+            ),
+          ],
+        ),
       );
-      return;
+      if (ok != true || !mounted) return;
     }
-    _openTable(value);
+
+    try {
+      await ref.read(ordersProvider.notifier).moveDineInTable(
+            fromTableNumber: fromTable,
+            toTableNumber: toTable,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            LocaleKeys.waiterChangeTableSuccess.tr(
+              namedArgs: {
+                'from': '$fromTable',
+                'to': '$toTable',
+              },
+            ),
+          ),
+        ),
+      );
+      context.go(RoutePaths.branchWaiterBill(toTable));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.commonError.tr())),
+      );
+    }
   }
 
   @override
@@ -126,7 +183,6 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
         builder: (context, constraints) {
           const hPad = AppSpacing.sm;
           const gridSpacing = 6.0;
-          const footerHeight = 44.0;
           final width = constraints.maxWidth - hPad * 2;
           final crossAxisCount = width >= 720
               ? 8
@@ -135,17 +191,22 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                   : width >= 400
                       ? 5
                       : 4;
+          // Mobil/Windows aynı: ekrana sığdır (Windows masa haritası mantığı).
           final rowCount = (tableCount + crossAxisCount - 1) ~/ crossAxisCount;
           final headerBlock = branch != null ? 52.0 : 36.0;
-          final gridHeight = (constraints.maxHeight -
-                  headerBlock -
-                  footerHeight -
-                  gridSpacing * (rowCount - 1))
-              .clamp(120.0, double.infinity);
-          final cellWidth =
-              (width - gridSpacing * (crossAxisCount - 1)) / crossAxisCount;
-          final cellHeight = gridHeight / rowCount;
-          final aspectRatio = (cellWidth / cellHeight).clamp(0.85, 1.6);
+          final pickupBlock = 44.0 + AppSpacing.xs;
+          final aspectRatio = () {
+            final gridHeight = (constraints.maxHeight -
+                    headerBlock -
+                    pickupBlock -
+                    AppSpacing.xs * 3 -
+                    gridSpacing * (rowCount - 1))
+                .clamp(80.0, double.infinity);
+            final cellWidth =
+                (width - gridSpacing * (crossAxisCount - 1)) / crossAxisCount;
+            final cellHeight = gridHeight / rowCount;
+            return (cellWidth / cellHeight).clamp(0.65, 1.35);
+          }();
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(hPad, AppSpacing.xs, hPad, hPad),
@@ -169,6 +230,22 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                SizedBox(
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: _openPickup,
+                    icon: const Icon(Icons.shopping_bag_outlined, size: 20),
+                    label: Text(
+                      LocaleKeys.waiterPickup.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Expanded(
@@ -201,42 +278,6 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                     },
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                SizedBox(
-                  height: footerHeight,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: _customTableController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: LocaleKeys.waiterCustomTable.tr(),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      SizedBox(
-                        height: footerHeight,
-                        child: ElevatedButton(
-                          onPressed: _openCustomTable,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          child: Text(LocaleKeys.waiterOpenTable.tr()),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           );
@@ -247,28 +288,24 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
 }
 
 class WaiterOrderPage extends ConsumerStatefulWidget {
-  const WaiterOrderPage({super.key, required this.tableNumber});
+  const WaiterOrderPage({
+    super.key,
+    this.tableNumber,
+    this.isPickup = false,
+  });
 
-  final int tableNumber;
+  final int? tableNumber;
+  final bool isPickup;
 
   @override
   ConsumerState<WaiterOrderPage> createState() => _WaiterOrderPageState();
 }
 
 class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
-  static const _menuGridSpacing = 4.0;
-  static const _categoryBarHeight = 34.0;
-  static const _minMenuCellHeightOps = 56.0;
-  static const _minMenuCellHeightMobile = 76.0;
-
-  double get _minMenuCellHeight => PlatformLayout.isOpsDesktop
-      ? _minMenuCellHeightOps
-      : _minMenuCellHeightMobile;
-
   final _noteController = TextEditingController();
   var _submitting = false;
   var _preparationTags = <String>{};
-  ProductCategory _category = ProductCategory.tost;
+  WaiterPosSection _section = WaiterPosSection.tostlar;
 
   @override
   void initState() {
@@ -276,7 +313,44 @@ class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
+      _prefetchMenuImages();
     });
+  }
+
+  void _prefetchMenuImages() {
+    final products = ref.read(waiterBranchProductsProvider);
+    for (final product in products) {
+      final url = product.imageUrl?.trim();
+      if (url == null || url.isEmpty) continue;
+      if (!MediaStorageService.isNetworkSource(url)) continue;
+      precacheImage(NetworkImage(url), context);
+    }
+  }
+
+  Future<PaymentMethod?> _pickPaymentMethod() async {
+    return showDialog<PaymentMethod>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(LocaleKeys.waiterPickupPaymentTitle.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.payments_outlined),
+              title: Text(LocaleKeys.waiterPickupPaymentCash.tr()),
+              onTap: () =>
+                  Navigator.pop(ctx, PaymentMethod.cashOnDelivery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.credit_card),
+              title: Text(LocaleKeys.waiterPickupPaymentCard.tr()),
+              onTap: () =>
+                  Navigator.pop(ctx, PaymentMethod.cardOnDelivery),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -298,6 +372,7 @@ class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
     final auth = ref.read(authProvider);
     final branch = ref.read(managedBranchProvider).value;
     final products = ref.read(waiterBranchProductsProvider);
+    final extras = ref.read(waiterCatalogExtrasProvider);
     final cart = ref.read(waiterCartProvider);
     if (auth == null || branch == null) return;
     if (cart.isEmpty) {
@@ -307,25 +382,50 @@ class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
       return;
     }
 
+    PaymentMethod paymentMethod = PaymentMethod.cashOnDelivery;
+    if (widget.isPickup) {
+      final picked = await _pickPaymentMethod();
+      if (!mounted) return;
+      if (picked == null) return;
+      paymentMethod = picked;
+    }
+
+    final isTableAddon = !widget.isPickup &&
+        widget.tableNumber != null &&
+        (ref.read(tableSessionProvider(widget.tableNumber!))?.isOpen ?? false);
+
     setState(() => _submitting = true);
     try {
       final note = _noteController.text.trim();
       final orderTotal =
-          ref.read(waiterCartProvider.notifier).total(products);
+          ref.read(waiterCartProvider.notifier).total(products, extras);
       final waiterCode = waiterReceiptCode(
         username: auth.user.username,
         name: auth.user.name,
       );
+      final prepOptions = ref
+          .read(waiterModeSettingsProvider)
+          .valueOrNull
+          ?.preparationOptions;
       await ref.read(ordersProvider.notifier).placeDineInOrder(
-            items: ref.read(waiterCartProvider.notifier).toCartItems(products),
+            items: ref
+                .read(waiterCartProvider.notifier)
+                .toCartItems(products, extras),
             totalAmount: orderTotal,
             branchId: branch.id,
-            tableNumber: widget.tableNumber,
+            tableNumber: widget.isPickup ? null : widget.tableNumber,
             waiterId: auth.user.id,
             waiterName: auth.user.name,
             waiterCode: waiterCode,
             orderNote: note.isEmpty ? null : note,
-            preparationTags: _preparationTags.toList(),
+            // Mutfağa id değil okunabilir etiket gitsin (özel tercihler dahil).
+            preparationTags: WaiterPreparationTags.resolveLabels(
+              _preparationTags,
+              options: prepOptions,
+            ),
+            paymentMethod: paymentMethod,
+            isPickup: widget.isPickup,
+            isTableAddon: isTableAddon,
           );
       ref.read(waiterCartProvider.notifier).clear();
       setState(() => _preparationTags = {});
@@ -342,220 +442,47 @@ class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
     }
   }
 
-  void _onProductTap(Product product) {
-    ref.read(waiterCartProvider.notifier).addProduct(product);
-  }
-
-  int _menuCrossAxisCount(double width) {
-    final dense = PlatformLayout.isOpsDesktop;
-    if (dense) {
-      if (width >= 1100) return 10;
-      if (width >= 900) return 8;
-      if (width >= 720) return 7;
-      if (width >= 520) return 6;
-      return 5;
-    }
-    if (width >= 720) return 6;
-    if (width >= 540) return 5;
-    if (width >= 400) return 4;
-    return 3;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(opsBranchProductsProvider);
     final cart = ref.watch(waiterCartProvider);
     final products = ref.watch(waiterBranchProductsProvider);
-    final total = ref.read(waiterCartProvider.notifier).total(products);
-
-    final mainProducts = products.where((p) {
-      if (!p.isAvailable) return false;
-      if (_category == ProductCategory.combo) {
-        return p.isCombo || p.category == ProductCategory.combo;
-      }
-      return p.category == _category;
-    }).toList();
-    final denseMenu = PlatformLayout.isOpsDesktop;
+    final extras = ref.watch(waiterCatalogExtrasProvider);
+    final total =
+        ref.read(waiterCartProvider.notifier).total(products, extras);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(
-          LocaleKeys.waiterTableOrderTitle.tr(
-            namedArgs: {'table': '${widget.tableNumber}'},
-          ),
+          widget.isPickup
+              ? LocaleKeys.waiterPickupTitle.tr()
+              : LocaleKeys.waiterTableOrderTitle.tr(
+                  namedArgs: {'table': '${widget.tableNumber}'},
+                ),
           style: const TextStyle(fontSize: 17),
         ),
         toolbarHeight: 48,
         actions: [
-          TextButton.icon(
-            onPressed: () =>
-                context.push(RoutePaths.branchWaiterBill(widget.tableNumber)),
-            icon: const Icon(Icons.receipt_long, size: 18),
-            label: Text(LocaleKeys.waiterViewBill.tr()),
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+          if (!widget.isPickup && widget.tableNumber != null)
+            TextButton.icon(
+              onPressed: () => context.push(
+                RoutePaths.branchWaiterBill(widget.tableNumber!),
+              ),
+              icon: const Icon(Icons.receipt_long, size: 18),
+              label: Text(LocaleKeys.waiterViewBill.tr()),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
             ),
-          ),
         ],
       ),
       body: Column(
         children: [
-          SizedBox(
-            height: _categoryBarHeight,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              children: [
-                _CategoryChip(
-                  label: LocaleKeys.customerCategoryTost.tr(),
-                  selected: _category == ProductCategory.tost,
-                  onTap: () =>
-                      setState(() => _category = ProductCategory.tost),
-                ),
-                _CategoryChip(
-                  label: LocaleKeys.customerCategorySahanda.tr(),
-                  selected: _category == ProductCategory.sahanda,
-                  onTap: () =>
-                      setState(() => _category = ProductCategory.sahanda),
-                ),
-                _CategoryChip(
-                  label: LocaleKeys.customerCategoryCombo.tr(),
-                  selected: _category == ProductCategory.combo,
-                  onTap: () =>
-                      setState(() => _category = ProductCategory.combo),
-                ),
-              ],
-            ),
-          ),
           Expanded(
-            child: ColoredBox(
-              color: const Color(0xFFF3F4F6),
-              child: productsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) =>
-                  Center(child: Text(LocaleKeys.commonError.tr())),
-              data: (_) {
-                if (mainProducts.isEmpty) {
-                  return Center(child: Text(LocaleKeys.waiterAddonsEmpty.tr()));
-                }
-                if (!PlatformLayout.isOpsDesktop) {
-                  return ListView.separated(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.sm,
-                      AppSpacing.xs,
-                      AppSpacing.sm,
-                      AppSpacing.sm,
-                    ),
-                    itemCount: mainProducts.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final product = mainProducts[index];
-                      final qty = cart
-                          .where((item) => item.product?.id == product.id)
-                          .fold<int>(0, (sum, item) => sum + item.quantity);
-                      return _WaiterMobileProductCard(
-                        product: product,
-                        quantity: qty,
-                        onTap: () => _onProductTap(product),
-                        onIncrement: () {
-                          ref
-                              .read(waiterCartProvider.notifier)
-                              .addProduct(product);
-                        },
-                        onDecrement: () {
-                          ref
-                              .read(waiterCartProvider.notifier)
-                              .decrementProduct(product);
-                        },
-                      );
-                    },
-                  );
-                }
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    const hPad = AppSpacing.sm;
-                    final width = constraints.maxWidth - hPad * 2;
-                    final crossAxisCount = _menuCrossAxisCount(width);
-                    final itemCount = mainProducts.length;
-                    final rowCount =
-                        (itemCount + crossAxisCount - 1) ~/ crossAxisCount;
-                    final gridHeight = constraints.maxHeight;
-                    final cellWidth = (width -
-                            _menuGridSpacing * (crossAxisCount - 1)) /
-                        crossAxisCount;
-                    final computedCellHeight = rowCount == 0
-                        ? gridHeight
-                        : (gridHeight - _menuGridSpacing * (rowCount - 1)) /
-                            rowCount;
-                    var aspectRatio =
-                        (cellWidth / computedCellHeight).clamp(0.55, 1.05);
-                    var actualCellHeight = cellWidth / aspectRatio;
-                    var totalContentHeight = rowCount * actualCellHeight +
-                        _menuGridSpacing * (rowCount > 0 ? rowCount - 1 : 0);
-                    final needsScroll =
-                        totalContentHeight > gridHeight + 0.5 ||
-                        computedCellHeight < _minMenuCellHeight;
-                    if (needsScroll) {
-                      aspectRatio =
-                          (cellWidth / _minMenuCellHeight).clamp(0.55, 1.05);
-                      actualCellHeight = cellWidth / aspectRatio;
-                      totalContentHeight = rowCount * actualCellHeight +
-                          _menuGridSpacing * (rowCount > 0 ? rowCount - 1 : 0);
-                    }
-
-                    return GridView.builder(
-                      physics: needsScroll
-                          ? (PlatformLayout.isOpsDesktop
-                              ? const ClampingScrollPhysics()
-                              : const BouncingScrollPhysics())
-                          : const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(
-                        hPad,
-                        AppSpacing.xs,
-                        hPad,
-                        AppSpacing.xs,
-                      ),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        mainAxisSpacing: _menuGridSpacing,
-                        crossAxisSpacing: _menuGridSpacing,
-                        childAspectRatio: aspectRatio,
-                      ),
-                      itemCount: itemCount,
-                      itemBuilder: (context, index) {
-                        final product = mainProducts[index];
-                        final qty = cart
-                            .where((item) => item.product?.id == product.id)
-                            .fold<int>(0, (sum, item) => sum + item.quantity);
-                        return _MenuProductCard(
-                          product: product,
-                          quantity: qty,
-                          cellWidth: cellWidth,
-                          compact: true,
-                          dense: denseMenu,
-                          ultraCompact: needsScroll && crossAxisCount >= 7,
-                          onTap: () => _onProductTap(product),
-                          onIncrement: () {
-                            ref
-                                .read(waiterCartProvider.notifier)
-                                .addProduct(product);
-                          },
-                          onDecrement: () {
-                            ref
-                                .read(waiterCartProvider.notifier)
-                                .decrementProduct(product);
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+            child: WaiterPosMenuPanel(
+              section: _section,
+              onSectionChanged: (s) => setState(() => _section = s),
             ),
           ),
           _WaiterOrderActionBar(
@@ -564,7 +491,6 @@ class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
             submitting: _submitting,
             preparationTags: _preparationTags.toList(),
             orderNote: _noteController.text.trim(),
-            onAddExtras: () => showWaiterAddonsSheet(context, ref),
             onEditNote: () => _editOrderNote(context),
             onPreparationTags: _openPreparationTags,
             onSubmit: _submit,
@@ -616,7 +542,6 @@ class _WaiterOrderActionBar extends StatelessWidget {
     required this.submitting,
     required this.preparationTags,
     required this.orderNote,
-    required this.onAddExtras,
     required this.onEditNote,
     required this.onPreparationTags,
     required this.onSubmit,
@@ -627,7 +552,6 @@ class _WaiterOrderActionBar extends StatelessWidget {
   final bool submitting;
   final List<String> preparationTags;
   final String orderNote;
-  final VoidCallback onAddExtras;
   final VoidCallback onEditNote;
   final VoidCallback onPreparationTags;
   final VoidCallback onSubmit;
@@ -639,217 +563,226 @@ class _WaiterOrderActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final itemCount =
         cart.fold<int>(0, (sum, item) => sum + item.quantity);
+    final screenH = MediaQuery.sizeOf(context).height;
+    // Keep create-order button on-screen even when notes/tags expand.
+    final maxExtrasH = (screenH * 0.28).clamp(96.0, 220.0);
+    final canSubmit = !submitting && cart.isNotEmpty;
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.sm,
-          AppSpacing.xs,
-          AppSpacing.sm,
-          AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: AppColors.divider.withValues(alpha: 0.6)),
+    final extras = <Widget>[
+      Row(
+        children: [
+          _FooterIconButton(
+            icon: Icons.sticky_note_2_outlined,
+            label: hasNote
+                ? LocaleKeys.waiterOrderNote.tr()
+                : LocaleKeys.waiterOrderNoteOptional.tr(),
+            active: hasNote,
+            onTap: onEditNote,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                _FooterIconButton(
-                  icon: Icons.local_drink_outlined,
-                  label: LocaleKeys.waiterAddDrinksSnacks.tr(),
-                  onTap: onAddExtras,
-                ),
-                const SizedBox(width: 6),
-                _FooterIconButton(
-                  icon: Icons.sticky_note_2_outlined,
-                  label: hasNote
-                      ? LocaleKeys.waiterOrderNote.tr()
-                      : LocaleKeys.waiterOrderNoteOptional.tr(),
-                  active: hasNote,
-                  onTap: onEditNote,
-                ),
-                const SizedBox(width: 6),
-                _FooterIconButton(
-                  icon: Icons.tune,
-                  label: LocaleKeys.waiterPrepSheetTitle.tr(),
-                  active: preparationTagCount > 0,
-                  badge: preparationTagCount > 0 ? '$preparationTagCount' : null,
-                  onTap: onPreparationTags,
-                ),
-              ],
-            ),
-            if (preparationTags.isNotEmpty || hasNote) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (preparationTags.isNotEmpty)
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: onPreparationTags,
-                          borderRadius: BorderRadius.circular(6),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: WaiterPreparationTagsChips(
-                              tags: preparationTags,
-                              compact: true,
-                            ),
-                          ),
-                        ),
+          const SizedBox(width: 6),
+          _FooterIconButton(
+            icon: Icons.tune,
+            label: LocaleKeys.waiterPrepSheetTitle.tr(),
+            active: preparationTagCount > 0,
+            badge: preparationTagCount > 0 ? '$preparationTagCount' : null,
+            onTap: onPreparationTags,
+          ),
+        ],
+      ),
+      if (preparationTags.isNotEmpty || hasNote) ...[
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (preparationTags.isNotEmpty)
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onPreparationTags,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: PreparationTagsChips(
+                        tags: preparationTags,
+                        compact: true,
                       ),
-                    if (hasNote) ...[
-                      if (preparationTags.isNotEmpty)
-                        const SizedBox(height: 6),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: onEditNote,
-                          borderRadius: BorderRadius.circular(6),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.sticky_note_2_outlined,
-                                  size: 14,
-                                  color: AppColors.textSecondary,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    orderNote,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      height: 1.3,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-            if (cart.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  cart
-                      .map(
-                        (item) =>
-                            '${item.quantity}x ${localizedOrRaw(item.displayNameKey)}',
-                      )
-                      .join(' · '),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    height: 1.25,
-                    color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 48,
-              child: FilledButton(
-                onPressed: submitting || cart.isEmpty ? null : onSubmit,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: submitting
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Row(
+              if (hasNote) ...[
+                if (preparationTags.isNotEmpty) const SizedBox(height: 6),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onEditNote,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.check_circle_outline, size: 20),
-                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.sticky_note_2_outlined,
+                            size: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              LocaleKeys.waiterCreateOrder.tr(),
+                              orderNote,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                                height: 1.3,
+                                color: AppColors.textSecondary,
                               ),
-                            ),
-                          ),
-                          if (itemCount > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.22),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '$itemCount',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          Text(
-                            FormatUtils.currency(total),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
                       ),
-              ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+      if (cart.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            cart
+                .map(
+                  (item) =>
+                      '${item.quantity}x ${localizedOrRaw(item.displayNameKey)}',
+                )
+                .join(' · '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.25,
+              color: AppColors.textSecondary,
             ),
-          ],
+          ),
+        ),
+      ],
+    ];
+
+    return Material(
+      elevation: 8,
+      shadowColor: Colors.black26,
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.sm,
+            AppSpacing.xs,
+            AppSpacing.sm,
+            AppSpacing.sm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxExtrasH),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: extras,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: canSubmit ? onSubmit : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: canSubmit
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.38),
+                    disabledBackgroundColor:
+                        AppColors.primary.withValues(alpha: 0.38),
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor:
+                        Colors.white.withValues(alpha: 0.92),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: submitting
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            const Icon(Icons.check_circle_outline, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                cart.isEmpty
+                                    ? LocaleKeys.waiterCartEmpty.tr()
+                                    : LocaleKeys.waiterCreateOrder.tr(),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (itemCount > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '$itemCount',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            Text(
+                              FormatUtils.currency(total),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -935,388 +868,6 @@ class _FooterIconButton extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: ChoiceChip(
-        label: Text(
-          label,
-          style: TextStyle(
-            fontSize: PlatformLayout.isOpsDesktop ? 11 : 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        selected: selected,
-        selectedColor: AppColors.primary.withValues(alpha: 0.15),
-        onSelected: (_) => onTap(),
-      ),
-    );
-  }
-}
-
-class _WaiterMobileProductCard extends StatelessWidget {
-  const _WaiterMobileProductCard({
-    required this.product,
-    required this.quantity,
-    required this.onTap,
-    required this.onIncrement,
-    required this.onDecrement,
-  });
-
-  final Product product;
-  final int quantity;
-  final VoidCallback onTap;
-  final VoidCallback onIncrement;
-  final VoidCallback onDecrement;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = quantity > 0;
-
-    return Material(
-      color: selected
-          ? AppColors.primary.withValues(alpha: 0.06)
-          : Colors.white,
-      elevation: selected ? 1 : 0,
-      shadowColor: Colors.black12,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected
-                  ? AppColors.primary.withValues(alpha: 0.45)
-                  : AppColors.divider.withValues(alpha: 0.75),
-            ),
-          ),
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 84,
-                  height: 84,
-                  child: ProductThumbnail.fromProduct(
-                    product: product,
-                    width: 84,
-                    height: 84,
-                    borderRadius: 0,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      localizedOrRaw(product.nameKey),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                            color: AppColors.textPrimary,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      FormatUtils.currency(product.price),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              _MobileQtyStepper(
-                quantity: quantity,
-                onIncrement: onIncrement,
-                onDecrement: onDecrement,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MobileQtyStepper extends StatelessWidget {
-  const _MobileQtyStepper({
-    required this.quantity,
-    required this.onIncrement,
-    required this.onDecrement,
-  });
-
-  final int quantity;
-  final VoidCallback onIncrement;
-  final VoidCallback onDecrement;
-
-  @override
-  Widget build(BuildContext context) {
-    if (quantity <= 0) {
-      return Material(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onIncrement,
-          borderRadius: BorderRadius.circular(10),
-          child: const SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(Icons.add, color: AppColors.primary),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: onIncrement,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-            child: const SizedBox(
-              width: 44,
-              height: 32,
-              child: Icon(Icons.add, size: 20, color: Colors.white),
-            ),
-          ),
-          Text(
-            '$quantity',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              height: 1,
-            ),
-          ),
-          InkWell(
-            onTap: onDecrement,
-            borderRadius:
-                const BorderRadius.vertical(bottom: Radius.circular(10)),
-            child: const SizedBox(
-              width: 44,
-              height: 32,
-              child: Icon(Icons.remove, size: 20, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MenuProductCard extends StatelessWidget {
-  const _MenuProductCard({
-    required this.product,
-    required this.quantity,
-    required this.onTap,
-    required this.onIncrement,
-    required this.onDecrement,
-    this.cellWidth = 120,
-    this.compact = false,
-    this.dense = false,
-    this.ultraCompact = false,
-  });
-
-  final Product product;
-  final int quantity;
-  final VoidCallback onTap;
-  final VoidCallback onIncrement;
-  final VoidCallback onDecrement;
-  final double cellWidth;
-  final bool compact;
-  final bool dense;
-  final bool ultraCompact;
-
-  @override
-  Widget build(BuildContext context) {
-    final nameSize = dense
-        ? (cellWidth * 0.105).clamp(9.5, 12.0)
-        : compact
-            ? (cellWidth * 0.13).clamp(11.0, 15.0)
-            : 15.0;
-    final priceSize = dense
-        ? (nameSize * 0.92).clamp(8.5, 11.0)
-        : (nameSize * 0.85).clamp(10.0, 13.0);
-    final qtySize = dense
-        ? (nameSize * 0.95).clamp(9.0, 11.0)
-        : (nameSize * 0.9).clamp(10.0, 14.0);
-    final padding = dense ? 3.0 : (ultraCompact ? 4.0 : (compact ? 5.0 : 10.0));
-    final radius = dense ? 7.0 : (ultraCompact ? 8.0 : (compact ? 9.0 : 16.0));
-    final imageAspect = dense ? 1.65 : (compact ? 1.35 : 1.1);
-    final stepperHeight = dense ? 24.0 : 30.0;
-    final stepperIconSize = dense ? 16.0 : 20.0;
-    final selected = quantity > 0;
-
-    return Material(
-      color: selected
-          ? AppColors.primary.withValues(alpha: 0.07)
-          : Colors.white,
-      elevation: selected ? 1 : 0,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(radius),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: selected
-                  ? AppColors.primary.withValues(alpha: 0.55)
-                  : AppColors.divider.withValues(alpha: 0.7),
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AspectRatio(
-                aspectRatio: imageAspect,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(radius - 1),
-                      ),
-                      child: ProductThumbnail.fromProduct(
-                        product: product,
-                        width: double.infinity,
-                        height: double.infinity,
-                        borderRadius: 0,
-                      ),
-                    ),
-                    if (quantity > 0)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                AppColors.primary.withValues(alpha: 0.92),
-                              ],
-                            ),
-                          ),
-                          child: SizedBox(
-                            height: stepperHeight,
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: onDecrement,
-                                    child: Icon(
-                                      Icons.remove,
-                                      size: stepperIconSize,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  '$quantity',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: qtySize,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: onIncrement,
-                                    child: Icon(
-                                      Icons.add,
-                                      size: stepperIconSize,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  padding,
-                  padding,
-                  padding,
-                  dense ? 2 : padding,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      localizedOrRaw(product.nameKey),
-                      maxLines: dense ? 2 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: nameSize,
-                        height: 1.1,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: dense ? 2 : 3),
-                    Text(
-                      FormatUtils.currency(product.price),
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: priceSize,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
         ),
       ),

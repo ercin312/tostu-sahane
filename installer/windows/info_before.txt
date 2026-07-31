@@ -1,0 +1,12 @@
+Tostu Sahane — Windows şube / yönetici uygulaması
+
+Kurulum sonrası:
+• Masaüstü veya Başlat menüsünden "Tostu Sahane" ile açın
+• Giriş ekranında Personel seçin
+• Yönetici size verdiği kullanıcı adı ve şifre ile giriş yapın
+
+Gereksinimler:
+• Windows 10 veya 11 (64-bit)
+• İnternet bağlantısı (Firebase / sipariş senkronu)
+
+Not: Visual C++ Runtime eksikse kurulum sırasında otomatik yüklenir.

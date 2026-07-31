@@ -17,16 +17,47 @@ abstract final class WaiterOrderNotes {
     return parts.isEmpty ? null : parts.join('\n');
   }
 
+  /// Sistem / kurtarma notları müşteri fişinde ve listede gösterilmez.
+  static bool isInternalSystemNote(String? text) {
+    final t = text?.trim().toLowerCase() ?? '';
+    if (t.isEmpty) return false;
+    return t.contains('otomatik kurtarma') ||
+        t.contains('eski görüşme taslağı');
+  }
+
+  /// Başarısız telefon uyarısı (listede belirgin gösterilir).
+  static bool isFailedCallNote(String? text) {
+    final t = text?.trim().toLowerCase() ?? '';
+    return t.contains('başarısız arama') ||
+        t.contains('başarısız telefon') ||
+        t.contains('görüşme yarıda');
+  }
+
   /// Kayıtlı siparişte gösterilecek / fişe basılacak not metni.
   static String? display(Order order) {
+    if (order.phoneFailed) {
+      final text = order.orderNote?.trim();
+      if (text != null && text.isNotEmpty) return text;
+      return null;
+    }
+    final text =
+        isInternalSystemNote(order.orderNote) ? null : order.orderNote;
     return build(
-      textNote: order.orderNote,
+      textNote: text,
       preparationTags: order.preparationTags,
     );
   }
 
   static bool hasNote(Order order) {
+    if (order.phoneFailed) {
+      final text = order.orderNote?.trim();
+      return (text != null && text.isNotEmpty) ||
+          order.preparationTags.isNotEmpty;
+    }
     final text = order.orderNote?.trim();
+    if (isInternalSystemNote(text)) {
+      return order.preparationTags.isNotEmpty;
+    }
     return order.preparationTags.isNotEmpty ||
         (text != null && text.isNotEmpty);
   }

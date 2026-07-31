@@ -11,6 +11,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../firebase_options.dart';
 
 import '../localization/locale_keys.dart';
+import '../../shared/domain/entities/order.dart';
+import '../utils/order_status_utils.dart';
 
 bool get _isMobilePlatform {
   return defaultTargetPlatform == TargetPlatform.android ||
@@ -124,10 +126,24 @@ class NotificationService {
 
 
   void _onForegroundMessage(RemoteMessage message) {
+    final data = message.data;
+    final statusName = data['status'] as String?;
+    var body = message.notification?.body ?? '';
+    if (statusName != null && data['type'] == 'order_update') {
+      try {
+        final status = OrderStatus.values.byName(statusName);
+        final label = OrderStatusUtils.label(status);
+        final notifBody = message.notification?.body ?? '';
+        if (notifBody.contains('#')) {
+          final prefix = notifBody.split('—').first.trim();
+          body = '$prefix — $label';
+        } else {
+          body = label;
+        }
+      } catch (_) {}
+    }
 
     final title = message.notification?.title ?? LocaleKeys.appName.tr();
-
-    final body = message.notification?.body ?? '';
 
     showLocal(title: title, body: body);
 

@@ -16,20 +16,9 @@ import '../../../../shared/data/mock/mock_data.dart';
 import '../../../../shared/domain/entities/order.dart';
 import '../../../../shared/domain/entities/product_extra.dart';
 import '../../../../shared/presentation/providers/orders_provider.dart';
+import '../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
+import '../utils/kitchen_display_layout.dart';
 import '../utils/kitchen_timeline_layout.dart';
-
-/// Uzaktan okuma için mutfak ekranı tipografi ölçekleri.
-abstract final class _KitchenType {
-  static const tableNumber = 34.0;
-  static const orderNumber = 20.0;
-  static const meta = 16.0;
-  static const prepTag = 20.0;
-  static const orderNote = 18.0;
-  static const itemQty = 24.0;
-  static const itemTitle = 26.0;
-  static const itemDetail = 18.0;
-  static const itemNote = 18.0;
-}
 
 enum _KitchenAgeTone { fresh, warming, settled }
 
@@ -56,8 +45,7 @@ Color _toneSurface(_KitchenAgeTone tone) {
   };
 }
 
-int _columnCountForWidth(double width) =>
-    KitchenTimelineLayout.columnCountForWidth(width);
+int _columnCountForSize(Size size) => KitchenDisplayLayout.columnCount(size);
 
 class KitchenDisplayPage extends ConsumerWidget {
   const KitchenDisplayPage({super.key});
@@ -69,66 +57,15 @@ class KitchenDisplayPage extends ConsumerWidget {
     final now = DateTime.now();
     final sorted = List<Order>.of(queue)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final viewSize = MediaQuery.sizeOf(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E0E0E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF161616),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  LocaleKeys.kitchenDisplayTitle.tr(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                if (branch != null)
-                  Text(
-                    branch.name,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white54,
-                        ),
-                  ),
-              ],
-            ),
-            if (sorted.isNotEmpty) ...[
-              const SizedBox(width: AppSpacing.md),
-              _QueueBadge(count: sorted.length),
-            ],
-          ],
-        ),
-        actions: [
-          _LegendChip(
-            color: _toneAccent(_KitchenAgeTone.fresh),
-            label: LocaleKeys.kitchenLegendFresh.tr(),
-          ),
-          const SizedBox(width: 6),
-          _LegendChip(
-            color: _toneAccent(_KitchenAgeTone.warming),
-            label: LocaleKeys.kitchenLegendWarming.tr(),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.sm),
-            child: Center(
-              child: Text(
-                DateFormat('HH:mm').format(now),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-          ),
-          const RoleLogoutAction(),
-        ],
+      appBar: _KitchenDisplayHeader(
+        portrait: KitchenDisplayLayout.isPortraitKitchenDisplay(viewSize),
+        branchName: branch?.name,
+        queueCount: sorted.length,
+        now: now,
       ),
       body: sorted.isEmpty
           ? Center(
@@ -152,11 +89,18 @@ class KitchenDisplayPage extends ConsumerWidget {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                final columnCount = _columnCountForWidth(constraints.maxWidth);
+                final size = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+                final columnCount = _columnCountForSize(size);
                 final lanes = KitchenTimelineLayout.distributeLanes(
                   sorted,
                   maxColumns: columnCount,
                 );
+                final metrics = KitchenTicketMetrics.forSize(size);
+                final lanePadding =
+                    KitchenDisplayLayout.horizontalPadding(size);
 
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,6 +116,9 @@ class KitchenDisplayPage extends ConsumerWidget {
                         child: _KitchenTimelineColumn(
                           orders: lanes[i],
                           now: now,
+                          metrics: metrics,
+                          horizontalPadding: lanePadding,
+                          viewSize: size,
                         ),
                       ),
                     ],
@@ -183,15 +130,152 @@ class KitchenDisplayPage extends ConsumerWidget {
   }
 }
 
+class _KitchenDisplayHeader extends StatelessWidget implements PreferredSizeWidget {
+  const _KitchenDisplayHeader({
+    required this.portrait,
+    required this.branchName,
+    required this.queueCount,
+    required this.now,
+  });
+
+  final bool portrait;
+  final String? branchName;
+  final int queueCount;
+  final DateTime now;
+
+  @override
+  Size get preferredSize => Size.fromHeight(portrait ? 100 : 56);
+
+  Widget _titleBlock() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          LocaleKeys.kitchenDisplayTitle.tr(),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+            fontSize: portrait ? 20 : 18,
+          ),
+        ),
+        if (branchName != null)
+          Text(
+            branchName!,
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: portrait ? 14 : 12,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _clock() {
+    return Text(
+      DateFormat('HH:mm').format(now),
+      style: const TextStyle(
+        color: Colors.white,
+        fontFeatures: [FontFeature.tabularFigures()],
+        fontWeight: FontWeight.w600,
+        fontSize: 20,
+      ),
+    );
+  }
+
+  Widget _legends() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        _LegendChip(
+          color: _toneAccent(_KitchenAgeTone.fresh),
+          label: LocaleKeys.kitchenLegendFresh.tr(),
+          compact: portrait,
+        ),
+        _LegendChip(
+          color: _toneAccent(_KitchenAgeTone.warming),
+          label: LocaleKeys.kitchenLegendWarming.tr(),
+          compact: portrait,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF161616),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, portrait ? 10 : 0, 8, portrait ? 10 : 0),
+          child: portrait
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _titleBlock()),
+                        if (queueCount > 0) ...[
+                          const SizedBox(width: 8),
+                          _QueueBadge(count: queueCount, large: true),
+                        ],
+                        const SizedBox(width: 8),
+                        _clock(),
+                        const RoleLogoutAction(),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _legends(),
+                  ],
+                )
+              : SizedBox(
+                  height: 56,
+                  child: Row(
+                    children: [
+                      _titleBlock(),
+                      if (queueCount > 0) ...[
+                        const SizedBox(width: AppSpacing.md),
+                        _QueueBadge(count: queueCount),
+                      ],
+                      const Spacer(),
+                      _LegendChip(
+                        color: _toneAccent(_KitchenAgeTone.fresh),
+                        label: LocaleKeys.kitchenLegendFresh.tr(),
+                      ),
+                      const SizedBox(width: 6),
+                      _LegendChip(
+                        color: _toneAccent(_KitchenAgeTone.warming),
+                        label: LocaleKeys.kitchenLegendWarming.tr(),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      _clock(),
+                      const RoleLogoutAction(),
+                    ],
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _QueueBadge extends StatelessWidget {
-  const _QueueBadge({required this.count});
+  const _QueueBadge({required this.count, this.large = false});
 
   final int count;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: large ? 12 : 10,
+        vertical: large ? 6 : 4,
+      ),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
@@ -199,10 +283,10 @@ class _QueueBadge extends StatelessWidget {
       ),
       child: Text(
         '$count',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
-          fontSize: 13,
+          fontSize: large ? 16 : 13,
         ),
       ),
     );
@@ -210,15 +294,23 @@ class _QueueBadge extends StatelessWidget {
 }
 
 class _LegendChip extends StatelessWidget {
-  const _LegendChip({required this.color, required this.label});
+  const _LegendChip({
+    required this.color,
+    required this.label,
+    this.compact = false,
+  });
 
   final Color color;
   final String label;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 8,
+        vertical: compact ? 6 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
@@ -236,7 +328,7 @@ class _LegendChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color.withValues(alpha: 0.95),
-              fontSize: 11,
+              fontSize: compact ? 13 : 11,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -250,15 +342,26 @@ class _KitchenTimelineColumn extends StatelessWidget {
   const _KitchenTimelineColumn({
     required this.orders,
     required this.now,
+    required this.metrics,
+    required this.horizontalPadding,
+    required this.viewSize,
   });
 
   final List<Order> orders;
   final DateTime now;
+  final KitchenTicketMetrics metrics;
+  final double horizontalPadding;
+  final Size viewSize;
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        10,
+        horizontalPadding,
+        20,
+      ),
       itemCount: orders.length,
       itemBuilder: (context, index) {
         final order = orders[index];
@@ -267,6 +370,8 @@ class _KitchenTimelineColumn extends StatelessWidget {
           order: order,
           now: now,
           showConnector: !isLast,
+          metrics: metrics,
+          viewSize: viewSize,
         );
       },
     );
@@ -278,11 +383,15 @@ class _KitchenTimelineTicket extends ConsumerStatefulWidget {
     required this.order,
     required this.now,
     required this.showConnector,
+    required this.metrics,
+    required this.viewSize,
   });
 
   final Order order;
   final DateTime now;
   final bool showConnector;
+  final KitchenTicketMetrics metrics;
+  final Size viewSize;
 
   @override
   ConsumerState<_KitchenTimelineTicket> createState() =>
@@ -324,13 +433,15 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
     final catalog =
         ref.watch(catalogExtrasProvider).value ?? MockData.catalogExtras;
     final isPreparing = order.status == OrderStatus.preparing;
+    final metrics = widget.metrics;
+    final portrait = KitchenDisplayLayout.isPortraitKitchenDisplay(widget.viewSize);
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 18,
+            width: portrait ? 22 : 18,
             child: Column(
               children: [
                 Container(
@@ -378,14 +489,23 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      portrait ? 14 : 12,
+                      portrait ? 12 : 10,
+                      portrait ? 10 : 8,
+                      portrait ? 14 : 12,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _TableHero(tableNumber: order.tableNumber),
+                            _TableHero(
+                              tableNumber: order.tableNumber,
+                              isPickup: order.isPickup,
+                              metrics: metrics,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -395,10 +515,10 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                                     children: [
                                       Text(
                                         '#${order.orderNumber}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w800,
-                                          fontSize: _KitchenType.orderNumber,
+                                          fontSize: metrics.orderNumber,
                                           height: 1.1,
                                         ),
                                       ),
@@ -417,7 +537,7 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                                     _metaLine(order, elapsed),
                                     style: TextStyle(
                                       color: Colors.white.withValues(alpha: 0.6),
-                                      fontSize: _KitchenType.meta,
+                                      fontSize: metrics.meta,
                                       height: 1.25,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -444,6 +564,7 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                                   color: AppColors.primary,
                                   tooltip:
                                       LocaleKeys.kitchenStartPreparing.tr(),
+                                  viewSize: widget.viewSize,
                                   onPressed: () => _runAction(
                                     OrderWorkflowAction.accept,
                                   ),
@@ -453,6 +574,7 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                                   icon: Icons.check_rounded,
                                   color: AppColors.success,
                                   tooltip: LocaleKeys.kitchenMarkReady.tr(),
+                                  viewSize: widget.viewSize,
                                   onPressed: () => _runAction(
                                     OrderWorkflowAction.markReady,
                                   ),
@@ -468,8 +590,16 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                             children: [
                               for (final tag in order.preparationTags)
                                 _TagPill(
-                                  label: WaiterPreparationTags.label(tag),
+                                  label: WaiterPreparationTags.label(
+                                    tag,
+                                    options: ref
+                                        .watch(waiterModeSettingsProvider)
+                                        .valueOrNull
+                                        ?.preparationOptions,
+                                    preferTurkish: true,
+                                  ),
                                   highlight: true,
+                                  metrics: metrics,
                                 ),
                             ],
                           ),
@@ -481,7 +611,7 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                             order.orderNote!.trim(),
                             style: TextStyle(
                               color: AppColors.warning.withValues(alpha: 0.95),
-                              fontSize: _KitchenType.orderNote,
+                              fontSize: metrics.orderNote,
                               fontWeight: FontWeight.w700,
                               height: 1.3,
                             ),
@@ -493,6 +623,7 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                         _KitchenItemLines(
                           items: order.items,
                           catalog: catalog,
+                          metrics: metrics,
                         ),
                       ],
                     ),
@@ -528,13 +659,21 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
 }
 
 class _TableHero extends StatelessWidget {
-  const _TableHero({required this.tableNumber});
+  const _TableHero({
+    required this.tableNumber,
+    required this.isPickup,
+    required this.metrics,
+  });
 
   final int? tableNumber;
+  final bool isPickup;
+  final KitchenTicketMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
-    final number = tableNumber ?? 0;
+    final label = isPickup
+        ? LocaleKeys.waiterPickup.tr()
+        : '${tableNumber ?? 0}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -546,7 +685,9 @@ class _TableHero extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            LocaleKeys.dineInTableField.tr(),
+            isPickup
+                ? LocaleKeys.waiterPickup.tr()
+                : LocaleKeys.dineInTableField.tr(),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.65),
               fontSize: 13,
@@ -557,13 +698,13 @@ class _TableHero extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '$number',
-            style: const TextStyle(
+            label,
+            style: TextStyle(
               color: Colors.white,
-              fontSize: _KitchenType.tableNumber,
+              fontSize: metrics.tableNumber,
               fontWeight: FontWeight.w900,
               height: 1,
-              fontFeatures: [FontFeature.tabularFigures()],
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -573,9 +714,14 @@ class _TableHero extends StatelessWidget {
 }
 
 class _TagPill extends StatelessWidget {
-  const _TagPill({required this.label, this.highlight = false});
+  const _TagPill({
+    required this.label,
+    required this.metrics,
+    this.highlight = false,
+  });
 
   final String label;
+  final KitchenTicketMetrics metrics;
   final bool highlight;
 
   @override
@@ -595,7 +741,7 @@ class _TagPill extends StatelessWidget {
         label,
         style: TextStyle(
           color: highlight ? AppColors.warning : Colors.white70,
-          fontSize: _KitchenType.prepTag,
+          fontSize: metrics.prepTag,
           fontWeight: FontWeight.w800,
           height: 1.15,
         ),
@@ -609,23 +755,28 @@ class _KitchenIconAction extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.tooltip,
+    required this.viewSize,
     required this.onPressed,
   });
 
   final IconData icon;
   final Color color;
   final String tooltip;
+  final Size viewSize;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final minSize = KitchenDisplayLayout.actionButtonMinSize(viewSize);
+    final iconSize = KitchenDisplayLayout.actionIconSize(viewSize);
+
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
       visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.all(4),
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-      icon: Icon(icon, size: 26, color: color),
+      padding: const EdgeInsets.all(6),
+      constraints: BoxConstraints(minWidth: minSize, minHeight: minSize),
+      icon: Icon(icon, size: iconSize, color: color),
       style: IconButton.styleFrom(
         backgroundColor: color.withValues(alpha: 0.12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -638,10 +789,12 @@ class _KitchenItemLines extends StatelessWidget {
   const _KitchenItemLines({
     required this.items,
     required this.catalog,
+    required this.metrics,
   });
 
   final List<CartItem> items;
   final List<ProductExtra> catalog;
+  final KitchenTicketMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -650,7 +803,11 @@ class _KitchenItemLines extends StatelessWidget {
       children: [
         for (var i = 0; i < items.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _KitchenItemLine(item: items[i], catalog: catalog),
+          _KitchenItemLine(
+            item: items[i],
+            catalog: catalog,
+            metrics: metrics,
+          ),
         ],
       ],
     );
@@ -661,10 +818,12 @@ class _KitchenItemLine extends StatelessWidget {
   const _KitchenItemLine({
     required this.item,
     required this.catalog,
+    required this.metrics,
   });
 
   final CartItem item;
   final List<ProductExtra> catalog;
+  final KitchenTicketMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -675,13 +834,13 @@ class _KitchenItemLine extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 40,
+          width: 44,
           child: Text(
             '${item.quantity}×',
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
-              fontSize: _KitchenType.itemQty,
+              fontSize: metrics.itemQty,
               height: 1.2,
             ),
           ),
@@ -692,10 +851,10 @@ class _KitchenItemLine extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
-                  fontSize: _KitchenType.itemTitle,
+                  fontSize: metrics.itemTitle,
                   height: 1.2,
                 ),
               ),
@@ -704,7 +863,7 @@ class _KitchenItemLine extends StatelessWidget {
                   localizedOrRaw(item.portionKey!),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.65),
-                    fontSize: _KitchenType.itemDetail,
+                    fontSize: metrics.itemDetail,
                     height: 1.25,
                     fontWeight: FontWeight.w500,
                   ),
@@ -714,7 +873,7 @@ class _KitchenItemLine extends StatelessWidget {
                   '+ ${extras.join(' · ')}',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: _KitchenType.itemDetail,
+                    fontSize: metrics.itemDetail,
                     height: 1.25,
                     fontWeight: FontWeight.w600,
                   ),
@@ -724,7 +883,7 @@ class _KitchenItemLine extends StatelessWidget {
                   '“${item.note!.trim()}”',
                   style: TextStyle(
                     color: AppColors.warning.withValues(alpha: 0.9),
-                    fontSize: _KitchenType.itemNote,
+                    fontSize: metrics.itemNote,
                     fontStyle: FontStyle.italic,
                     height: 1.25,
                     fontWeight: FontWeight.w600,

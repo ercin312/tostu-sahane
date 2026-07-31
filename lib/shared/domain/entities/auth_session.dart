@@ -11,6 +11,7 @@ class AuthSessionResult {
     this.refreshToken,
     this.branchId,
     this.username,
+    this.needsAddressOnboarding = false,
   });
 
   final String userId;
@@ -22,4 +23,5 @@ class AuthSessionResult {
   final String? refreshToken;
   final String? branchId;
   final String? username;
+  final bool needsAddressOnboarding;
 }

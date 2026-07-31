@@ -51,6 +51,8 @@ class OpsCashierSwitchFab extends ConsumerWidget {
     final path = GoRouterState.of(context).uri.path;
     final onCashier = isCashierPath(path);
     final role = auth.user.role;
+    final onWaiterRoute = path.startsWith(RoutePaths.branchWaiter);
+    final fabBottom = onWaiterRoute ? 96.0 : 20.0;
 
     return Stack(
       fit: StackFit.expand,
@@ -58,7 +60,7 @@ class OpsCashierSwitchFab extends ConsumerWidget {
         child,
         Positioned(
           right: 20,
-          bottom: 20,
+          bottom: fabBottom,
           child: SafeArea(
             child: Material(
               elevation: 6,

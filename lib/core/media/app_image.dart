@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -30,11 +32,7 @@ class AppImage extends StatelessWidget {
     'Accept': 'image/*',
   };
 
-  static bool get _preferNativeNetworkImage =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.linux ||
-          defaultTargetPlatform == TargetPlatform.macOS);
+  static final _base64Cache = <String, Uint8List>{};
 
   @override
   Widget build(BuildContext context) {
@@ -45,28 +43,19 @@ class AppImage extends StatelessWidget {
 
     Widget image;
     if (MediaStorageService.isNetworkSource(src)) {
-      if (_preferNativeNetworkImage) {
-        image = Image.network(
-          src,
-          width: width,
-          height: height,
-          fit: fit,
-          headers: _networkImageHeaders,
-          errorBuilder: (_, _, _) => errorWidget ?? _defaultError(),
-        );
-      } else {
-        image = CachedNetworkImage(
-          imageUrl: src,
-          width: width,
-          height: height,
-          fit: fit,
-          httpHeaders: _networkImageHeaders,
-          errorWidget: (_, _, _) => errorWidget ?? _defaultError(),
-        );
-      }
+      image = CachedNetworkImage(
+        imageUrl: src,
+        width: width,
+        height: height,
+        fit: fit,
+        httpHeaders: _networkImageHeaders,
+        errorWidget: (_, _, _) => errorWidget ?? _defaultError(),
+      );
     } else if (MediaStorageService.isBase64Source(src)) {
-      final bytes = MediaStorageService.decodeBase64(src);
-      image = bytes != null
+      final bytes = _base64Cache.putIfAbsent(src, () {
+        return MediaStorageService.decodeBase64(src) ?? Uint8List(0);
+      });
+      image = bytes.isNotEmpty
           ? Image.memory(bytes, width: width, height: height, fit: fit)
           : errorWidget ?? _defaultError();
     } else if (!MediaStorageService.localFileExists(src)) {

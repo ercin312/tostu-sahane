@@ -3,6 +3,11 @@ name: Android Build
 # Otomatik çalışmaz — sadece Actions → Run workflow
 on:
   workflow_dispatch:
+    inputs:
+      use_mock_api:
+        description: Use mock API (demo mode — Google/email auth needs this OFF)
+        type: boolean
+        default: false
 
 concurrency:
   group: android-${{ github.ref }}
@@ -30,7 +35,14 @@ jobs:
           cache: false
 
       - name: Prepare Firebase config for CI
-        run: cp android/app/google-services.json.example android/app/google-services.json
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
+          else
+            cp android/app/google-services.json.example android/app/google-services.json
+            echo "::notice::Using google-services.json.example (set ANDROID_GOOGLE_SERVICES_JSON_BASE64 for a custom file)."
+          fi
 
       - name: Install dependencies
         run: flutter pub get
@@ -42,7 +54,9 @@ jobs:
         run: flutter test
 
       - name: Build APK (release, no signing)
-        run: flutter build apk --release --dart-define=USE_MOCK_API=true
+        env:
+          USE_MOCK_API: ${{ inputs.use_mock_api == true && 'true' || 'false' }}
+        run: flutter build apk --release --dart-define=USE_MOCK_API=${USE_MOCK_API}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

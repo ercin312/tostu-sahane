@@ -160,6 +160,27 @@ abstract final class KitchenReceiptPdfBuilder {
       children: [
         _header(logo, font, fontBold),
         pw.SizedBox(height: 6),
+        if (order.isPhoneOrder) ...[
+          order.status == OrderStatus.cancelled
+              ? _phoneCancelBanner(fontBold)
+              : _phoneOrderBanner(fontBold),
+          pw.SizedBox(height: 6),
+        ],
+        if (order.status == OrderStatus.cancelled &&
+            (order.phoneCancelReason?.trim().isNotEmpty ?? false)) ...[
+          _section(
+            title: 'İPTAL SEBEBİ',
+            font: font,
+            fontBold: fontBold,
+            children: [
+              pw.Text(
+                order.phoneCancelReason!.trim(),
+                style: pw.TextStyle(font: fontBold, fontSize: 11, color: _ink),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 6),
+        ],
         _section(
           title: 'MÜŞTERİ BİLGİLERİ',
           font: font,
@@ -401,6 +422,40 @@ abstract final class KitchenReceiptPdfBuilder {
               style: pw.TextStyle(font: font, fontSize: 7.5, color: _ink),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _phoneOrderBanner(pw.Font fontBold) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: _ink, width: 1.6),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Center(
+        child: pw.Text(
+          'TELEFON SİPARİŞİ',
+          style: pw.TextStyle(font: fontBold, fontSize: 14, color: _ink),
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _phoneCancelBanner(pw.Font fontBold) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: _ink, width: 2.2),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Center(
+        child: pw.Text(
+          'SİPARİŞ İPTAL',
+          style: pw.TextStyle(font: fontBold, fontSize: 16, color: _ink),
         ),
       ),
     );

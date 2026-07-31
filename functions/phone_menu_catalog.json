@@ -1,0 +1,829 @@
+[
+  {
+    "id": "w_akdeniz",
+    "name": "AKDENİZ TOST",
+    "price": 220
+  },
+  {
+    "id": "w_aktoros_acili",
+    "name": "AKTOROS SUCUKLU ACILI",
+    "variant": "ACILI",
+    "price": 200,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_bol_malz",
+    "name": "AKTOROS SUCUKLU BOL MALZ",
+    "variant": "BOL MALZ",
+    "price": 300,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_bol_malz_yum",
+    "name": "AKTOROS SUCUKLU BOL MALZ YUM",
+    "variant": "BOL MALZ YUM",
+    "price": 330,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_dom",
+    "name": "AKTOROS SUCUKLU DOM",
+    "variant": "DOM",
+    "price": 210,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_dom_bib",
+    "name": "AKTOROS SUCUKLU DOM BİB",
+    "variant": "DOM BİB",
+    "price": 210,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_ket_mayo",
+    "name": "AKTOROS SUCUKLU KET MAYO",
+    "variant": "KET MAYO",
+    "price": 200,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_ketcap",
+    "name": "AKTOROS SUCUKLU KETÇAP",
+    "variant": "KETÇAP",
+    "price": 200,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_mayo",
+    "name": "AKTOROS SUCUKLU MAYO",
+    "variant": "MAYO",
+    "price": 200,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_sade",
+    "name": "AKTOROS SUCUKLU SADE",
+    "variant": "SADE",
+    "price": 200,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_salca",
+    "name": "AKTOROS SUCUKLU SALÇA",
+    "variant": "SALÇA",
+    "price": 200,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_tursu",
+    "name": "AKTOROS SUCUKLU TURSU",
+    "variant": "TURSU",
+    "price": 210,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aktoros_yum",
+    "name": "AKTOROS SUCUKLU YUM",
+    "variant": "YUM",
+    "price": 220,
+    "parent": "w_aktoros"
+  },
+  {
+    "id": "w_aroma",
+    "name": "AROMA MEYVE SUYU",
+    "price": 50
+  },
+  {
+    "id": "w_ayran",
+    "name": "AYRAN",
+    "price": 40
+  },
+  {
+    "id": "w_beyaz_bol_mal_dom",
+    "name": "BEYAZ PEYNİRLİ BOL MAL DOM",
+    "variant": "BOL MAL DOM",
+    "price": 280,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_bol_malz_ket",
+    "name": "BEYAZ PEYNİRLİ BOL MALZ KET",
+    "variant": "BOL MALZ KET",
+    "price": 270,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_bol_malz_ket_may",
+    "name": "BEYAZ PEYNİRLİ BOL MALZ KET MAY",
+    "variant": "BOL MALZ KET MAY",
+    "price": 270,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_bol_malz_sade",
+    "name": "BEYAZ PEYNİRLİ BOL MALZ SADE",
+    "variant": "BOL MALZ SADE",
+    "price": 270,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_bol_malz_sal",
+    "name": "BEYAZ PEYNİRLİ BOL MALZ SAL",
+    "variant": "BOL MALZ SAL",
+    "price": 270,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_domates",
+    "name": "BEYAZ PEYNİRLİ DOMATES",
+    "variant": "DOMATES",
+    "price": 190,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_domates_yesil_biber",
+    "name": "BEYAZ PEYNİRLİ DOMATES YESIL BIBER",
+    "variant": "DOMATES YESIL BIBER",
+    "price": 190,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_kasarli",
+    "name": "BEYAZ PEYNİRLİ KAŞARLI",
+    "variant": "KAŞARLI",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_ketcap_mayanez",
+    "name": "BEYAZ PEYNİRLİ KETCAP MAYANEZ",
+    "variant": "KETCAP MAYANEZ",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_ketcapli",
+    "name": "BEYAZ PEYNİRLİ KETCAPLI",
+    "variant": "KETCAPLI",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_mayanez",
+    "name": "BEYAZ PEYNİRLİ MAYANEZ",
+    "variant": "MAYANEZ",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_sade",
+    "name": "BEYAZ PEYNİRLİ SADE",
+    "variant": "SADE",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_salcali",
+    "name": "BEYAZ PEYNİRLİ SALCALI",
+    "variant": "SALCALI",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_beyaz_sucuklu",
+    "name": "BEYAZ PEYNİRLİ SUCUKLU",
+    "variant": "SUCUKLU",
+    "price": 180,
+    "parent": "w_beyaz"
+  },
+  {
+    "id": "w_buyuk_su",
+    "name": "BUYUK SU",
+    "price": 30
+  },
+  {
+    "id": "w_cappy",
+    "name": "CAPPY MEYVE SUYU",
+    "price": 50
+  },
+  {
+    "id": "w_cay",
+    "name": "CAY",
+    "price": 25
+  },
+  {
+    "id": "w_cola_25",
+    "name": "2.5 LİTRE KOLA",
+    "price": 100
+  },
+  {
+    "id": "w_fanta",
+    "name": "FANTA",
+    "price": 80
+  },
+  {
+    "id": "w_fenomen",
+    "name": "FENOMEN TOST",
+    "price": 250
+  },
+  {
+    "id": "w_ice_tea",
+    "name": "ICE TEA",
+    "price": 80
+  },
+  {
+    "id": "w_ispanakli_kasarli",
+    "name": "ISPANAKLI KAŞARLI",
+    "variant": "KAŞARLI",
+    "price": 180,
+    "parent": "w_ispanakli"
+  },
+  {
+    "id": "w_ispanakli_tulumlu",
+    "name": "ISPANAKLI TULUMLU",
+    "variant": "TULUMLU",
+    "price": 200,
+    "parent": "w_ispanakli"
+  },
+  {
+    "id": "w_ispanakli_tulumlu_kasarli",
+    "name": "ISPANAKLI TULUMLU KAŞARLI",
+    "variant": "TULUMLU KAŞARLI",
+    "price": 220,
+    "parent": "w_ispanakli"
+  },
+  {
+    "id": "w_ispanakli_yumurtali_kasarli",
+    "name": "ISPANAKLI YUMURTALI KAŞARLI",
+    "variant": "YUMURTALI KAŞARLI",
+    "price": 200,
+    "parent": "w_ispanakli"
+  },
+  {
+    "id": "w_ispanakli_yumurtali_tulumlu",
+    "name": "ISPANAKLI YUMURTALI TULUMLU",
+    "variant": "YUMURTALI TULUMLU",
+    "price": 220,
+    "parent": "w_ispanakli"
+  },
+  {
+    "id": "w_karisik_bol_mal_ket",
+    "name": "KARISIK BOL MAL KET",
+    "variant": "BOL MAL KET",
+    "price": 300,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_bol_malz_dom",
+    "name": "KARISIK BOL MALZ DOM",
+    "variant": "BOL MALZ DOM",
+    "price": 300,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_bol_malz_dom_bib",
+    "name": "KARISIK BOL MALZ DOM BİB",
+    "variant": "BOL MALZ DOM BİB",
+    "price": 310,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_bol_malz_ket_may",
+    "name": "KARISIK BOL MALZ KET MAY",
+    "variant": "BOL MALZ KET MAY",
+    "price": 300,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_bol_malz_sade",
+    "name": "KARISIK BOL MALZ SADE",
+    "variant": "BOL MALZ SADE",
+    "price": 300,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_bol_malz_sal",
+    "name": "KARISIK BOL MALZ SAL",
+    "variant": "BOL MALZ SAL",
+    "price": 300,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_dom_bib",
+    "name": "KARISIK DOM BİB",
+    "variant": "DOM BİB",
+    "price": 210,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_dom_bib_ket_mayo",
+    "name": "KARISIK DOM BİB KET MAYO",
+    "variant": "DOM BİB KET MAYO",
+    "price": 210,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_domates",
+    "name": "KARISIK DOMATES",
+    "variant": "DOMATES",
+    "price": 210,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_ketcap_mayonez",
+    "name": "KARISIK KETCAP MAYONEZ",
+    "variant": "KETCAP MAYONEZ",
+    "price": 200,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_ketcapli",
+    "name": "KARISIK KETCAPLI",
+    "variant": "KETCAPLI",
+    "price": 200,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_mayonez",
+    "name": "KARISIK MAYONEZ",
+    "variant": "MAYONEZ",
+    "price": 200,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_sade",
+    "name": "KARISIK SADE",
+    "variant": "SADE",
+    "price": 200,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_karisik_salcali",
+    "name": "KARISIK SALCALI",
+    "variant": "SALCALI",
+    "price": 200,
+    "parent": "w_karisik"
+  },
+  {
+    "id": "w_kasap_sucuk_dom",
+    "name": "KASAP SUCUK DOM",
+    "variant": "DOM",
+    "price": 190,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_dom_bib",
+    "name": "KASAP SUCUK DOM BİB",
+    "variant": "DOM BİB",
+    "price": 190,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_ket_mayo",
+    "name": "KASAP SUCUK KET MAYO",
+    "variant": "KET MAYO",
+    "price": 180,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_ketcap",
+    "name": "KASAP SUCUK KETÇAP",
+    "variant": "KETÇAP",
+    "price": 180,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_mayonez",
+    "name": "KASAP SUCUK MAYONEZ",
+    "variant": "MAYONEZ",
+    "price": 180,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_salca",
+    "name": "KASAP SUCUK SALÇA",
+    "variant": "SALÇA",
+    "price": 180,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_yumurta",
+    "name": "KASAP SUCUK YUMURTA",
+    "variant": "YUMURTA",
+    "price": 200,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasap_sucuk_yumurta_dom_bib",
+    "name": "KASAP SUCUK YUMURTA DOM BİB",
+    "variant": "YUMURTA DOM BİB",
+    "price": 210,
+    "parent": "w_kasap_sucuk"
+  },
+  {
+    "id": "w_kasarli_bol_malz_dom",
+    "name": "KAŞARLI BOL MALZ DOM.",
+    "variant": "BOL MALZ DOM.",
+    "price": 280,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_bol_malz_ket_may",
+    "name": "KAŞARLI BOL MALZ KET MAY",
+    "variant": "BOL MALZ KET MAY",
+    "price": 270,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_bol_malz_ketcapli",
+    "name": "KAŞARLI BOL MALZ KETÇAPLI",
+    "variant": "BOL MALZ KETÇAPLI",
+    "price": 270,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_bol_malz_sade",
+    "name": "KAŞARLI BOL MALZ SADE",
+    "variant": "BOL MALZ SADE",
+    "price": 270,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_bol_malz_salcali",
+    "name": "KAŞARLI BOL MALZ SALÇALI",
+    "variant": "BOL MALZ SALÇALI",
+    "price": 270,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_domates",
+    "name": "KAŞARLI DOMATES",
+    "variant": "DOMATES",
+    "price": 190,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_domates_yesil_biber",
+    "name": "KAŞARLI DOMATES YESIL BIBER",
+    "variant": "DOMATES YESIL BIBER",
+    "price": 190,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_domates_yesil_biber_ketcap_mayonez",
+    "name": "KAŞARLI DOMATES YESIL BIBER KETCAP MAYONEZ",
+    "variant": "DOMATES YESIL BIBER KETCAP MAYONEZ",
+    "price": 190,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_ketcap_mayonez",
+    "name": "KAŞARLI KETCAP MAYONEZ",
+    "variant": "KETCAP MAYONEZ",
+    "price": 180,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_ketcapli",
+    "name": "KAŞARLI KETCAPLI",
+    "variant": "KETCAPLI",
+    "price": 180,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_mayonez",
+    "name": "KAŞARLI MAYONEZ",
+    "variant": "MAYONEZ",
+    "price": 180,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_sade",
+    "name": "KAŞARLI SADE",
+    "variant": "SADE",
+    "price": 180,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_salcali",
+    "name": "KAŞARLI SALCALI",
+    "variant": "SALCALI",
+    "price": 180,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kasarli_tursu",
+    "name": "KAŞARLI TURSU",
+    "variant": "TURSU",
+    "price": 180,
+    "parent": "w_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_acili",
+    "name": "KAVURMALI KASARLI ACILI",
+    "variant": "ACILI",
+    "price": 280,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_bol_malz_ket",
+    "name": "KAVURMALI KASARLI BOL MALZ KET",
+    "variant": "BOL MALZ KET",
+    "price": 420,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_bol_malz_ket_may",
+    "name": "KAVURMALI KASARLI BOL MALZ KET MAY",
+    "variant": "BOL MALZ KET MAY",
+    "price": 420,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_bol_malz_sade",
+    "name": "KAVURMALI KASARLI BOL MALZ SADE",
+    "variant": "BOL MALZ SADE",
+    "price": 420,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_bol_malz_salc",
+    "name": "KAVURMALI KASARLI BOL MALZ SALÇ",
+    "variant": "BOL MALZ SALÇ",
+    "price": 420,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_domates",
+    "name": "KAVURMALI KASARLI DOMATES",
+    "variant": "DOMATES",
+    "price": 290,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_domates_yesil_biber",
+    "name": "KAVURMALI KASARLI DOMATES YESIL BIBER",
+    "variant": "DOMATES YESIL BIBER",
+    "price": 290,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_domates_yesil_biber_ketcap_mayonez",
+    "name": "KAVURMALI KASARLI DOMATES YESIL BIBER KETCAP MAYONEZ",
+    "variant": "DOMATES YESIL BIBER KETCAP MAYONEZ",
+    "price": 290,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_ketcap_mayonez",
+    "name": "KAVURMALI KASARLI KETCAP MAYONEZ",
+    "variant": "KETCAP MAYONEZ",
+    "price": 280,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_ketcapli",
+    "name": "KAVURMALI KASARLI KETCAPLI",
+    "variant": "KETCAPLI",
+    "price": 280,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_mayonez",
+    "name": "KAVURMALI KASARLI MAYONEZ",
+    "variant": "MAYONEZ",
+    "price": 280,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_sade",
+    "name": "KAVURMALI KASARLI SADE",
+    "variant": "SADE",
+    "price": 280,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_salcali",
+    "name": "KAVURMALI KASARLI SALCALI",
+    "variant": "SALCALI",
+    "price": 280,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kavurmali_kasarli_sucuklu",
+    "name": "KAVURMALI KASARLI SUCUKLU",
+    "variant": "SUCUKLU",
+    "price": 340,
+    "parent": "w_kavurmali_kasarli"
+  },
+  {
+    "id": "w_kucuk_su",
+    "name": "KUCUK SU",
+    "price": 25
+  },
+  {
+    "id": "w_kutu_cola",
+    "name": "KUTU COLA",
+    "price": 80
+  },
+  {
+    "id": "w_limonata",
+    "name": "LİMONATA",
+    "price": 50
+  },
+  {
+    "id": "w_litre_cola",
+    "name": "LİTRELİK KOLA",
+    "price": 100
+  },
+  {
+    "id": "w_menemen",
+    "name": "MENEMEN",
+    "price": 170
+  },
+  {
+    "id": "w_meyveli_soda",
+    "name": "MEYVELİ SODA",
+    "price": 35
+  },
+  {
+    "id": "w_nescafe",
+    "name": "NESCAFE",
+    "price": 70
+  },
+  {
+    "id": "w_nigde",
+    "name": "NİĞDE GAZOZU",
+    "price": 40
+  },
+  {
+    "id": "w_pastirmali_kasar_yumurta",
+    "name": "PASTIRMALI KAŞAR YUMURTA",
+    "variant": "KAŞAR YUMURTA",
+    "price": 330,
+    "parent": "w_pastirmali"
+  },
+  {
+    "id": "w_pastirmali_kasarli",
+    "name": "PASTIRMALI KAŞARLI",
+    "variant": "KAŞARLI",
+    "price": 300,
+    "parent": "w_pastirmali"
+  },
+  {
+    "id": "w_pastirmali_pastirma_kavurma_kasarli",
+    "name": "PASTIRMALI PASTIRMA KAVURMA KAŞARLI",
+    "variant": "PASTIRMA KAVURMA KAŞARLI",
+    "price": 450,
+    "parent": "w_pastirmali"
+  },
+  {
+    "id": "w_pastirmali_sucuk_kasar",
+    "name": "PASTIRMALI SUCUK KAŞAR",
+    "variant": "SUCUK KAŞAR",
+    "price": 400,
+    "parent": "w_pastirmali"
+  },
+  {
+    "id": "w_pastirmali_sucuk_kasar_yumurta",
+    "name": "PASTIRMALI SUCUK KAŞAR YUMURTA",
+    "variant": "SUCUK KAŞAR YUMURTA",
+    "price": 400,
+    "parent": "w_pastirmali"
+  },
+  {
+    "id": "w_patates",
+    "name": "PATATES CİPSİ",
+    "price": 160
+  },
+  {
+    "id": "w_patso",
+    "name": "PATSO",
+    "price": 160
+  },
+  {
+    "id": "w_portakal",
+    "name": "PORTAKAL SUYU",
+    "price": 100
+  },
+  {
+    "id": "w_sade_soda",
+    "name": "SADE SODA",
+    "price": 30
+  },
+  {
+    "id": "w_sahanda_yumurta",
+    "name": "SAHANDA YUMURTA",
+    "price": 140
+  },
+  {
+    "id": "w_sandvic_beyaz_peynirli",
+    "name": "SANDVİÇ BEYAZ PEYNİRLİ",
+    "variant": "BEYAZ PEYNİRLİ",
+    "price": 180,
+    "parent": "w_sandvic"
+  },
+  {
+    "id": "w_sandvic_kasarli",
+    "name": "SANDVİÇ KAŞARLI",
+    "variant": "KAŞARLI",
+    "price": 180,
+    "parent": "w_sandvic"
+  },
+  {
+    "id": "w_sise_cola",
+    "name": "SİŞE COLA",
+    "price": 80
+  },
+  {
+    "id": "w_sos",
+    "name": "SOS",
+    "price": 10
+  },
+  {
+    "id": "w_sucuklu_bol_malz",
+    "name": "SUCUKLU BOL MALZ",
+    "variant": "BOL MALZ",
+    "price": 280,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_dom_bib",
+    "name": "SUCUKLU DOM BİB",
+    "variant": "DOM BİB",
+    "price": 210,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_domatesli",
+    "name": "SUCUKLU DOMATESLİ",
+    "variant": "DOMATESLİ",
+    "price": 210,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_ket_mayo",
+    "name": "SUCUKLU KET MAYO",
+    "variant": "KET MAYO",
+    "price": 200,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_ketcapli",
+    "name": "SUCUKLU KETÇAPLI",
+    "variant": "KETÇAPLI",
+    "price": 200,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_sade",
+    "name": "SUCUKLU SADE",
+    "variant": "SADE",
+    "price": 200,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_salcali",
+    "name": "SUCUKLU SALÇALI",
+    "variant": "SALÇALI",
+    "price": 200,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_sucuklu_yumurtali",
+    "name": "SUCUKLU YUMURTALI",
+    "variant": "YUMURTALI",
+    "price": 220,
+    "parent": "w_sucuklu"
+  },
+  {
+    "id": "w_tost",
+    "name": "TOST",
+    "price": 180
+  },
+  {
+    "id": "w_turk_kahve",
+    "name": "TÜRK KAHVESİ",
+    "price": 70
+  },
+  {
+    "id": "w_tursu",
+    "name": "TURŞU",
+    "price": 10
+  },
+  {
+    "id": "w_yesillik",
+    "name": "YEŞİLLİK SÖĞÜŞ",
+    "price": 20
+  },
+  {
+    "id": "w_yumurtali",
+    "name": "YUMURTALI",
+    "price": 160
+  },
+  {
+    "id": "w_zero",
+    "name": "ZERO COLA",
+    "price": 80
+  }
+]

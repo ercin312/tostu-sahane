@@ -3,6 +3,11 @@ name: iOS Build
 # Otomatik çalışmaz — sadece Actions → Run workflow
 on:
   workflow_dispatch:
+    inputs:
+      use_mock_api:
+        description: Use mock API (demo mode — Google/Apple auth needs this OFF)
+        type: boolean
+        default: false
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -24,7 +29,14 @@ jobs:
           cache: false
 
       - name: Prepare Firebase config for CI
-        run: cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" ]; then
+            echo "${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          else
+            cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
+            echo "::notice::Using GoogleService-Info.plist.example (set IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 for a custom file)."
+          fi
 
       - name: Flutter version
         run: flutter --version
@@ -39,7 +51,22 @@ jobs:
         run: flutter test
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign --dart-define=USE_MOCK_API=true
+        env:
+          USE_MOCK_API: ${{ inputs.use_mock_api == true && 'true' || 'false' }}
+        run: flutter build ios --release --no-codesign --dart-define=USE_MOCK_API=${USE_MOCK_API}
+
+      - name: Show app version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "App version: $VERSION"
+
+      - name: Upload iOS build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-${{ github.sha }}
+          path: build/ios/iphoneos/Runner.app
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Show app version
         run: |

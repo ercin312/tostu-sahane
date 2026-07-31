@@ -34,7 +34,11 @@ abstract final class OrderWorkflow {
         order.status == OrderStatus.received ? OrderStatus.preparing : null,
       OrderWorkflowAction.markReady =>
         order.status == OrderStatus.preparing
-            ? OrderStatus.waitingCourier
+            ? (order.isPickup
+                ? OrderStatus.delivered
+                : order.isDineIn
+                    ? OrderStatus.ready
+                    : OrderStatus.waitingCourier)
             : null,
       OrderWorkflowAction.reject =>
         order.canBranchReject ? OrderStatus.cancelled : null,
@@ -49,8 +53,10 @@ abstract final class OrderWorkflow {
 
   static bool _branchCan(OrderWorkflowAction action, Order order) {
     return switch (action) {
-      OrderWorkflowAction.accept => order.status == OrderStatus.received,
-      OrderWorkflowAction.markReady => order.status == OrderStatus.preparing,
+      OrderWorkflowAction.accept =>
+        order.isDelivery && order.status == OrderStatus.received,
+      OrderWorkflowAction.markReady =>
+        order.status == OrderStatus.preparing,
       OrderWorkflowAction.reject => order.canBranchReject,
       _ => false,
     };
@@ -58,8 +64,10 @@ abstract final class OrderWorkflow {
 
   static bool _adminCan(OrderWorkflowAction action, Order order) {
     return switch (action) {
-      OrderWorkflowAction.accept => order.status == OrderStatus.received,
-      OrderWorkflowAction.markReady => order.status == OrderStatus.preparing,
+      OrderWorkflowAction.accept =>
+        order.isDelivery && order.status == OrderStatus.received,
+      OrderWorkflowAction.markReady =>
+        order.status == OrderStatus.preparing,
       OrderWorkflowAction.reject => order.canBranchReject,
       _ => false,
     };
@@ -80,11 +88,14 @@ abstract final class OrderWorkflow {
   ) {
     return switch (action) {
       OrderWorkflowAction.assignCourier =>
-        order.status == OrderStatus.waitingCourier &&
+        order.isDelivery &&
+            order.status == OrderStatus.waitingCourier &&
             order.courierId == null &&
             (user.branchId == null || user.branchId == order.branchId),
       OrderWorkflowAction.markDelivered =>
-        order.courierId == user.id && order.status == OrderStatus.onTheWay,
+        order.isDelivery &&
+            order.courierId == user.id &&
+            order.status == OrderStatus.onTheWay,
       _ => false,
     };
   }

@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/otp_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/phone_onboarding_page.dart';
+import '../../features/auth/presentation/pages/address_onboarding_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/branch_manager/cash_remittance/presentation/pages/branch_cash_remittances_page.dart';
 import '../../features/branch_manager/cashier/presentation/pages/branch_cashier_page.dart';
@@ -29,6 +32,10 @@ import '../../features/admin/reviews/presentation/pages/admin_pending_reviews_pa
 import '../../features/admin/reports/presentation/pages/admin_reports_page.dart';
 import '../../features/admin/users/presentation/pages/admin_users_page.dart';
 import '../../features/admin/waiter_settings/presentation/pages/admin_waiter_settings_page.dart';
+import '../../features/admin/qr_menu/presentation/pages/admin_qr_menu_page.dart';
+import '../../features/admin/phone_customers/presentation/pages/admin_phone_customers_page.dart';
+import '../../features/admin/phone_failed_orders/presentation/pages/admin_phone_failed_orders_page.dart';
+import '../../features/admin/phone_ai/presentation/pages/admin_phone_ai_training_page.dart';
 import '../../features/admin/paytr_settings/presentation/pages/admin_paytr_settings_page.dart';
 import '../../features/admin/promotions/presentation/pages/admin_promotions_page.dart';
 import '../../features/admin/presentation/pages/admin_tools_page.dart';
@@ -75,6 +82,18 @@ GoRouter createAppRouter(Ref ref) {
       GoRoute(
         path: RoutePaths.authOtp,
         builder: (context, state) => const OtpPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.authRegister,
+        builder: (context, state) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.authPhoneOnboarding,
+        builder: (context, state) => const PhoneOnboardingPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.authAddressOnboarding,
+        builder: (context, state) => const AddressOnboardingPage(),
       ),
       ShellRoute(
         navigatorKey: customerShellKey,
@@ -185,6 +204,11 @@ GoRouter createAppRouter(Ref ref) {
             path: RoutePaths.branchWaiter,
             builder: (context, state) => const WaiterTablePage(),
             routes: [
+              GoRoute(
+                path: 'pickup',
+                builder: (context, state) =>
+                    const WaiterOrderPage(isPickup: true),
+              ),
               GoRoute(
                 path: 'table/:number',
                 builder: (context, state) => WaiterOrderPage(
@@ -334,6 +358,22 @@ GoRouter createAppRouter(Ref ref) {
           GoRoute(
             path: RoutePaths.adminWaiterSettings,
             builder: (context, state) => const AdminWaiterSettingsPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminQrMenu,
+            builder: (context, state) => const AdminQrMenuPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminPhoneCustomers,
+            builder: (context, state) => const AdminPhoneCustomersPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminPhoneFailedOrders,
+            builder: (context, state) => const AdminPhoneFailedOrdersPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminPhoneAiTraining,
+            builder: (context, state) => const AdminPhoneAiTrainingPage(),
           ),
           GoRoute(
             path: RoutePaths.adminPaytrSettings,

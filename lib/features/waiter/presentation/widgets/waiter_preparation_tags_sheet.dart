@@ -1,11 +1,12 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/waiter_preparation_tags.dart';
-import '../../../../core/widgets/preparation_tags_chips.dart';
+import '../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 
 Future<Set<String>> showWaiterPreparationTagsSheet(
   BuildContext context, {
@@ -22,21 +23,25 @@ Future<Set<String>> showWaiterPreparationTagsSheet(
   return result ?? selected;
 }
 
-class _WaiterPreparationTagsSheet extends StatefulWidget {
+class _WaiterPreparationTagsSheet extends ConsumerStatefulWidget {
   const _WaiterPreparationTagsSheet({required this.initial});
 
   final Set<String> initial;
 
   @override
-  State<_WaiterPreparationTagsSheet> createState() =>
+  ConsumerState<_WaiterPreparationTagsSheet> createState() =>
       _WaiterPreparationTagsSheetState();
 }
 
-class _WaiterPreparationTagsSheetState extends State<_WaiterPreparationTagsSheet> {
+class _WaiterPreparationTagsSheetState
+    extends ConsumerState<_WaiterPreparationTagsSheet> {
   late Set<String> _selected = Set<String>.from(widget.initial);
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(waiterModeSettingsProvider).valueOrNull;
+    final options = settings?.enabledPreparationOptions ?? [];
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -65,20 +70,23 @@ class _WaiterPreparationTagsSheetState extends State<_WaiterPreparationTagsSheet
               spacing: 6,
               runSpacing: 6,
               children: [
-                for (final key in WaiterPreparationTags.allKeys)
+                for (final option in options)
                   FilterChip(
                     label: Text(
-                      WaiterPreparationTags.label(key),
+                      WaiterPreparationTags.label(
+                        option.id,
+                        options: settings?.preparationOptions,
+                      ),
                       style: const TextStyle(fontSize: 13),
                     ),
                     visualDensity: VisualDensity.compact,
-                    selected: _selected.contains(key),
+                    selected: _selected.contains(option.id),
                     onSelected: (value) {
                       setState(() {
                         if (value) {
-                          _selected.add(key);
+                          _selected.add(option.id);
                         } else {
-                          _selected.remove(key);
+                          _selected.remove(option.id);
                         }
                       });
                     },
@@ -111,21 +119,5 @@ class _WaiterPreparationTagsSheetState extends State<_WaiterPreparationTagsSheet
         ),
       ),
     );
-  }
-}
-
-class WaiterPreparationTagsChips extends StatelessWidget {
-  const WaiterPreparationTagsChips({
-    super.key,
-    required this.tags,
-    this.compact = false,
-  });
-
-  final List<String> tags;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return PreparationTagsChips(tags: tags, compact: compact);
   }
 }

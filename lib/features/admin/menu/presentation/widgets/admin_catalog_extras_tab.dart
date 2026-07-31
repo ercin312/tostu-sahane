@@ -162,7 +162,13 @@ class _AdminCatalogExtraEditorSheetState
 }
 
 class AdminCatalogExtrasTab extends ConsumerWidget {
-  const AdminCatalogExtrasTab({super.key});
+  const AdminCatalogExtrasTab({
+    super.key,
+    this.showInlineAddButton = false,
+  });
+
+  /// Menü sayfasında FAB varken false; Garson Ayarları sekmesinde true.
+  final bool showInlineAddButton;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -176,9 +182,23 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(
-                LocaleKeys.adminNoCatalogExtras.tr(),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    LocaleKeys.adminNoCatalogExtras.tr(),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (showInlineAddButton) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    FilledButton.icon(
+                      onPressed: () =>
+                          showAdminCatalogExtraEditor(context, ref),
+                      icon: const Icon(Icons.add),
+                      label: Text(LocaleKeys.adminAddExtra.tr()),
+                    ),
+                  ],
+                ],
               ),
             ),
           );
@@ -186,10 +206,22 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
 
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: extras.length,
+          itemCount: extras.length + (showInlineAddButton ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
-            final extra = extras[index];
+            if (showInlineAddButton && index == 0) {
+              return Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: () =>
+                      showAdminCatalogExtraEditor(context, ref),
+                  icon: const Icon(Icons.add),
+                  label: Text(LocaleKeys.adminAddExtra.tr()),
+                ),
+              );
+            }
+            final extraIndex = showInlineAddButton ? index - 1 : index;
+            final extra = extras[extraIndex];
             return _CatalogExtraListTile(
               extra: extra,
               onEdit: () =>

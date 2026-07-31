@@ -27,7 +27,15 @@ class _SplashPageState extends ConsumerState<SplashPage> {
         if (!mounted) return;
         final auth = ref.read(authProvider);
         if (auth != null) {
-          context.go(_homeForRole(auth.user.role));
+          if (auth.needsPhoneOnboarding &&
+              auth.user.role == UserRole.customer) {
+            context.go(RoutePaths.authPhoneOnboarding);
+          } else if (auth.needsAddressOnboarding &&
+              auth.user.role == UserRole.customer) {
+            context.go(RoutePaths.authAddressOnboarding);
+          } else {
+            context.go(_homeForRole(auth.user.role));
+          }
         } else {
           context.go(RoutePaths.authLogin);
         }

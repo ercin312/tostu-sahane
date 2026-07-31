@@ -4,8 +4,38 @@ Windows ops (restoran PC)
 cd "C:\Users\excalibur\Desktop\Tostu Sahane"
 .\scripts\pack_windows_desktop.ps1
 
+.\scripts\create_windows_setup.ps1
+
 Masaustune "Tostu Sahane Windows" klasoru cikar.
 Diger PC'ye TUM klasoru kopyalayin (exe + data + *.dll).
 Hata: msvcp140.dll -> once pack script ile yeniden paketleyin veya 1_VC_Runtime_Kur.bat
 
 Demo garson (mock): garson1 / Sahane123!
+
+Giriş ekranında Mutfak rolünü seçin.
+Kullanıcı adı / şifre ile giriş yapın.
+Demo hesap (mock mod):
+
+Kullanıcı: mutfak1
+Şifre: Sahane123!
+
+
+Mod	Kullanıcı adı	Şifre
+Sistem yöneticisi
+admin
+Sahane123!
+Şube yöneticisi
+sube1
+Sahane123!
+Şube personeli
+personel1
+Sahane123!
+Garson
+garson1
+Sahane123!
+Mutfak
+mutfak1
+Sahane123!
+Kurye
+kurye1
+Sahane123!

@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/utils/customer_order_matching.dart';
+import '../../../core/utils/phone_digits.dart';
+import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../domain/entities/delivery_address.dart';
 import '../../domain/entities/branch.dart';
 import '../../domain/entities/coupon.dart';
 import '../../domain/entities/order.dart';
@@ -11,6 +15,7 @@ import '../../domain/entities/product_review.dart';
 import '../../domain/utils/product_extras_resolver.dart';
 import '../../domain/entities/auth.dart';
 import '../../domain/entities/waiter_mode_settings.dart';
+import '../../domain/entities/qr_menu_settings.dart';
 import '../../domain/entities/paytr_settings.dart';
 import '../../domain/entities/print_routing_settings.dart';
 import '../../domain/entities/delivery_settings.dart';
@@ -37,9 +42,9 @@ class BranchRepository {
 
   Future<List<Branch>> getBranches() async {
     if (AppConfig.useMockApi) return _mock.getBranches();
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
-        await _firestore.ensureSeeded();
+        if (AppConfig.useFirestore) await _firestore.ensureSeeded();
         final branches = await _firestore.getBranches();
         if (branches.isEmpty) return _mock.getBranches();
         return branches;
@@ -78,10 +83,12 @@ class ProductRepository {
         extras = await _firestore
             .getCatalogExtras()
             .timeout(AppConfig.apiTimeout);
-        if (extras.isEmpty) {
+        // Windows ops: asla mock kataloga düşme — eklenen görseller/ürünler kaybolmasın.
+        if (extras.isEmpty && !AppConfig.useWindowsOpsFirestoreRest) {
           extras = await _mock.getCatalogExtras();
         }
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         extras = await _mock.getCatalogExtras();
       }
     } else {
@@ -93,7 +100,7 @@ class ProductRepository {
   Future<List<ProductExtra>> _migrateLocalExtraImages(
     List<ProductExtra> extras,
   ) async {
-    if (!AppConfig.useFirestore) return extras;
+    if (!AppConfig.useFirestoreBackend) return extras;
 
     final migrated = <ProductExtra>[];
     for (final extra in extras) {
@@ -130,7 +137,12 @@ class ProductRepository {
         !MediaStorageService.isNetworkSource(imageUrl) &&
         !MediaStorageService.isBase64Source(imageUrl) &&
         !MediaStorageService.localFileExists(imageUrl)) {
-      imageUrl = MockData.imageUrlForProduct(product.id);
+      // Yabancı cihaz yolu: Firestore kaydını silme; sadece gösterimde seed URL dene.
+      final seed = MockData.imageUrlForProduct(product.id);
+      if (seed != null && seed.isNotEmpty) {
+        imageUrl = seed;
+      }
+      // Yerel path çözülemiyorsa olduğu gibi bırak (AppImage placeholder gösterir).
     }
     if (imageUrl == product.imageUrl) return product;
     return product.copyWith(imageUrl: imageUrl);
@@ -142,7 +154,10 @@ class ProductRepository {
         !MediaStorageService.isNetworkSource(imageUrl) &&
         !MediaStorageService.isBase64Source(imageUrl) &&
         !MediaStorageService.localFileExists(imageUrl)) {
-      imageUrl = MockData.imageUrlForExtra(extra.id);
+      final seed = MockData.imageUrlForExtra(extra.id);
+      if (seed != null && seed.isNotEmpty) {
+        imageUrl = seed;
+      }
     }
     if (imageUrl == extra.imageUrl) return extra;
     return extra.copyWith(imageUrl: imageUrl);
@@ -156,6 +171,7 @@ class ProductRepository {
   }
 
   Future<List<Product>> _migrateLocalProductImages(List<Product> products) async {
+    if (!AppConfig.useFirestoreBackend) return products;
     final migrated = <Product>[];
     for (final product in products) {
       final prepared = await _prepareProductForRemote(product);
@@ -177,6 +193,29 @@ class ProductRepository {
     return extra.copyWith(imageUrl: imageUrl);
   }
 
+  Future<void> _clearWaiterCatalogPriceOverride(
+    String itemId, {
+    required bool isExtra,
+  }) async {
+    if (AppConfig.useMockApi || !AppConfig.useFirestoreBackend) return;
+    try {
+      final current = await _firestore.getWaiterModeSettings();
+      final productPrices = Map<String, double>.from(current.productPrices);
+      final catalogExtraPrices =
+          Map<String, double>.from(current.catalogExtraPrices);
+      final changed = isExtra
+          ? catalogExtraPrices.remove(itemId) != null
+          : productPrices.remove(itemId) != null;
+      if (!changed) return;
+      await _firestore.updateWaiterModeSettings(
+        current.copyWith(
+          productPrices: productPrices,
+          catalogExtraPrices: catalogExtraPrices,
+        ),
+      );
+    } catch (_) {}
+  }
+
   Future<List<ProductExtra>> getCatalogExtras() async {
     final extras = await _loadCatalogExtras();
     final normalized = <ProductExtra>[];
@@ -189,12 +228,13 @@ class ProductRepository {
   Future<ProductExtra> createCatalogExtra(ProductExtra extra) async {
     extra = await _prepareExtraForRemote(extra);
     if (AppConfig.useMockApi) return _mock.createCatalogExtra(extra);
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore
             .createCatalogExtra(extra)
             .timeout(AppConfig.apiTimeout);
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         return _mock.createCatalogExtra(extra);
       }
     }
@@ -204,12 +244,15 @@ class ProductRepository {
   Future<ProductExtra> updateCatalogExtra(ProductExtra extra) async {
     extra = await _prepareExtraForRemote(extra);
     if (AppConfig.useMockApi) return _mock.updateCatalogExtra(extra);
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
-        return await _firestore
+        final updated = await _firestore
             .updateCatalogExtra(extra)
             .timeout(AppConfig.apiTimeout);
+        await _clearWaiterCatalogPriceOverride(extra.id, isExtra: true);
+        return updated;
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         return _mock.updateCatalogExtra(extra);
       }
     }
@@ -218,11 +261,13 @@ class ProductRepository {
 
   Future<void> deleteCatalogExtra(String extraId) async {
     if (AppConfig.useMockApi) return _mock.deleteCatalogExtra(extraId);
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         await _firestore.deleteCatalogExtra(extraId);
         return;
-      } catch (_) {}
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+      }
     }
     await _mock.deleteCatalogExtra(extraId);
   }
@@ -231,16 +276,19 @@ class ProductRepository {
     if (AppConfig.useMockApi) {
       return _resolveProducts(await _mock.getProducts(branchId: branchId));
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
-        await _firestore.ensureSeeded();
+        if (AppConfig.useFirestore) await _firestore.ensureSeeded();
         final products = await _firestore.getProducts(branchId: branchId);
-        if (products.isEmpty) {
+        // Windows ops: boş veya hata durumunda mock katalog göstermeyelim —
+        // admin'in eklediği ürünler kaybolmuş gibi görünür.
+        if (products.isEmpty && !AppConfig.useWindowsOpsFirestoreRest) {
           return _resolveProducts(await _mock.getProducts(branchId: branchId));
         }
         final migrated = await _migrateLocalProductImages(products);
         return _resolveProducts(migrated);
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         return _resolveProducts(await _mock.getProducts(branchId: branchId));
       }
     }
@@ -256,8 +304,14 @@ class ProductRepository {
     Product updated;
     if (AppConfig.useMockApi) {
       updated = await _mock.updateProductAvailability(productId, available);
-    } else if (AppConfig.useFirestore) {
-      updated = await _firestore.updateProductAvailability(productId, available);
+    } else if (AppConfig.useFirestoreBackend) {
+      try {
+        updated =
+            await _firestore.updateProductAvailability(productId, available);
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        updated = await _mock.updateProductAvailability(productId, available);
+      }
     } else {
       try {
         final model = await _remote.updateAvailability(productId, available);
@@ -279,12 +333,13 @@ class ProductRepository {
     Product created;
     if (AppConfig.useMockApi) {
       created = await _mock.createProduct(product);
-    } else if (AppConfig.useFirestore) {
+    } else if (AppConfig.useFirestoreBackend) {
       try {
         created = await _firestore
             .createProduct(product)
             .timeout(AppConfig.apiTimeout);
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         created = await _mock.createProduct(product);
       }
     } else {
@@ -309,12 +364,14 @@ class ProductRepository {
     Product updated;
     if (AppConfig.useMockApi) {
       updated = await _mock.updateProduct(product);
-    } else if (AppConfig.useFirestore) {
+    } else if (AppConfig.useFirestoreBackend) {
       try {
         updated = await _firestore
             .updateProduct(product)
             .timeout(AppConfig.apiTimeout);
+        await _clearWaiterCatalogPriceOverride(product.id, isExtra: false);
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         updated = await _mock.updateProduct(product);
       }
     } else {
@@ -336,7 +393,13 @@ class ProductRepository {
 
   Future<void> deleteProduct(String productId) async {
     if (AppConfig.useMockApi) return _mock.deleteProduct(productId);
-    if (AppConfig.useFirestore) return _firestore.deleteProduct(productId);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return _firestore.deleteProduct(productId);
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+      }
+    }
     try {
       await _remote.deleteProduct(productId);
     } catch (_) {
@@ -392,6 +455,42 @@ class OrderRepository {
       return models.map(EntityMappers.toOrder).toList();
     } catch (_) {
       return _mock.getOrders();
+    }
+  }
+
+  Future<List<Order>> getCustomerOrders(AuthState auth) async {
+    final keys = customerIdentityKeys(auth);
+    final ten = normalizeTrPhoneDigits(auth.phone);
+    if (AppConfig.useMockApi) {
+      final orders = await _mock.getOrders();
+      return orders
+          .where((order) => orderBelongsToCustomer(order, auth))
+          .toList();
+    }
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.getCustomerOrders(
+          customerIds: keys,
+          phoneDigits: ten,
+        );
+      } catch (_) {
+        final orders = await _mock.getOrders();
+        return orders
+            .where((order) => orderBelongsToCustomer(order, auth))
+            .toList();
+      }
+    }
+    try {
+      final models = await _remote.getOrders();
+      return models
+          .map(EntityMappers.toOrder)
+          .where((order) => orderBelongsToCustomer(order, auth))
+          .toList();
+    } catch (_) {
+      final orders = await _mock.getOrders();
+      return orders
+          .where((order) => orderBelongsToCustomer(order, auth))
+          .toList();
     }
   }
 
@@ -666,12 +765,15 @@ class OrderRepository {
     required List<CartItem> items,
     required double totalAmount,
     required String branchId,
-    required int tableNumber,
+    int? tableNumber,
     required String waiterId,
     required String waiterName,
     String? waiterCode,
     String? orderNote,
     List<String> preparationTags = const [],
+    PaymentMethod paymentMethod = PaymentMethod.cashOnDelivery,
+    bool isPickup = false,
+    bool isTableAddon = false,
   }) async {
     if (AppConfig.useFirestoreBackend) {
       final built = await _firestore.buildDineInOrderAsync(
@@ -684,6 +786,9 @@ class OrderRepository {
         waiterCode: waiterCode,
         orderNote: orderNote,
         preparationTags: preparationTags,
+        paymentMethod: paymentMethod,
+        isPickup: isPickup,
+        isTableAddon: isTableAddon,
       );
       return await _firestore
           .createOrder(built)
@@ -699,6 +804,9 @@ class OrderRepository {
       waiterCode: waiterCode,
       orderNote: orderNote,
       preparationTags: preparationTags,
+      paymentMethod: paymentMethod,
+      isPickup: isPickup,
+      isTableAddon: isTableAddon,
     );
     return _mock.createOrder(built);
   }
@@ -771,6 +879,32 @@ class OrderRepository {
     );
   }
 
+  Future<List<Order>> moveDineInTableOrders({
+    required String branchId,
+    required int fromTableNumber,
+    required int toTableNumber,
+  }) async {
+    if (AppConfig.useMockApi) {
+      return _mock.moveDineInTableOrders(
+        branchId: branchId,
+        fromTableNumber: fromTableNumber,
+        toTableNumber: toTableNumber,
+      );
+    }
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.moveDineInTableOrders(
+        branchId: branchId,
+        fromTableNumber: fromTableNumber,
+        toTableNumber: toTableNumber,
+      );
+    }
+    return _mock.moveDineInTableOrders(
+      branchId: branchId,
+      fromTableNumber: fromTableNumber,
+      toTableNumber: toTableNumber,
+    );
+  }
+
   Future<Order> removeDineInOrderItem(
     String orderId,
     String cartItemId, {
@@ -821,7 +955,7 @@ class AuthRepository {
 
   Future<void> sendOtp(String phone, String role) async {
     if (AppConfig.useMockApi) return _mock.sendOtp(phone, role);
-    if (AppConfig.useFirestore) return _firestore.sendOtp(phone, role);
+    if (AppConfig.useFirestoreBackend) return _firestore.sendOtp(phone, role);
     try {
       await _remote.sendOtp(phone, role);
     } catch (_) {
@@ -839,13 +973,48 @@ class AuthRepository {
     }
   }
 
-  Future<AuthUserModel> verifyOtp(String phone, String otp, String role) async {
-    if (AppConfig.useMockApi) return _mock.verifyOtp(phone, otp, role);
-    if (AppConfig.useFirestore) return _firestore.verifyOtp(phone, otp, role);
+  Future<AuthUserModel> verifyOtp(
+    String phone,
+    String otp,
+    String role, {
+    String? name,
+    String? password,
+  }) async {
+    if (AppConfig.useMockApi) {
+      return _mock.verifyOtp(phone, otp, role, name: name, password: password);
+    }
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.verifyOtp(
+        phone,
+        otp,
+        role,
+        name: name,
+        password: password,
+      );
+    }
     try {
       return await _remote.verifyOtp(phone, otp, role);
     } catch (_) {
-      return _mock.verifyOtp(phone, otp, role);
+      return _mock.verifyOtp(phone, otp, role, name: name, password: password);
+    }
+  }
+
+  Future<AuthUserModel> loginCustomerPhonePassword(
+    String phone,
+    String password,
+  ) async {
+    if (AppConfig.useMockApi) {
+      return _mock.loginCustomerPhonePassword(phone, password);
+    }
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.loginCustomerPhonePassword(phone, password);
+    }
+    try {
+      return await _firestore.loginCustomerPhonePassword(phone, password);
+    } on AuthCredentialsException {
+      rethrow;
+    } catch (_) {
+      return _mock.loginCustomerPhonePassword(phone, password);
     }
   }
 
@@ -871,16 +1040,8 @@ class AuthRepository {
     if (AppConfig.useMockApi) {
       return _mock.loginWithEmailPassword(email, password, role);
     }
-    if (AppConfig.useFirestore || AppConfig.useWindowsOpsFirestoreRest) {
-      try {
-        return await _firestore.loginWithEmailPassword(email, password, role);
-      } on AuthCredentialsException {
-        // Firestore'da ops kullanıcısı yoksa demo garson/mutfak hesaplarına düş.
-        if (role == 'waiter' || role == 'kitchenStaff') {
-          return _mock.loginWithEmailPassword(email, password, role);
-        }
-        rethrow;
-      }
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.loginWithEmailPassword(email, password, role);
     }
     try {
       return await _remote.loginWithEmailPassword(email, password, role);
@@ -912,6 +1073,19 @@ class AuthRepository {
       await _mock.registerPushToken(token);
     }
   }
+
+  Future<List<DeliveryAddress>> getUserAddresses(String userId) async {
+    if (AppConfig.useMockApi || !AppConfig.useFirestore) return const [];
+    return _firestore.getUserAddresses(userId);
+  }
+
+  Future<void> saveUserAddresses(
+    String userId,
+    List<DeliveryAddress> addresses,
+  ) async {
+    if (AppConfig.useMockApi || !AppConfig.useFirestore) return;
+    await _firestore.saveUserAddresses(userId, addresses);
+  }
 }
 
 class AdminRepository {
@@ -929,10 +1103,11 @@ class AdminRepository {
 
   Future<List<Branch>> getBranches() async {
     if (AppConfig.useMockApi) return _mock.getAdminBranches();
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore.getBranches();
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         return _mock.getAdminBranches();
       }
     }
@@ -946,10 +1121,11 @@ class AdminRepository {
 
   Future<List<AdminUserModel>> getUsers() async {
     if (AppConfig.useMockApi) return _mock.getAdminUsers();
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore.getAdminUsers();
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         return _mock.getAdminUsers();
       }
     }
@@ -962,10 +1138,11 @@ class AdminRepository {
 
   Future<AdminReportModel> getReports() async {
     if (AppConfig.useMockApi) return _mock.getAdminReports();
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore.getAdminReports();
       } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         return _mock.getAdminReports();
       }
     }
@@ -978,7 +1155,14 @@ class AdminRepository {
 
   Future<Branch> createBranch(Branch branch) async {
     if (AppConfig.useMockApi) return _mock.createBranch(branch);
-    if (AppConfig.useFirestore) return _firestore.createBranch(branch);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.createBranch(branch);
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        return _mock.createBranch(branch);
+      }
+    }
     try {
       final model =
           await _remote.createBranch(EntityMappers.fromBranch(branch));
@@ -990,7 +1174,14 @@ class AdminRepository {
 
   Future<Branch> updateBranch(Branch branch) async {
     if (AppConfig.useMockApi) return _mock.updateBranch(branch);
-    if (AppConfig.useFirestore) return _firestore.updateBranch(branch);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.updateBranch(branch);
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        return _mock.updateBranch(branch);
+      }
+    }
     try {
       final model =
           await _remote.updateBranch(EntityMappers.fromBranch(branch));
@@ -1002,7 +1193,14 @@ class AdminRepository {
 
   Future<void> deleteBranch(String branchId) async {
     if (AppConfig.useMockApi) return _mock.deleteBranch(branchId);
-    if (AppConfig.useFirestore) return _firestore.deleteBranch(branchId);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        await _firestore.deleteBranch(branchId);
+        return;
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+      }
+    }
     try {
       await _remote.deleteBranch(branchId);
     } catch (_) {
@@ -1012,7 +1210,14 @@ class AdminRepository {
 
   Future<AdminUserModel> createUser(AdminUserModel user) async {
     if (AppConfig.useMockApi) return _mock.createAdminUser(user);
-    if (AppConfig.useFirestore) return _firestore.createAdminUser(user);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.createAdminUser(user);
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        return _mock.createAdminUser(user);
+      }
+    }
     try {
       return await _remote.createUser(user);
     } catch (_) {
@@ -1022,7 +1227,14 @@ class AdminRepository {
 
   Future<AdminUserModel> updateUser(AdminUserModel user) async {
     if (AppConfig.useMockApi) return _mock.updateAdminUser(user);
-    if (AppConfig.useFirestore) return _firestore.updateAdminUser(user);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.updateAdminUser(user);
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        return _mock.updateAdminUser(user);
+      }
+    }
     try {
       return await _remote.updateUser(user);
     } catch (_) {
@@ -1032,7 +1244,14 @@ class AdminRepository {
 
   Future<void> deleteUser(String userId) async {
     if (AppConfig.useMockApi) return _mock.deleteAdminUser(userId);
-    if (AppConfig.useFirestore) return _firestore.deleteAdminUser(userId);
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        await _firestore.deleteAdminUser(userId);
+        return;
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+      }
+    }
     try {
       await _remote.deleteUser(userId);
     } catch (_) {
@@ -1042,7 +1261,7 @@ class AdminRepository {
 
   Future<WaiterModeSettings> getWaiterModeSettings() async {
     if (AppConfig.useMockApi) return _mock.getWaiterModeSettings();
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore.getWaiterModeSettings();
       } catch (_) {
@@ -1058,17 +1277,61 @@ class AdminRepository {
     if (AppConfig.useMockApi) {
       return _mock.updateWaiterModeSettings(settings);
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       return _firestore.updateWaiterModeSettings(settings);
     }
     return _mock.updateWaiterModeSettings(settings);
+  }
+
+  Future<QrMenuSettings> getQrMenuSettings() async {
+    if (AppConfig.useMockApi) return QrMenuSettings.defaults;
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.getQrMenuSettings();
+      } catch (_) {
+        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        return QrMenuSettings.defaults;
+      }
+    }
+    return QrMenuSettings.defaults;
+  }
+
+  Future<QrMenuSettings> updateQrMenuSettings(QrMenuSettings settings) async {
+    if (AppConfig.useMockApi) return settings;
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.updateQrMenuSettings(settings);
+    }
+    return settings;
+  }
+
+  Stream<List<TableServiceRequest>> watchPendingTableServiceRequests({
+    String? branchId,
+  }) {
+    if (AppConfig.useMockApi) {
+      return Stream.value(const []);
+    }
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return _firestore.watchPendingTableServiceRequests(branchId: branchId);
+      } catch (_) {
+        return Stream.value(const []);
+      }
+    }
+    return Stream.value(const []);
+  }
+
+  Future<void> acknowledgeTableServiceRequest(String requestId) async {
+    if (AppConfig.useMockApi) return;
+    if (AppConfig.useFirestoreBackend) {
+      await _firestore.acknowledgeTableServiceRequest(requestId);
+    }
   }
 
   Stream<WaiterModeSettings> watchWaiterModeSettings() {
     if (AppConfig.useMockApi) {
       return _mock.watchWaiterModeSettings();
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return _firestore.watchWaiterModeSettings();
       } catch (_) {

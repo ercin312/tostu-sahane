@@ -47,22 +47,63 @@ void main() {
     );
   });
 
-  test('kitchen staff cannot reject or assign courier', () {
+  test('kitchen mark ready advances dine-in to ready not waitingCourier', () {
+    final preparing = dineInOrder.copyWith(status: OrderStatus.preparing);
+    expect(
+      OrderWorkflow.targetStatus(preparing, OrderWorkflowAction.markReady),
+      OrderStatus.ready,
+    );
+
+    final delivery = preparing.copyWith(orderType: OrderType.delivery);
+    expect(
+      OrderWorkflow.targetStatus(delivery, OrderWorkflowAction.markReady),
+      OrderStatus.waitingCourier,
+    );
+  });
+
+  test('courier cannot take dine-in orders even in legacy waitingCourier', () {
+    const courier = User(
+      id: 'u2',
+      name: 'Kurye',
+      role: UserRole.courier,
+      branchId: 'branch_1',
+    );
+    final legacyDineIn = dineInOrder.copyWith(
+      status: OrderStatus.waitingCourier,
+    );
     expect(
       OrderWorkflow.canPerform(
-        kitchenUser,
-        dineInOrder,
-        OrderWorkflowAction.reject,
+        courier,
+        legacyDineIn,
+        OrderWorkflowAction.assignCourier,
+      ),
+      isFalse,
+    );
+  });
+
+  test('branch accept is delivery-only', () {
+    const manager = User(
+      id: 'u1',
+      name: 'Şube',
+      role: UserRole.branchManager,
+      branchId: 'branch_1',
+    );
+    final receivedDineIn = dineInOrder;
+    expect(
+      OrderWorkflow.canPerform(
+        manager,
+        receivedDineIn,
+        OrderWorkflowAction.accept,
       ),
       isFalse,
     );
     expect(
       OrderWorkflow.canPerform(
-        kitchenUser,
-        dineInOrder,
-        OrderWorkflowAction.assignCourier,
+        manager,
+        receivedDineIn.copyWith(orderType: OrderType.delivery),
+        OrderWorkflowAction.accept,
       ),
-      isFalse,
+      isTrue,
     );
   });
 }

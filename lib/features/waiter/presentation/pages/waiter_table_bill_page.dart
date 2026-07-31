@@ -21,6 +21,7 @@ import '../providers/table_sessions_provider.dart';
 import '../../../../core/widgets/order_modifiers_panel.dart';
 import '../../../../core/widgets/order_preparation_preferences_panel.dart';
 import '../../../../core/utils/waiter_order_notes.dart';
+import '../widgets/waiter_table_picker_dialog.dart';
 
 class WaiterTableBillPage extends ConsumerStatefulWidget {
   const WaiterTableBillPage({
@@ -261,7 +262,76 @@ class _WaiterTableBillPageState extends ConsumerState<WaiterTableBillPage> {
     }
   }
 
-  bool get _busy => _closing || _voiding || _cancellingItem;
+  bool get _busy => _closing || _voiding || _cancellingItem || _movingTable;
+
+  var _movingTable = false;
+
+  Future<void> _changeTable() async {
+    final toTable = await showWaiterTablePicker(
+      context,
+      title: LocaleKeys.waiterChangeTableTitle.tr(),
+      subtitle: LocaleKeys.waiterChangeTableHint.tr(),
+      excludeTable: widget.tableNumber,
+      highlightTable: widget.tableNumber,
+    );
+    if (toTable == null || !mounted) return;
+    if (toTable == widget.tableNumber) return;
+
+    final target = ref.read(tableSessionProvider(toTable));
+    if (target != null && target.isOpen) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(LocaleKeys.waiterChangeTable.tr()),
+          content: Text(LocaleKeys.waiterChangeTableOccupied.tr()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(LocaleKeys.commonCancel.tr()),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(LocaleKeys.commonOk.tr()),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+
+    setState(() => _movingTable = true);
+    try {
+      await ref.read(ordersProvider.notifier).moveDineInTable(
+            fromTableNumber: widget.tableNumber,
+            toTableNumber: toTable,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            LocaleKeys.waiterChangeTableSuccess.tr(
+              namedArgs: {
+                'from': '${widget.tableNumber}',
+                'to': '$toTable',
+              },
+            ),
+          ),
+        ),
+      );
+      context.go(
+        widget.cashierMode
+            ? (widget.returnPath ?? RoutePaths.branchCashierBill(toTable))
+            : RoutePaths.branchWaiterBill(toTable),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.commonError.tr())),
+      );
+    } finally {
+      if (mounted) setState(() => _movingTable = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -319,6 +389,15 @@ class _WaiterTableBillPageState extends ConsumerState<WaiterTableBillPage> {
         ),
         toolbarHeight: 48,
         actions: [
+          TextButton.icon(
+            onPressed: _busy ? null : _changeTable,
+            icon: const Icon(Icons.swap_horiz, size: 20),
+            label: Text(LocaleKeys.waiterChangeTable.tr()),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+          ),
           if (!widget.cashierMode)
             TextButton(
               onPressed: _busy
@@ -363,6 +442,24 @@ class _WaiterTableBillPageState extends ConsumerState<WaiterTableBillPage> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  height: 48,
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : _changeTable,
+                    icon: const Icon(Icons.swap_horiz),
+                    label: Text(
+                      LocaleKeys.waiterChangeTable.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      side: const BorderSide(color: Color(0xFF7A8FA3), width: 1.5),
+                      textStyle: const TextStyle(fontSize: 15),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 ...session.openOrders.expand((order) {

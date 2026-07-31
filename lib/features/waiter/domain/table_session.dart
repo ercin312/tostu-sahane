@@ -25,7 +25,7 @@ class TableSession {
 }
 
 bool isOpenDineInOrder(Order order) =>
-    order.isDineIn && order.isActive;
+    order.isDineIn && !order.isPickup && order.isActive;
 
 List<TableSession> buildTableSessions({
   required int tableCount,

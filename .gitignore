@@ -48,12 +48,19 @@ app.*.map.json
 # Windows ops desktop local logs
 build/windows/**/boot_log.txt
 
+# Windows installer output
+/dist/
+
 # Node / Firebase functions
 functions/node_modules/
 
 # Secrets & signing
 .env
 .env.*
+!.env.example
+functions/.env
+functions/.env.*
+!functions/.env.example
 *.keystore
 *.jks
 key.properties

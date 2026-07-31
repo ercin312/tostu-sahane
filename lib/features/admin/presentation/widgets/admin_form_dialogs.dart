@@ -325,8 +325,7 @@ Future<void> showUserFormDialog(
               role == 'courier' ||
               role == 'waiter' ||
               role == 'kitchenStaff';
-          final usesUsernameLogin =
-              role == 'waiter' || role == 'kitchenStaff';
+          final usesUsernameLogin = role != 'customer';
           return AlertDialog(
             title: Text(
               user == null
@@ -375,6 +374,10 @@ Future<void> showUserFormDialog(
                       labelText: LocaleKeys.adminUserRole.tr(),
                     ),
                     items: [
+                      DropdownMenuItem(
+                        value: 'superAdmin',
+                        child: Text(LocaleKeys.authRoleAdmin.tr()),
+                      ),
                       DropdownMenuItem(
                         value: 'branchManager',
                         child: Text(LocaleKeys.authRoleBranch.tr()),
@@ -433,43 +436,54 @@ Future<void> showUserFormDialog(
                   final name = nameController.text.trim();
                   final phone = phoneController.text.trim();
                   final username = usernameController.text.trim().toLowerCase();
-                  final password = passwordController.text;
-                  if (name.isEmpty) return;
-                  if (!usesUsernameLogin && phone.isEmpty) return;
+                  final password = passwordController.text.trim();
                   if (usesUsernameLogin &&
-                      (username.isEmpty || password.length < 6)) {
+                      (username.isEmpty ||
+                          (user == null && password.length < 6))) {
                     return;
                   }
+                  if (!usesUsernameLogin && phone.isEmpty) return;
+                  // Username login: phone optional
+                  if (name.isEmpty) return;
                   final resolvedBranchId = needsBranch
                       ? (branchId ??
                           (branches.isNotEmpty ? branches.first.id : null))
                       : null;
 
-                  if (user == null) {
-                    await ref.read(adminUsersProvider.notifier).createUser(
-                          name: name,
-                          phone: phone,
-                          role: role,
-                          branchId: resolvedBranchId,
-                          username: usesUsernameLogin ? username : null,
-                          password: usesUsernameLogin ? password : null,
-                        );
-                  } else {
-                    await ref.read(adminUsersProvider.notifier).updateUser(
-                          user.copyWith(
+                  try {
+                    if (user == null) {
+                      await ref.read(adminUsersProvider.notifier).createUser(
                             name: name,
                             phone: phone,
                             role: role,
                             branchId: resolvedBranchId,
-                            username:
-                                usesUsernameLogin ? username : user.username,
-                            password: password.isNotEmpty
-                                ? password
-                                : user.password,
-                          ),
-                        );
+                            username: usesUsernameLogin ? username : null,
+                            password: usesUsernameLogin ? password : null,
+                          );
+                    } else {
+                      await ref.read(adminUsersProvider.notifier).updateUser(
+                            user.copyWith(
+                              name: name,
+                              phone: phone,
+                              role: role,
+                              branchId: resolvedBranchId,
+                              username:
+                                  usesUsernameLogin ? username : user.username,
+                              password: password.isNotEmpty
+                                  ? password
+                                  : user.password,
+                            ),
+                          );
+                    }
+                    if (context.mounted) Navigator.pop(context);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${LocaleKeys.commonError.tr()}: $e'),
+                      ),
+                    );
                   }
-                  if (context.mounted) Navigator.pop(context);
                 },
                 child: Text(LocaleKeys.commonSave.tr()),
               ),

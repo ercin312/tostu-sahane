@@ -32,9 +32,9 @@ abstract final class AdminNavConfig {
   static const items = <AdminNavItem>[
     AdminNavItem(
       route: RoutePaths.adminDashboard,
-      labelKey: LocaleKeys.navDashboard,
-      outlinedIcon: Icons.dashboard_outlined,
-      filledIcon: Icons.dashboard,
+      labelKey: LocaleKeys.navOrders,
+      outlinedIcon: Icons.receipt_long_outlined,
+      filledIcon: Icons.receipt_long,
       mobileBottomNav: true,
     ),
     AdminNavItem(
@@ -73,11 +73,29 @@ abstract final class AdminNavConfig {
       mobileBottomNav: true,
     ),
     AdminNavItem(
+      route: RoutePaths.adminTools,
+      labelKey: LocaleKeys.navAdminTools,
+      outlinedIcon: Icons.admin_panel_settings_outlined,
+      filledIcon: Icons.admin_panel_settings,
+      desktopRail: true,
+      mobileBottomNav: false,
+    ),
+    // Windows rail'de doğrudan görünsün (Yönetim araçları listesine de ekli)
+    AdminNavItem(
+      route: RoutePaths.adminPhoneAiTraining,
+      labelKey: LocaleKeys.navPhoneAiTraining,
+      outlinedIcon: Icons.record_voice_over_outlined,
+      filledIcon: Icons.record_voice_over,
+      mobileToolsMenu: true,
+      desktopRail: true,
+    ),
+    AdminNavItem(
       route: RoutePaths.adminCourierTracking,
       labelKey: LocaleKeys.navCourierTracking,
       outlinedIcon: Icons.map_outlined,
       filledIcon: Icons.map,
       mobileToolsMenu: true,
+      desktopRail: false,
     ),
     AdminNavItem(
       route: RoutePaths.adminCashRemittances,
@@ -85,6 +103,7 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.payments_outlined,
       filledIcon: Icons.payments,
       mobileToolsMenu: true,
+      desktopRail: false,
       badge: AdminNavBadge.remittances,
     ),
     AdminNavItem(
@@ -93,6 +112,7 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.rate_review_outlined,
       filledIcon: Icons.rate_review,
       mobileToolsMenu: true,
+      desktopRail: false,
       badge: AdminNavBadge.reviews,
     ),
     AdminNavItem(
@@ -101,6 +121,31 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.room_service_outlined,
       filledIcon: Icons.room_service,
       mobileToolsMenu: true,
+      desktopRail: false,
+    ),
+    AdminNavItem(
+      route: RoutePaths.adminQrMenu,
+      labelKey: LocaleKeys.navQrMenu,
+      outlinedIcon: Icons.qr_code_2_outlined,
+      filledIcon: Icons.qr_code_2,
+      mobileToolsMenu: true,
+      desktopRail: false,
+    ),
+    AdminNavItem(
+      route: RoutePaths.adminPhoneCustomers,
+      labelKey: LocaleKeys.navPhoneCustomers,
+      outlinedIcon: Icons.contact_phone_outlined,
+      filledIcon: Icons.contact_phone,
+      mobileToolsMenu: true,
+      desktopRail: false,
+    ),
+    AdminNavItem(
+      route: RoutePaths.adminPhoneFailedOrders,
+      labelKey: LocaleKeys.navPhoneFailedOrders,
+      outlinedIcon: Icons.phone_missed_outlined,
+      filledIcon: Icons.phone_missed,
+      mobileToolsMenu: true,
+      desktopRail: true,
     ),
     AdminNavItem(
       route: RoutePaths.adminPaytrSettings,
@@ -108,6 +153,7 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.credit_card_outlined,
       filledIcon: Icons.credit_card,
       mobileToolsMenu: true,
+      desktopRail: false,
     ),
     AdminNavItem(
       route: RoutePaths.adminPromotions,
@@ -115,6 +161,7 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.local_offer_outlined,
       filledIcon: Icons.local_offer,
       mobileToolsMenu: true,
+      desktopRail: false,
     ),
   ];
 
@@ -140,13 +187,14 @@ abstract final class AdminNavConfig {
 
   static int indexForLocation(String location, {required bool desktop}) {
     final routes = desktop ? desktopRoutes : mobileBottomRoutes;
-    if (!desktop) {
-      for (final route in mobileToolsRoutes) {
-        if (location.startsWith(route)) {
-          return routes.length - 1;
-        }
-      }
+
+    if (location.startsWith(RoutePaths.adminTools) ||
+        mobileToolsRoutes.any(location.startsWith)) {
+      final toolsIndex = routes.indexOf(RoutePaths.adminTools);
+      if (toolsIndex >= 0) return toolsIndex;
+      if (!desktop) return routes.length - 1;
     }
+
     for (var i = routes.length - 1; i >= 0; i--) {
       if (location.startsWith(routes[i])) return i;
     }

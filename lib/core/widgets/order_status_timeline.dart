@@ -48,16 +48,22 @@ class OrderStatusTimeline extends StatelessWidget {
           ),
           if (!compact) const SizedBox(height: AppSpacing.xs),
         ],
-        ...OrderStatusUtils.fulfillmentPipeline.map((status) {
+        ...OrderStatusUtils.pipelineFor(order).map((status) {
           final at = order.atStatus(status);
           final isCurrent = !isCancelled && order.status == status;
           final isPast = !isCancelled &&
-              OrderStatusUtils.isPastFulfillmentStep(status, order.status);
+              OrderStatusUtils.isPastFulfillmentStep(
+                status,
+                order.status,
+                dineIn: order.isDineIn,
+              );
           if (at == null && !isCurrent && !isPast) {
             return const SizedBox.shrink();
           }
           return _TimelineRow(
-            label: OrderStatusUtils.label(status),
+            label: status == order.status
+                ? OrderStatusUtils.labelFor(order)
+                : OrderStatusUtils.label(status),
             at: at,
             fallbackAt: status == OrderStatus.received ? order.createdAt : null,
             isCurrent: isCurrent,

@@ -56,6 +56,14 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
+                if (order.isPhoneOrder)
+                  Chip(
+                    label: Text(
+                      LocaleKeys.branchPhoneOrderBadge.tr(),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                  ),
                 if (isNew)
                   Chip(
                     label: Text(
@@ -68,7 +76,7 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
             ),
             Text(order.customerName),
             Text(
-              OrderStatusUtils.label(order.status),
+              OrderStatusUtils.labelFor(order),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w700,
@@ -174,7 +182,11 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
             OrderWorkflowAction.markReady,
             successMessage: LocaleKeys.branchOrderReady.tr(),
           ),
-          child: Text(LocaleKeys.branchMarkReady.tr()),
+          child: Text(
+            order.isDineIn
+                ? LocaleKeys.kitchenMarkReady.tr()
+                : LocaleKeys.branchMarkReady.tr(),
+          ),
         ),
       );
     }
@@ -190,6 +202,7 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
     }
 
     if (order.status == OrderStatus.waitingCourier &&
+        order.isDelivery &&
         (user.role == UserRole.branchManager ||
             user.role == UserRole.branchStaff ||
             user.role == UserRole.superAdmin)) {

@@ -91,6 +91,18 @@ class _BranchOrderDetailPanelState extends ConsumerState<BranchOrderDetailPanel>
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                   ),
+                  if (order.isPhoneOrder)
+                    Chip(
+                      label: Text(
+                        order.phoneFailed
+                            ? LocaleKeys.branchPhoneOrderFailedBadge.tr()
+                            : LocaleKeys.branchPhoneOrderBadge.tr(),
+                      ),
+                      backgroundColor: (order.phoneFailed
+                              ? AppColors.error
+                              : AppColors.primary)
+                          .withValues(alpha: 0.12),
+                    ),
                   if (isNew)
                     Chip(
                       label: Text(LocaleKeys.branchNewOrderBadge.tr()),
@@ -104,13 +116,48 @@ class _BranchOrderDetailPanelState extends ConsumerState<BranchOrderDetailPanel>
               ),
               Text(order.customerName,
                   style: Theme.of(context).textTheme.titleMedium),
+              if (order.customerPhone?.trim().isNotEmpty ?? false)
+                Text(
+                  order.customerPhone!.trim(),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: order.phoneFailed
+                            ? AppColors.error
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
               Text(
-                OrderStatusUtils.label(order.status),
+                OrderStatusUtils.labelFor(order),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.primary,
+                      color: order.phoneFailed
+                          ? AppColors.error
+                          : AppColors.primary,
                       fontWeight: FontWeight.w700,
                     ),
               ),
+              if (order.phoneFailed) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    (order.orderNote?.trim().isNotEmpty ?? false)
+                        ? order.orderNote!.trim()
+                        : LocaleKeys.branchPhoneOrderFailedNote.tr(),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+              ],
               Text(
                 LocaleKeys.orderReceivedAt.tr(
                   namedArgs: {
@@ -216,7 +263,11 @@ class _BranchOrderDetailPanelState extends ConsumerState<BranchOrderDetailPanel>
             OrderWorkflowAction.markReady,
             successMessage: LocaleKeys.branchOrderReady.tr(),
           ),
-          child: Text(LocaleKeys.branchMarkReady.tr()),
+          child: Text(
+            order.isDineIn
+                ? LocaleKeys.kitchenMarkReady.tr()
+                : LocaleKeys.branchMarkReady.tr(),
+          ),
         ),
       );
     }
@@ -232,6 +283,7 @@ class _BranchOrderDetailPanelState extends ConsumerState<BranchOrderDetailPanel>
     }
 
     if (order.status == OrderStatus.waitingCourier &&
+        order.isDelivery &&
         (user.role == UserRole.branchManager ||
             user.role == UserRole.branchStaff ||
             user.role == UserRole.superAdmin)) {

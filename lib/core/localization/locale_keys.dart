@@ -6,6 +6,10 @@ abstract final class LocaleKeys {
   static const commonRetry = 'common_retry';
   static const commonLoading = 'common_loading';
   static const commonSave = 'common_save';
+  static const commonSaved = 'common_saved';
+  static const commonCopy = 'common_copy';
+  static const commonCopied = 'common_copied';
+  static const commonOpen = 'common_open';
   static const commonAdd = 'common_add';
   static const commonEdit = 'common_edit';
   static const commonRemove = 'common_remove';
@@ -14,6 +18,30 @@ abstract final class LocaleKeys {
 
   static const authWelcome = 'auth_welcome';
   static const authSubtitle = 'auth_subtitle';
+  static const authCustomerSubtitle = 'auth_customer_subtitle';
+  static const authContinueGoogle = 'auth_continue_google';
+  static const authContinueApple = 'auth_continue_apple';
+  static const authOrContinueWith = 'auth_or_continue_with';
+  static const authForgotPassword = 'auth_forgot_password';
+  static const authPasswordResetSent = 'auth_password_reset_sent';
+  static const authVerifyEmailTitle = 'auth_verify_email_title';
+  static const authVerifyEmailBody = 'auth_verify_email_body';
+  static const authRegisterEmailHint = 'auth_register_email_hint';
+  static const authEmailNotVerified = 'auth_email_not_verified';
+  static const authEmailAlreadyInUse = 'auth_email_already_in_use';
+  static const authInvalidEmailOrPassword = 'auth_invalid_email_or_password';
+  static const authCancelled = 'auth_cancelled';
+  static const authGoogleFailed = 'auth_google_failed';
+  static const authAppleFailed = 'auth_apple_failed';
+  static const authTooManyRequests = 'auth_too_many_requests';
+  static const authNetworkError = 'auth_network_error';
+  static const authRegisterFailed = 'auth_register_failed';
+  static const authPhoneOnboardingTitle = 'auth_phone_onboarding_title';
+  static const authPhoneOnboardingSubtitle = 'auth_phone_onboarding_subtitle';
+  static const authOtpDeprecated = 'auth_otp_deprecated';
+  static const authStaffSubtitle = 'auth_staff_subtitle';
+  static const authAudienceCustomer = 'auth_audience_customer';
+  static const authAudienceStaff = 'auth_audience_staff';
   static const authWebOpsTitle = 'auth_web_ops_title';
   static const authWebOpsHint = 'auth_web_ops_hint';
   static const authWindowsOpsTitle = 'auth_windows_ops_title';
@@ -21,13 +49,39 @@ abstract final class LocaleKeys {
   static const appNameOps = 'app_name_ops';
   static const authPhoneHint = 'auth_phone_hint';
   static const authPhoneLabel = 'auth_phone_label';
+  static const authNameLabel = 'auth_name_label';
   static const authSendOtp = 'auth_send_otp';
+  static const authSendWhatsAppOtp = 'auth_send_whatsapp_otp';
   static const authOtpTitle = 'auth_otp_title';
   static const authOtpSubtitle = 'auth_otp_subtitle';
+  static const authWhatsAppOtpSubtitle = 'auth_whatsapp_otp_subtitle';
+  static const authWhatsAppOtpHint = 'auth_whatsapp_otp_hint';
+  static const authOtpSendFailed = 'auth_otp_send_failed';
+  static const authOtpSmsNotConfigured = 'auth_otp_sms_not_configured';
+  static const authOtpSmsHeaderInvalid = 'auth_otp_sms_header_invalid';
+  static const authOtpSmsAuthFailed = 'auth_otp_sms_auth_failed';
+  static const authOtpRateLimited = 'auth_otp_rate_limited';
+  static const authOtpExpired = 'auth_otp_expired';
+  static const authOtpLocked = 'auth_otp_locked';
   static const authVerify = 'auth_verify';
   static const authResendOtp = 'auth_resend_otp';
   static const authLoginButton = 'auth_login_button';
   static const authLogin = 'auth_login_button';
+  static const authRegisterLink = 'auth_register_link';
+  static const authRegisterTitle = 'auth_register_title';
+  static const authRegisterSubtitle = 'auth_register_subtitle';
+  static const authPasswordConfirmLabel = 'auth_password_confirm_label';
+  static const authPasswordMismatch = 'auth_password_mismatch';
+  static const authPhoneAlreadyRegistered = 'auth_phone_already_registered';
+  static const authInvalidPhoneOrPassword = 'auth_invalid_phone_or_password';
+  static const authInvalidName = 'auth_invalid_name';
+  static const authAddressOnboardingTitle = 'auth_address_onboarding_title';
+  static const authAddressOnboardingSubtitle =
+      'auth_address_onboarding_subtitle';
+  static const authPickLocationOnMap = 'auth_pick_location_on_map';
+  static const authLocationSelected = 'auth_location_selected';
+  static const authAddressPinRequired = 'auth_address_pin_required';
+  static const authSaveDefaultAddress = 'auth_save_default_address';
   static const authEmailModeOtp = 'auth_email_mode_otp';
   static const authEmailModePassword = 'auth_email_mode_password';
   static const authPasswordLabel = 'auth_password_label';
@@ -150,6 +204,7 @@ abstract final class LocaleKeys {
 
   static const orderStatusReceived = 'order_status_received';
   static const orderStatusPreparing = 'order_status_preparing';
+  static const orderStatusReady = 'order_status_ready';
   static const orderStatusWaitingCourier = 'order_status_waiting_courier';
   static const orderStatusOnTheWay = 'order_status_on_the_way';
   static const orderStatusDelivered = 'order_status_delivered';
@@ -238,6 +293,19 @@ abstract final class LocaleKeys {
   static const branchDashboardTitle = 'branch_dashboard_title';
   static const branchNewOrderAlert = 'branch_new_order_alert';
   static const branchNewOrderBadge = 'branch_new_order_badge';
+  static const branchPhoneOrderBadge = 'branch_phone_order_badge';
+  static const branchPhoneOrderIncompleteBadge =
+      'branch_phone_order_incomplete_badge';
+  static const branchPhoneOrderFailedBadge = 'branch_phone_order_failed_badge';
+  static const branchPhoneOrderFailedNote = 'branch_phone_order_failed_note';
+  static const branchPhoneOrderCancelledAlert =
+      'branch_phone_order_cancelled_alert';
+  static const branchPhoneOrderInquiryAlert =
+      'branch_phone_order_inquiry_alert';
+  static const branchPhoneOrderInquiryDefault =
+      'branch_phone_order_inquiry_default';
+  static const branchPhoneOrderCancelledBadge =
+      'branch_phone_order_cancelled_badge';
   static const branchAcceptOrder = 'branch_accept_order';
   static const branchMarkPreparing = 'branch_mark_preparing';
   static const branchMarkReady = 'branch_mark_ready';
@@ -296,6 +364,13 @@ abstract final class LocaleKeys {
   static const waiterCreateOrder = 'waiter_create_order';
   static const waiterOrderSent = 'waiter_order_sent';
   static const waiterAddDrinksSnacks = 'waiter_add_drinks_snacks';
+  static const waiterPosSides = 'waiter_pos_sides';
+  static const waiterPosExtras = 'waiter_pos_extras';
+  static const waiterPosTostlar = 'waiter_pos_tostlar';
+  static const waiterPosSahan = 'waiter_pos_sahan';
+  static const waiterPosIcecekler = 'waiter_pos_icecekler';
+  static const waiterPosYanUrunler = 'waiter_pos_yan_urunler';
+  static const waiterPosClose = 'waiter_pos_close';
   static const waiterAddonsEmpty = 'waiter_addons_empty';
   static const waiterItemAdded = 'waiter_item_added';
   static const waiterAddToTable = 'waiter_add_to_table';
@@ -311,6 +386,12 @@ abstract final class LocaleKeys {
   static const waiterTableOccupied = 'waiter_table_occupied';
   static const waiterTableEmpty = 'waiter_table_empty';
   static const waiterViewBill = 'waiter_view_bill';
+  static const waiterChangeTable = 'waiter_change_table';
+  static const waiterChangeTableTitle = 'waiter_change_table_title';
+  static const waiterChangeTableHint = 'waiter_change_table_hint';
+  static const waiterChangeTableSuccess = 'waiter_change_table_success';
+  static const waiterChangeTableOccupied =
+      'waiter_change_table_occupied';
   static const waiterAddOrder = 'waiter_add_order';
   static const waiterTableBillTitle = 'waiter_table_bill_title';
   static const waiterBillTotal = 'waiter_bill_total';
@@ -400,6 +481,13 @@ abstract final class LocaleKeys {
       'admin_print_routing_delivery_cashier';
   static const adminPrintRoutingDeliveryCashierHint =
       'admin_print_routing_delivery_cashier_hint';
+  static const adminPrintRoutingPhoneSection =
+      'admin_print_routing_phone_section';
+  static const adminPrintRoutingPhoneHint = 'admin_print_routing_phone_hint';
+  static const adminPrintRoutingPhoneKitchen =
+      'admin_print_routing_phone_kitchen';
+  static const adminPrintRoutingPhoneCashier =
+      'admin_print_routing_phone_cashier';
   static const adminPrintRoutingPrintersSection =
       'admin_print_routing_printers_section';
   static const adminPrintRoutingKitchenPrinter =
@@ -436,6 +524,137 @@ abstract final class LocaleKeys {
   static const checkoutVatLine = 'checkout_vat_line';
   static const navPaytrSettings = 'nav_paytr_settings';
   static const navPromotions = 'nav_promotions';
+  static const navQrMenu = 'nav_qr_menu';
+  static const navPhoneCustomers = 'nav_phone_customers';
+  static const adminPhoneCustomersTitle = 'admin_phone_customers_title';
+  static const adminPhoneCustomersHint = 'admin_phone_customers_hint';
+  static const adminPhoneCustomersTemplate = 'admin_phone_customers_template';
+  static const adminPhoneCustomersTemplateCopied =
+      'admin_phone_customers_template_copied';
+  static const adminPhoneCustomersImport = 'admin_phone_customers_import';
+  static const adminPhoneCustomersSavePaste =
+      'admin_phone_customers_save_paste';
+  static const adminPhoneCustomersCsvLabel = 'admin_phone_customers_csv_label';
+  static const adminPhoneCustomersCsvEmpty = 'admin_phone_customers_csv_empty';
+  static const adminPhoneCustomersImportResult =
+      'admin_phone_customers_import_result';
+  static const adminPhoneCustomersListTitle =
+      'admin_phone_customers_list_title';
+  static const adminPhoneCustomersEmpty = 'admin_phone_customers_empty';
+  static const adminPhoneCustomersEdit = 'admin_phone_customers_edit';
+  static const adminPhoneCustomersDelete = 'admin_phone_customers_delete';
+  static const adminPhoneCustomersDeleteConfirm =
+      'admin_phone_customers_delete_confirm';
+  static const adminPhoneCustomersSaved = 'admin_phone_customers_saved';
+  static const adminPhoneCustomersDeleted = 'admin_phone_customers_deleted';
+  static const adminPhoneCustomersPhone = 'admin_phone_customers_phone';
+  static const adminPhoneCustomersName = 'admin_phone_customers_name';
+  static const adminPhoneCustomersCompany = 'admin_phone_customers_company';
+  static const adminPhoneCustomersAddress = 'admin_phone_customers_address';
+  static const adminPhoneCustomersDirections =
+      'admin_phone_customers_directions';
+  static const adminPhoneCustomersSave = 'admin_phone_customers_save';
+  static const navPhoneFailedOrders = 'nav_phone_failed_orders';
+  static const adminPhoneFailedOrdersTitle = 'admin_phone_failed_orders_title';
+  static const adminPhoneFailedOrdersHint = 'admin_phone_failed_orders_hint';
+  static const adminPhoneFailedOrdersEmpty = 'admin_phone_failed_orders_empty';
+  static const adminPhoneFailedOrdersRefresh =
+      'admin_phone_failed_orders_refresh';
+  static const adminPhoneFailedOrdersCallback =
+      'admin_phone_failed_orders_callback';
+  static const adminPhoneFailedOrdersDismiss =
+      'admin_phone_failed_orders_dismiss';
+  static const adminPhoneFailedOrdersReopen =
+      'admin_phone_failed_orders_reopen';
+  static const adminPhoneFailedOrdersUpdated =
+      'admin_phone_failed_orders_updated';
+  static const adminPhoneFailedOrdersPending =
+      'admin_phone_failed_orders_pending';
+  static const adminPhoneFailedOrdersCalled =
+      'admin_phone_failed_orders_called';
+  static const adminPhoneFailedOrdersAll = 'admin_phone_failed_orders_all';
+  static const adminPhoneCallLogsTab = 'admin_phone_call_logs_tab';
+  static const adminPhoneCallLogsFailedTab =
+      'admin_phone_call_logs_failed_tab';
+  static const adminPhoneCallLogsSuccess = 'admin_phone_call_logs_success';
+  static const adminPhoneCallLogsFailed = 'admin_phone_call_logs_failed';
+  static const adminPhoneCallLogsTranscript =
+      'admin_phone_call_logs_transcript';
+  static const adminPhoneCallLogsEmpty = 'admin_phone_call_logs_empty';
+  static const navPhoneAiTraining = 'nav_phone_ai_training';
+  static const adminPhoneAiTrainingTitle = 'admin_phone_ai_training_title';
+  static const adminPhoneAiTrainingSubtitle =
+      'admin_phone_ai_training_subtitle';
+  static const adminPhoneAiTrainingStyle = 'admin_phone_ai_training_style';
+  static const adminPhoneAiTrainingStyleHint =
+      'admin_phone_ai_training_style_hint';
+  static const adminPhoneAiTrainingExamples =
+      'admin_phone_ai_training_examples';
+  static const adminPhoneAiTrainingAdd = 'admin_phone_ai_training_add';
+  static const adminPhoneAiTrainingExampleN =
+      'admin_phone_ai_training_example_n';
+  static const adminPhoneAiTrainingWhen = 'admin_phone_ai_training_when';
+  static const adminPhoneAiTrainingWhenHint =
+      'admin_phone_ai_training_when_hint';
+  static const adminPhoneAiTrainingThen = 'admin_phone_ai_training_then';
+  static const adminPhoneAiTrainingThenHint =
+      'admin_phone_ai_training_then_hint';
+  static const adminPhoneAiTrainingSave = 'admin_phone_ai_training_save';
+  static const adminPhoneAiTrainingSavedSynced =
+      'admin_phone_ai_training_saved_synced';
+  static const adminPhoneAiTrainingSavedNotSynced =
+      'admin_phone_ai_training_saved_not_synced';
+  static const adminPhoneAiHoursTitle = 'admin_phone_ai_hours_title';
+  static const adminPhoneAiHoursSubtitle = 'admin_phone_ai_hours_subtitle';
+  static const adminPhoneAiHoursEnabled = 'admin_phone_ai_hours_enabled';
+  static const adminPhoneAiHoursTurkey = 'admin_phone_ai_hours_turkey';
+  static const adminPhoneAiHoursClosedMessage =
+      'admin_phone_ai_hours_closed_message';
+  static const adminPhoneAiHoursClosedMessageHint =
+      'admin_phone_ai_hours_closed_message_hint';
+  static const adminPhoneAiHoursClosed = 'admin_phone_ai_hours_closed';
+  static const adminPhoneAiHoursOpen = 'admin_phone_ai_hours_open';
+  static const adminPhoneAiHoursOpenDays = 'admin_phone_ai_hours_open_days';
+  static const adminPhoneAiHoursOpenDaysHint =
+      'admin_phone_ai_hours_open_days_hint';
+  static const adminPhoneAiHoursMon = 'admin_phone_ai_hours_mon';
+  static const adminPhoneAiHoursTue = 'admin_phone_ai_hours_tue';
+  static const adminPhoneAiHoursWed = 'admin_phone_ai_hours_wed';
+  static const adminPhoneAiHoursThu = 'admin_phone_ai_hours_thu';
+  static const adminPhoneAiHoursFri = 'admin_phone_ai_hours_fri';
+  static const adminPhoneAiHoursSat = 'admin_phone_ai_hours_sat';
+  static const adminPhoneAiHoursSun = 'admin_phone_ai_hours_sun';
+  static const adminQrMenuSubtitle = 'admin_qr_menu_subtitle';
+  static const adminQrMenuEnabled = 'admin_qr_menu_enabled';
+  static const adminQrMenuTitle = 'admin_qr_menu_title';
+  static const adminQrMenuWelcome = 'admin_qr_menu_welcome';
+  static const adminQrMenuBaseUrl = 'admin_qr_menu_base_url';
+  static const adminQrMenuCategories = 'admin_qr_menu_categories';
+  static const adminQrMenuCategoriesHint = 'admin_qr_menu_categories_hint';
+  static const adminQrMenuCategoriesEmpty = 'admin_qr_menu_categories_empty';
+  static const adminQrMenuAddCategory = 'admin_qr_menu_add_category';
+  static const adminQrMenuEditCategory = 'admin_qr_menu_edit_category';
+  static const adminQrMenuCategoryLabel = 'admin_qr_menu_category_label';
+  static const adminQrMenuProducts = 'admin_qr_menu_products';
+  static const adminQrMenuProductsHint = 'admin_qr_menu_products_hint';
+  static const adminQrMenuProductsManageHint = 'admin_qr_menu_products_manage_hint';
+  static const adminQrMenuAddProduct = 'admin_qr_menu_add_product';
+  static const adminQrMenuEditProduct = 'admin_qr_menu_edit_product';
+  static const adminQrMenuProductCategory = 'admin_qr_menu_product_category';
+  static const adminQrMenuProductVisible = 'admin_qr_menu_product_visible';
+  static const adminQrMenuProductHidden = 'admin_qr_menu_product_hidden';
+  static const adminQrMenuFeatured = 'admin_qr_menu_featured';
+  static const adminQrMenuFeaturedHint = 'admin_qr_menu_featured_hint';
+  static const adminQrMenuFeaturedOn = 'admin_qr_menu_featured_on';
+  static const adminQrMenuFeaturedOff = 'admin_qr_menu_featured_off';
+  static const adminQrMenuExtrasNote = 'admin_qr_menu_extras_note';
+  static const adminQrMenuTableCodes = 'admin_qr_menu_table_codes';
+  static const adminQrMenuTableCodesHint = 'admin_qr_menu_table_codes_hint';
+  static const adminQrMenuTableCount = 'admin_qr_menu_table_count';
+  static const adminQrMenuTableCountHelper = 'admin_qr_menu_table_count_helper';
+  static const qrCallWaiterAlert = 'qr_call_waiter_alert';
+  static const qrRequestBillAlert = 'qr_request_bill_alert';
+  static const qrRequestAck = 'qr_request_ack';
   static const navAdminTools = 'nav_admin_tools';
   static const adminToolsTitle = 'admin_tools_title';
   static const adminToolsSubtitle = 'admin_tools_subtitle';
@@ -764,4 +983,23 @@ abstract final class LocaleKeys {
   static const opsDataPurgeSuccess = 'ops_data_purge_success';
   static const opsDataPurgeUserAction = 'ops_data_purge_user_action';
   static const opsDataPurgeNoBranch = 'ops_data_purge_no_branch';
+  static const waiterPickup = 'waiter_pickup';
+  static const waiterPickupTitle = 'waiter_pickup_title';
+  static const waiterPickupPaymentTitle = 'waiter_pickup_payment_title';
+  static const waiterPickupPaymentCash = 'waiter_pickup_payment_cash';
+  static const waiterPickupPaymentCard = 'waiter_pickup_payment_card';
+  static const adminWaiterTabGeneral = 'admin_waiter_tab_general';
+  static const adminWaiterTabMenu = 'admin_waiter_tab_menu';
+  static const adminWaiterTabExtras = 'admin_waiter_tab_extras';
+  static const adminWaiterTabPrep = 'admin_waiter_tab_prep';
+  static const adminWaiterTabSort = 'admin_waiter_tab_sort';
+  static const adminWaiterMenuTabHint = 'admin_waiter_menu_tab_hint';
+  static const adminWaiterExtrasTabHint = 'admin_waiter_extras_tab_hint';
+  static const adminWaiterPrepTabHint = 'admin_waiter_prep_tab_hint';
+  static const adminWaiterSortTabHint = 'admin_waiter_sort_tab_hint';
+  static const adminWaiterPrepAdd = 'admin_waiter_prep_add';
+  static const adminWaiterPrepLabelTr = 'admin_waiter_prep_label_tr';
+  static const adminWaiterPrepLabelEn = 'admin_waiter_prep_label_en';
+  static const adminWaiterSortProducts = 'admin_waiter_sort_products';
+  static const adminWaiterSortExtras = 'admin_waiter_sort_extras';
 }

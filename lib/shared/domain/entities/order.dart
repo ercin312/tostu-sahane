@@ -3,6 +3,8 @@ import 'package:equatable/equatable.dart';
 enum OrderStatus {
   received,
   preparing,
+  /// Salon siparişi: mutfak hazırladı, garson servis edebilir.
+  ready,
   waitingCourier,
   onTheWay,
   delivered,
@@ -10,6 +12,9 @@ enum OrderStatus {
 }
 
 enum OrderType { delivery, dineIn }
+
+/// Siparişin geldiği kanal (uygulama / garson / telefon AI).
+enum OrderSource { app, waiter, phone }
 
 enum PaymentMethod { onlineCard, cashOnDelivery, cardOnDelivery }
 
@@ -110,6 +115,16 @@ class Order extends Equatable {
     this.waiterId,
     this.waiterName,
     this.waiterCode,
+    this.isPickup = false,
+    this.isTableAddon = false,
+    this.orderSource = OrderSource.app,
+    this.phoneIncomplete = false,
+    this.phoneFailed = false,
+    this.phoneCancelReason,
+    this.phoneCancelPrintPending = false,
+    this.phoneStatusInquiry = false,
+    this.phoneStatusInquiryNote,
+    this.phoneStatusInquiryMinutes,
   });
 
   final String id;
@@ -151,10 +166,31 @@ class Order extends Equatable {
   final String? waiterId;
   final String? waiterName;
   final String? waiterCode;
+  final bool isPickup;
+  final bool isTableAddon;
+  final OrderSource orderSource;
+  /// Telefon AI görüşmesi sürüyor; henüz finalize edilmedi.
+  final bool phoneIncomplete;
+  /// Telefon görüşmesi tamamlanamadı — ana ekranda "Başarısız" görünür.
+  final bool phoneFailed;
+  /// Telefon üzerinden iptal sebebi.
+  final String? phoneCancelReason;
+  /// İptal fişi henüz basılmadı.
+  final bool phoneCancelPrintPending;
+  /// Müşteri "nerede kaldı" diye aradı.
+  final bool phoneStatusInquiry;
+  final String? phoneStatusInquiryNote;
+  final int? phoneStatusInquiryMinutes;
 
   bool get isDineIn => orderType == OrderType.dineIn;
 
   bool get isDelivery => orderType == OrderType.delivery;
+
+  bool get isPhoneOrder => orderSource == OrderSource.phone;
+
+  /// Mutfakta hazırlanması gereken kalem var mı (içecek/aparatif hariç).
+  bool get hasKitchenItems =>
+      items.any((item) => !item.productId.startsWith('extra_'));
 
   bool get isActive =>
       status != OrderStatus.delivered && status != OrderStatus.cancelled;
@@ -186,6 +222,8 @@ class Order extends Equatable {
 
   Order copyWith({
     OrderStatus? status,
+    String? customerId,
+    String? customerName,
     String? courierId,
     String? courierName,
     double? deliveryLatitude,
@@ -208,9 +246,20 @@ class Order extends Equatable {
     bool? approachNotificationSent,
     OrderType? orderType,
     int? tableNumber,
+    String? address,
     String? waiterId,
     String? waiterName,
     String? waiterCode,
+    bool? isPickup,
+    bool? isTableAddon,
+    OrderSource? orderSource,
+    bool? phoneIncomplete,
+    bool? phoneFailed,
+    String? phoneCancelReason,
+    bool? phoneCancelPrintPending,
+    bool? phoneStatusInquiry,
+    String? phoneStatusInquiryNote,
+    int? phoneStatusInquiryMinutes,
     List<String>? preparationTags,
     List<CartItem>? items,
     double? totalAmount,
@@ -219,14 +268,14 @@ class Order extends Equatable {
     return Order(
       id: id,
       orderNumber: orderNumber,
-      customerId: customerId,
-      customerName: customerName,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
       branchId: branchId,
       items: items ?? this.items,
       totalAmount: totalAmount ?? this.totalAmount,
       status: status ?? this.status,
       createdAt: createdAt,
-      address: address,
+      address: address ?? this.address,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       courierId: courierId ?? this.courierId,
       courierName: courierName ?? this.courierName,
@@ -258,6 +307,19 @@ class Order extends Equatable {
       waiterId: waiterId ?? this.waiterId,
       waiterName: waiterName ?? this.waiterName,
       waiterCode: waiterCode ?? this.waiterCode,
+      isPickup: isPickup ?? this.isPickup,
+      isTableAddon: isTableAddon ?? this.isTableAddon,
+      orderSource: orderSource ?? this.orderSource,
+      phoneIncomplete: phoneIncomplete ?? this.phoneIncomplete,
+      phoneFailed: phoneFailed ?? this.phoneFailed,
+      phoneCancelReason: phoneCancelReason ?? this.phoneCancelReason,
+      phoneCancelPrintPending:
+          phoneCancelPrintPending ?? this.phoneCancelPrintPending,
+      phoneStatusInquiry: phoneStatusInquiry ?? this.phoneStatusInquiry,
+      phoneStatusInquiryNote:
+          phoneStatusInquiryNote ?? this.phoneStatusInquiryNote,
+      phoneStatusInquiryMinutes:
+          phoneStatusInquiryMinutes ?? this.phoneStatusInquiryMinutes,
     );
   }
 

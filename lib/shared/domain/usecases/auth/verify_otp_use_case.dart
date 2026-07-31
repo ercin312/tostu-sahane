@@ -12,6 +12,8 @@ class VerifyOtpParams {
     required this.role,
     this.phone,
     this.email,
+    this.name,
+    this.password,
   });
 
   final AuthOtpChannel channel;
@@ -19,6 +21,8 @@ class VerifyOtpParams {
   final UserRole role;
   final String? phone;
   final String? email;
+  final String? name;
+  final String? password;
 }
 
 class VerifyOtpUseCase extends UseCase<AuthSessionResult, VerifyOtpParams> {
@@ -51,6 +55,8 @@ class VerifyOtpUseCase extends UseCase<AuthSessionResult, VerifyOtpParams> {
         params.phone!,
         params.otp,
         params.role.name,
+        name: params.name,
+        password: params.password,
       );
       return AuthSessionResult(
         userId: result.id,

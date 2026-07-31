@@ -4,14 +4,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/orders/order_item_edits.dart';
+import '../../../../core/utils/phone_digits.dart';
 import '../../../../firebase_options.dart';
+import '../../../domain/entities/branch.dart';
 import '../../../domain/entities/order.dart';
+import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_extra.dart';
 import '../../../domain/entities/paytr_settings.dart';
 import '../../../domain/entities/print_routing_settings.dart';
 import '../../../domain/entities/delivery_settings.dart';
 import '../../../domain/entities/promotion_campaign.dart';
 import '../../../domain/entities/waiter_mode_settings.dart';
+import '../../../domain/entities/qr_menu_settings.dart';
 import '../../mappers/entity_mappers.dart';
 import '../../models/api_models.dart';
 import 'firestore_datasource.dart';
@@ -35,12 +39,37 @@ class FirestoreRestClient {
       'https://firestore.googleapis.com/v1/projects/${_options.projectId}/databases/(default)/documents';
 
   Future<List<Order>> getOrders() async {
+    final byId = <String, Order>{};
+    for (final order in await _listOrdersPage(pageSize: 300)) {
+      byId[order.id] = order;
+    }
+    // Paket / telefon siparişleri salon trafiği arasında kaybolmasın.
+    for (final order in await _queryOrdersEqual(
+      field: 'order_source',
+      stringValue: 'phone',
+      limit: 100,
+    )) {
+      byId[order.id] = order;
+    }
+    for (final order in await _queryOrdersEqual(
+      field: 'phone_failed',
+      boolValue: true,
+      limit: 50,
+    )) {
+      byId[order.id] = order;
+    }
+    final orders = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
+  }
+
+  Future<List<Order>> _listOrdersPage({required int pageSize}) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '$_documentsRoot/orders',
         queryParameters: {
           'key': _options.apiKey,
-          'pageSize': 200,
+          'pageSize': pageSize,
           'orderBy': 'created_at desc',
         },
       );
@@ -51,13 +80,95 @@ class FirestoreRestClient {
         '$_documentsRoot/orders',
         queryParameters: {
           'key': _options.apiKey,
-          'pageSize': 200,
+          'pageSize': pageSize,
         },
       );
       final orders = _parseListResponse(response.data);
       orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return orders;
     }
+  }
+
+  Future<List<Order>> _queryOrdersEqual({
+    required String field,
+    String? stringValue,
+    bool? boolValue,
+    required int limit,
+  }) async {
+    try {
+      final value = <String, dynamic>{};
+      if (stringValue != null) value['stringValue'] = stringValue;
+      if (boolValue != null) value['booleanValue'] = boolValue;
+      final response = await _dio.post<List<dynamic>>(
+        'https://firestore.googleapis.com/v1/projects/${_options.projectId}/databases/(default)/documents:runQuery',
+        queryParameters: {'key': _options.apiKey},
+        data: {
+          'structuredQuery': {
+            'from': [
+              {'collectionId': 'orders'},
+            ],
+            'where': {
+              'fieldFilter': {
+                'field': {'fieldPath': field},
+                'op': 'EQUAL',
+                'value': value,
+              },
+            },
+            'limit': limit,
+          },
+        },
+        options: Options(contentType: 'application/json'),
+      );
+      final rows = response.data ?? const [];
+      final orders = <Order>[];
+      for (final row in rows) {
+        if (row is! Map<String, dynamic>) continue;
+        final doc = row['document'];
+        if (doc is! Map<String, dynamic>) continue;
+        try {
+          orders.add(_documentToOrder(doc));
+        } catch (e) {
+          debugPrint('Firestore REST phone query parse skip: $e');
+        }
+      }
+      return orders;
+    } catch (e) {
+      debugPrint('Firestore REST orders query ($field) failed: $e');
+      return const [];
+    }
+  }
+
+  Future<List<Order>> getCustomerOrders({
+    required Set<String> customerIds,
+    String? phoneDigits,
+  }) async {
+    final all = await getOrders();
+    final authTen = normalizeTrPhoneDigits(phoneDigits);
+    final ids = <String>{...customerIds};
+    if (authTen != null) {
+      ids.addAll({
+        'phone_$authTen',
+        'customer_$authTen',
+        'customer_0$authTen',
+        'customer_+90$authTen',
+        authTen,
+        '0$authTen',
+      });
+    }
+    return all.where((order) {
+      if (order.phoneFailed) return false;
+      if (!order.isDelivery) return false;
+      if (ids.contains(order.customerId)) return true;
+      if (authTen == null) return false;
+      final cid = order.customerId;
+      if (cid.endsWith(authTen) ||
+          cid == 'phone_$authTen' ||
+          cid == 'customer_$authTen' ||
+          cid == 'customer_0$authTen') {
+        return true;
+      }
+      return trPhonesMatch(order.customerPhone, phoneDigits);
+    }).toList();
   }
 
   Stream<List<Order>> watchOrders() async* {
@@ -180,20 +291,35 @@ class FirestoreRestClient {
 
   Future<Order> createOrder(Order order) async {
     final model = EntityMappers.fromOrder(order);
-    final json = FirestoreDataSource.normalizeOrderJson(model.toJson());
+    final json = FirestoreDataSource.stripNullFields(
+      FirestoreDataSource.normalizeOrderJson(model.toJson()),
+    );
     final body = {
       'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
     };
-    await _dio.post<Map<String, dynamic>>(
-      '$_documentsRoot/orders',
-      queryParameters: {
-        'key': _options.apiKey,
-        'documentId': order.id,
-      },
-      data: body,
-      options: Options(contentType: 'application/json'),
-    );
-    return getOrder(order.id);
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '$_documentsRoot/orders',
+        queryParameters: {
+          'key': _options.apiKey,
+          'documentId': order.id,
+        },
+        data: body,
+        options: Options(contentType: 'application/json'),
+      );
+    } on DioException catch (e) {
+      debugPrint(
+        'Firestore REST createOrder failed: '
+        '${e.response?.statusCode} ${e.response?.data ?? e.message}',
+      );
+      rethrow;
+    }
+    try {
+      return await getOrder(order.id);
+    } catch (e) {
+      debugPrint('Firestore REST createOrder read-back failed: $e');
+      return order;
+    }
   }
 
   Future<List<AdminUserModel>> getOpsUsers() async {
@@ -228,21 +354,25 @@ class FirestoreRestClient {
 
   Future<AdminUserModel?> findOpsUserByUsername(String username) async {
     final users = await getOpsUsers();
+    final needle = username.trim().toLowerCase();
     for (final user in users) {
-      if (user.username?.toLowerCase() == username) return user;
+      final candidate = user.username?.trim().toLowerCase();
+      if (candidate != null && candidate == needle) return user;
     }
     return null;
   }
 
   Future<AdminUserModel> createOpsUser(AdminUserModel user) async {
+    final username = user.username?.trim().toLowerCase();
     final json = <String, dynamic>{
       'name': user.name,
       'role': user.role,
       'phone': user.phone,
       'is_active': user.isActive,
       'branch_id': user.branchId,
-      if (user.username != null) 'username': user.username,
-      if (user.password != null) 'password': user.password,
+      if (username != null && username.isNotEmpty) 'username': username,
+      if (user.password != null && user.password!.isNotEmpty)
+        'password': user.password,
     };
     final body = {
       'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
@@ -253,34 +383,221 @@ class FirestoreRestClient {
       data: body,
       options: Options(contentType: 'application/json'),
     );
-    return user;
+    return user.copyWith(username: username);
   }
 
   Future<AdminUserModel> updateOpsUser(AdminUserModel user) async {
+    final username = user.username?.trim().toLowerCase();
     final json = <String, dynamic>{
       'name': user.name,
       'role': user.role,
       'phone': user.phone,
       'is_active': user.isActive,
       'branch_id': user.branchId,
-      if (user.username != null) 'username': user.username,
-      if (user.password != null) 'password': user.password,
+      if (username != null && username.isNotEmpty) 'username': username,
+      if (user.password != null && user.password!.isNotEmpty)
+        'password': user.password,
     };
-    final body = {
-      'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
-    };
-    await _dio.patch<Map<String, dynamic>>(
-      '$_documentsRoot/ops_users/${user.id}',
-      queryParameters: {'key': _options.apiKey},
-      data: body,
-      options: Options(contentType: 'application/json'),
-    );
-    return user;
+    await patchDocument('ops_users/${user.id}', json);
+    return user.copyWith(username: username);
   }
 
   Future<void> deleteOpsUser(String userId) async {
     await _dio.delete<Map<String, dynamic>>(
       '$_documentsRoot/ops_users/$userId',
+      queryParameters: {'key': _options.apiKey},
+    );
+  }
+
+  Future<List<Branch>> getBranches() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/branches',
+        queryParameters: {'key': _options.apiKey, 'pageSize': 100},
+      );
+      return _parseBranchesResponse(response.data);
+    } catch (e) {
+      debugPrint('Firestore REST branches read failed: $e');
+      return const [];
+    }
+  }
+
+  List<Branch> _parseBranchesResponse(Map<String, dynamic>? data) {
+    final docs = data?['documents'] as List<dynamic>? ?? const [];
+    final branches = <Branch>[];
+    for (final raw in docs) {
+      if (raw is! Map<String, dynamic>) continue;
+      try {
+        branches.add(_documentToBranch(raw));
+      } catch (e) {
+        debugPrint('Firestore REST branch parse skip: $e');
+      }
+    }
+    return branches;
+  }
+
+  Branch _documentToBranch(Map<String, dynamic> doc) {
+    final name = doc['name'] as String? ?? '';
+    final id = name.split('/').last;
+    final fields = doc['fields'] as Map<String, dynamic>? ?? {};
+    final json = FirestoreRestValueCodec.documentToJson(fields);
+    json['id'] = id;
+    return EntityMappers.toBranch(BranchModel.fromJson(json));
+  }
+
+  Future<Branch> createBranch(Branch branch) async {
+    final json = Map<String, dynamic>.from(
+      EntityMappers.fromBranch(branch).toJson(),
+    )..remove('id');
+    final body = {
+      'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
+    };
+    await _dio.post<Map<String, dynamic>>(
+      '$_documentsRoot/branches',
+      queryParameters: {'key': _options.apiKey, 'documentId': branch.id},
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
+    return branch;
+  }
+
+  Future<Branch> updateBranch(Branch branch) async {
+    final json = Map<String, dynamic>.from(
+      EntityMappers.fromBranch(branch).toJson(),
+    )..remove('id');
+    await patchDocument('branches/${branch.id}', json);
+    return branch;
+  }
+
+  Future<void> deleteBranch(String branchId) async {
+    await _dio.delete<Map<String, dynamic>>(
+      '$_documentsRoot/branches/${Uri.encodeComponent(branchId)}',
+      queryParameters: {'key': _options.apiKey},
+    );
+  }
+
+  Future<Product> updateProductAvailability(
+    String productId,
+    bool available,
+  ) async {
+    await patchDocument('products/$productId', {'is_available': available});
+    final products = await getProducts();
+    return products.firstWhere(
+      (p) => p.id == productId,
+      orElse: () => throw StateError('Product $productId not found'),
+    );
+  }
+
+  Future<List<Product>> getProducts() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/products',
+        queryParameters: {'key': _options.apiKey, 'pageSize': 500},
+      );
+      return _parseProductsResponse(response.data);
+    } catch (e) {
+      debugPrint('Firestore REST products read failed: $e');
+      return const [];
+    }
+  }
+
+  List<Product> _parseProductsResponse(Map<String, dynamic>? data) {
+    final docs = data?['documents'] as List<dynamic>? ?? const [];
+    final products = <Product>[];
+    for (final raw in docs) {
+      if (raw is! Map<String, dynamic>) continue;
+      try {
+        products.add(_documentToProduct(raw));
+      } catch (e) {
+        debugPrint('Firestore REST product parse skip: $e');
+      }
+    }
+    return products;
+  }
+
+  Product _documentToProduct(Map<String, dynamic> doc) {
+    final name = doc['name'] as String? ?? '';
+    final id = name.split('/').last;
+    final fields = doc['fields'] as Map<String, dynamic>? ?? {};
+    final json = FirestoreRestValueCodec.documentToJson(fields);
+    json['id'] = id;
+    return EntityMappers.toProduct(ProductModel.fromJson(json));
+  }
+
+  Future<Product> createProduct(Product product) async {
+    final json = Map<String, dynamic>.from(
+      EntityMappers.fromProduct(product).toJson(),
+    )..remove('id');
+    final body = {
+      'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
+    };
+    await _dio.post<Map<String, dynamic>>(
+      '$_documentsRoot/products',
+      queryParameters: {
+        'key': _options.apiKey,
+        'documentId': product.id,
+      },
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
+    return product;
+  }
+
+  Future<Product> updateProduct(Product product) async {
+    final json = Map<String, dynamic>.from(
+      EntityMappers.fromProduct(product).toJson(),
+    )..remove('id');
+    try {
+      await patchDocument('products/${product.id}', json);
+    } catch (e) {
+      debugPrint('Firestore REST product patch failed: $e');
+      rethrow;
+    }
+    return product;
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    await _dio.delete<Map<String, dynamic>>(
+      '$_documentsRoot/products/${Uri.encodeComponent(productId)}',
+      queryParameters: {'key': _options.apiKey},
+    );
+  }
+
+  Future<ProductExtra> createCatalogExtra(ProductExtra extra) async {
+    final json = Map<String, dynamic>.from(
+      EntityMappers.fromProductExtra(extra).toJson(),
+    )..remove('id');
+    final body = {
+      'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
+    };
+    await _dio.post<Map<String, dynamic>>(
+      '$_documentsRoot/catalog_extras',
+      queryParameters: {
+        'key': _options.apiKey,
+        'documentId': extra.id,
+      },
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
+    return extra;
+  }
+
+  Future<ProductExtra> updateCatalogExtra(ProductExtra extra) async {
+    final json = Map<String, dynamic>.from(
+      EntityMappers.fromProductExtra(extra).toJson(),
+    )..remove('id');
+    try {
+      await patchDocument('catalog_extras/${extra.id}', json);
+    } catch (e) {
+      debugPrint('Firestore REST catalog extra patch failed: $e');
+      rethrow;
+    }
+    return extra;
+  }
+
+  Future<void> deleteCatalogExtra(String extraId) async {
+    await _dio.delete<Map<String, dynamic>>(
+      '$_documentsRoot/catalog_extras/${Uri.encodeComponent(extraId)}',
       queryParameters: {'key': _options.apiKey},
     );
   }
@@ -553,7 +870,7 @@ class FirestoreRestClient {
     WaiterModeSettings settings,
   ) async {
     final normalized = settings.copyWith(
-      tableCount: settings.tableCount.clamp(1, 99),
+      tableCount: settings.tableCount.clamp(1, WaiterModeSettings.maxTableCount),
     );
     try {
       await patchDocument('meta/waiter_settings', normalized.toJson());
@@ -573,9 +890,97 @@ class FirestoreRestClient {
         );
       } catch (e2) {
         debugPrint('Firestore REST waiter settings write failed: $e2');
+        throw StateError('waiter_settings_write_failed');
       }
     }
     return normalized;
+  }
+
+  Future<QrMenuSettings> getQrMenuSettings() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/meta/qr_menu_settings',
+        queryParameters: {'key': _options.apiKey},
+      );
+      final fields = response.data?['fields'] as Map<String, dynamic>? ?? {};
+      final json = FirestoreRestValueCodec.documentToJson(fields);
+      return QrMenuSettings.fromJson(json);
+    } catch (e) {
+      debugPrint('Firestore REST qr menu settings read failed: $e');
+      return QrMenuSettings.defaults;
+    }
+  }
+
+  Future<QrMenuSettings> updateQrMenuSettings(QrMenuSettings settings) async {
+    try {
+      await patchDocument('meta/qr_menu_settings', settings.toJson());
+    } catch (e) {
+      debugPrint('Firestore REST qr menu settings patch failed, try create: $e');
+      final body = {
+        'fields': FirestoreRestValueCodec.encodeDocumentFields(settings.toJson()),
+      };
+      await _dio.patch<Map<String, dynamic>>(
+        '$_documentsRoot/meta/qr_menu_settings',
+        queryParameters: {'key': _options.apiKey},
+        data: body,
+        options: Options(contentType: 'application/json'),
+      );
+    }
+    return settings;
+  }
+
+  Future<List<TableServiceRequest>> getPendingTableServiceRequests({
+    String? branchId,
+  }) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/table_service_requests',
+        queryParameters: {'key': _options.apiKey, 'pageSize': 100},
+      );
+      final docs = response.data?['documents'] as List<dynamic>? ?? const [];
+      final items = <TableServiceRequest>[];
+      for (final raw in docs) {
+        if (raw is! Map<String, dynamic>) continue;
+        final name = raw['name'] as String? ?? '';
+        final id = name.contains('/') ? name.split('/').last : name;
+        final fields = raw['fields'] as Map<String, dynamic>? ?? {};
+        final json = FirestoreRestValueCodec.documentToJson(fields);
+        final req = TableServiceRequest.fromJson(id, json);
+        if (!req.isPending) continue;
+        if (branchId != null &&
+            branchId.isNotEmpty &&
+            req.branchId != branchId) {
+          continue;
+        }
+        items.add(req);
+      }
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    } catch (e) {
+      debugPrint('Firestore REST table service requests failed: $e');
+      return const [];
+    }
+  }
+
+  Stream<List<TableServiceRequest>> watchPendingTableServiceRequests({
+    String? branchId,
+  }) async* {
+    while (true) {
+      try {
+        yield await getPendingTableServiceRequests(branchId: branchId);
+      } catch (e) {
+        debugPrint('Firestore REST table service poll failed: $e');
+        yield const [];
+      }
+      await Future<void>.delayed(_pollInterval);
+    }
+  }
+
+  Future<void> acknowledgeTableServiceRequest(String requestId) async {
+    await patchDocument('table_service_requests/$requestId', {
+      'status': 'acked',
+      'acked_at': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<List<Order>> closeDineInTableBill({
@@ -637,6 +1042,33 @@ class FirestoreRestClient {
       cancelled.add(await patchOrder(order.id, patch));
     }
     return cancelled;
+  }
+
+  Future<List<Order>> moveDineInTableOrders({
+    required String branchId,
+    required int fromTableNumber,
+    required int toTableNumber,
+  }) async {
+    if (fromTableNumber == toTableNumber) return const [];
+    final orders = await getOrders();
+    final moved = <Order>[];
+    for (final order in orders) {
+      if (order.branchId != branchId ||
+          order.tableNumber != fromTableNumber ||
+          order.isPickup ||
+          !order.isDineIn ||
+          !order.isActive) {
+        continue;
+      }
+      moved.add(
+        await patchOrder(order.id, {
+          'table_number': toTableNumber,
+          'address': 'Salon - Masa $toTableNumber',
+          'customer_name': 'Masa $toTableNumber',
+        }),
+      );
+    }
+    return moved;
   }
 
   Future<Order> removeDineInOrderItem(

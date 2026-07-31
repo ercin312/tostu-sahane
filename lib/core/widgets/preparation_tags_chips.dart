@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_colors.dart';
 import '../utils/waiter_preparation_tags.dart';
+import '../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 
 /// Hazırlık tercihi chip'leri — garson ve sipariş detaylarında ortak.
-class PreparationTagsChips extends StatelessWidget {
+class PreparationTagsChips extends ConsumerWidget {
   const PreparationTagsChips({
     super.key,
     required this.tags,
@@ -15,8 +17,11 @@ class PreparationTagsChips extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (tags.isEmpty) return const SizedBox.shrink();
+
+    final settings = ref.watch(waiterModeSettingsProvider).valueOrNull;
+    final options = settings?.preparationOptions;
 
     return Wrap(
       spacing: 6,
@@ -30,7 +35,7 @@ class PreparationTagsChips extends StatelessWidget {
                 ? const EdgeInsets.symmetric(horizontal: 4)
                 : null,
             label: Text(
-              WaiterPreparationTags.label(tag),
+              WaiterPreparationTags.label(tag, options: options),
               style: TextStyle(
                 fontSize: compact ? 11 : 13,
                 fontWeight: FontWeight.w600,

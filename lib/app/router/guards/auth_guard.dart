@@ -9,13 +9,48 @@ String? authRedirect(Ref ref, GoRouterState state) {
   final auth = ref.read(authProvider);
   final path = state.uri.path;
 
-  final isAuthRoute =
-      path == RoutePaths.authLogin || path == RoutePaths.authOtp;
+  final isAuthRoute = path == RoutePaths.authLogin ||
+      path == RoutePaths.authOtp ||
+      path == RoutePaths.authRegister;
+  final isAddressOnboarding = path == RoutePaths.authAddressOnboarding;
+  final isPhoneOnboarding = path == RoutePaths.authPhoneOnboarding;
   final isSplash = path == RoutePaths.splash;
 
   if (auth == null) {
     if (isAuthRoute || isSplash) return null;
     return RoutePaths.authLogin;
+  }
+
+  if (auth.needsPhoneOnboarding &&
+      auth.user.role == UserRole.customer &&
+      !isPhoneOnboarding) {
+    return RoutePaths.authPhoneOnboarding;
+  }
+
+  if (auth.needsAddressOnboarding &&
+      auth.user.role == UserRole.customer &&
+      !isAddressOnboarding &&
+      !isPhoneOnboarding) {
+    return RoutePaths.authAddressOnboarding;
+  }
+
+  if (isPhoneOnboarding) {
+    if (auth.user.role != UserRole.customer) {
+      return RoutePaths.homeForRole(auth.user.role.name);
+    }
+    if (!auth.needsPhoneOnboarding) {
+      return auth.needsAddressOnboarding
+          ? RoutePaths.authAddressOnboarding
+          : RoutePaths.homeForRole(auth.user.role.name);
+    }
+    return null;
+  }
+
+  if (isAddressOnboarding) {
+    if (auth.user.role != UserRole.customer) {
+      return RoutePaths.homeForRole(auth.user.role.name);
+    }
+    return null;
   }
 
   if (isAuthRoute || isSplash) {

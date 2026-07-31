@@ -60,7 +60,7 @@ class OrderAuditDetailPanel extends StatelessWidget {
           ],
           _row(
             LocaleKeys.orderAuditStatus.tr(),
-            OrderStatusUtils.label(order.status),
+            OrderStatusUtils.labelFor(order),
             textStyle,
             valueStyle,
           ),

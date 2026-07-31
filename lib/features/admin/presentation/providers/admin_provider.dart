@@ -7,6 +7,7 @@ import '../../../../shared/domain/entities/product_extra.dart';
 import '../../../../shared/domain/entities/product_combo_item.dart';
 import '../../../../shared/data/mock/mock_data.dart';
 import '../../../../shared/presentation/providers/repository_providers.dart';
+import '../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 import '../../../customer/home/presentation/providers/branch_provider.dart';
 
 class AdminBranchesNotifier extends AsyncNotifier<List<Branch>> {
@@ -66,6 +67,15 @@ final adminBranchesProvider =
   AdminBranchesNotifier.new,
 );
 
+void _invalidateCatalogCaches(Ref ref) {
+  Future.microtask(() {
+    ref.invalidate(productsProvider);
+    ref.invalidate(catalogExtrasProvider);
+    ref.invalidate(opsBranchProductsProvider);
+    ref.invalidate(waiterModeSettingsProvider);
+  });
+}
+
 class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
   @override
   Future<List<Product>> build() {
@@ -82,6 +92,7 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
     bool isCombo = false,
     List<ProductComboItem> comboItems = const [],
     bool isRecommended = false,
+    String? qrNavCategoryId,
   }) async {
     final product = Product(
       id: 'p_${DateTime.now().millisecondsSinceEpoch}',
@@ -94,11 +105,12 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
       isCombo: isCombo,
       comboItems: comboItems,
       isRecommended: isRecommended,
+      qrNavCategoryId: qrNavCategoryId,
     );
     final created =
         await ref.read(productRepositoryProvider).createProduct(product);
     state = AsyncData([...(state.value ?? []), created]);
-    Future.microtask(() => ref.invalidate(productsProvider));
+    _invalidateCatalogCaches(ref);
   }
 
   Future<void> updateProduct(Product product) async {
@@ -107,7 +119,7 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
     state = AsyncData([
       for (final p in state.value ?? []) if (p.id == updated.id) updated else p,
     ]);
-    Future.microtask(() => ref.invalidate(productsProvider));
+    _invalidateCatalogCaches(ref);
   }
 
   Future<void> deleteProduct(String productId) async {
@@ -115,7 +127,7 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
     state = AsyncData(
       (state.value ?? []).where((p) => p.id != productId).toList(),
     );
-    Future.microtask(() => ref.invalidate(productsProvider));
+    _invalidateCatalogCaches(ref);
   }
 
   Future<void> toggleAvailability(String productId, bool available) async {
@@ -125,7 +137,7 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
     state = AsyncData([
       for (final p in state.value ?? []) if (p.id == productId) updated else p,
     ]);
-    Future.microtask(() => ref.invalidate(productsProvider));
+    _invalidateCatalogCaches(ref);
   }
 }
 
@@ -154,10 +166,7 @@ class AdminCatalogExtrasNotifier extends AsyncNotifier<List<ProductExtra>> {
     final created =
         await ref.read(productRepositoryProvider).createCatalogExtra(extra);
     state = AsyncData([...(state.value ?? []), created]);
-    Future.microtask(() {
-      ref.invalidate(productsProvider);
-      ref.invalidate(adminProductsProvider);
-    });
+    _invalidateCatalogCaches(ref);
   }
 
   Future<void> updateExtra(ProductExtra extra) async {
@@ -167,10 +176,7 @@ class AdminCatalogExtrasNotifier extends AsyncNotifier<List<ProductExtra>> {
       for (final item in state.value ?? [])
         if (item.id == updated.id) updated else item,
     ]);
-    Future.microtask(() {
-      ref.invalidate(productsProvider);
-      ref.invalidate(adminProductsProvider);
-    });
+    _invalidateCatalogCaches(ref);
   }
 
   Future<void> deleteExtra(String extraId) async {
@@ -178,10 +184,7 @@ class AdminCatalogExtrasNotifier extends AsyncNotifier<List<ProductExtra>> {
     state = AsyncData(
       (state.value ?? []).where((extra) => extra.id != extraId).toList(),
     );
-    Future.microtask(() {
-      ref.invalidate(productsProvider);
-      ref.invalidate(adminProductsProvider);
-    });
+    _invalidateCatalogCaches(ref);
   }
 }
 

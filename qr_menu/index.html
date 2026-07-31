@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#c39d1e" />
+  <meta name="description" content="Tost-u Şahane dijital menü" />
+  <title>Tost-u Şahane · QR Menü</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="bg-header">
+      <button type="button" class="hdr-btn" id="btnHome" aria-label="Ana sayfa">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="currentColor" d="M3 5h18v2.2H3V5zm0 5.9h14v2.2H3v-2.2zm0 5.9h18V19H3v-2.2z"/>
+        </svg>
+      </button>
+      <div class="logo" id="brandTitle">Tost-u Şahane</div>
+      <div class="hdr-logo-wrap" aria-hidden="true">
+        <img src="logo.png" alt="" class="hdr-logo" />
+      </div>
+    </nav>
+
+    <div id="content">
+      <div class="content-wrap" id="viewHome">
+        <div class="loading" id="loading">Menü yükleniyor…</div>
+
+        <div id="homeBody" hidden>
+          <p class="table-chip" id="tableChip" hidden></p>
+
+          <section class="section-home you-might-like" id="featuredSection" hidden>
+            <div class="heading-section">
+              <div class="sa-title popcat">Öne Çıkanlar</div>
+            </div>
+            <div class="yml-carousel" id="featuredCarousel"></div>
+          </section>
+
+          <!-- Kategori navbar — tıklanınca altta ürünler -->
+          <nav class="cat-navbar" id="catNav" aria-label="Kategoriler"></nav>
+
+          <div class="list-section">
+            <div class="wrap-list-rc" id="productList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-wrap" id="viewDetail" hidden>
+        <div class="food-page-section">
+          <div class="wrap-food-recipe">
+            <div class="heading-page">
+              <a href="#" class="back-link" id="btnDetailBack">
+                <span id="detailBackLabel">Geri</span>
+                <span class="back-btn"><span class="icon-back">‹</span></span>
+              </a>
+            </div>
+            <div class="image-favourite">
+              <div class="pgp-img" id="detailMedia"></div>
+            </div>
+            <div class="recipe-description">
+              <h1 class="detail-name" id="detailTitle"></h1>
+              <p class="detail-price" id="detailPrice"></p>
+              <p class="recp-detail" id="detailDesc"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="garson_container" id="garsonWrap" hidden>
+      <div class="garson-stack">
+        <span class="garson-label">Garson Çağır</span>
+        <button type="button" class="btn-whatsapp-pulse" id="btnCall" aria-label="Garson çağır">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path fill="currentColor" d="M12 3a7 7 0 0 1 7 7v1.2l1.4 2.8A1 1 0 0 1 19.5 15H16v1a4 4 0 0 1-8 0v-1H4.5a1 1 0 0 1-.9-1.5L5 11.2V10a7 7 0 0 1 7-7Zm-2 13a2 2 0 0 0 4 0v-1h-4v1Z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

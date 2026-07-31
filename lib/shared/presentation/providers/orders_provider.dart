@@ -13,6 +13,7 @@ import '../../../core/utils/customer_order_matching.dart';
 import '../../../core/utils/delivery_eta_utils.dart';
 import '../../../core/utils/localized_text.dart';
 import '../../../core/utils/order_status_utils.dart';
+import '../../../core/utils/turkey_time.dart';
 import '../../../shared/domain/entities/user.dart';
 import '../../../features/waiter/domain/table_session.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
@@ -50,15 +51,14 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
       );
       _ordersSub = ref.read(orderRepositoryProvider).watchOrders().listen(
         (remote) async {
-          final merged = _mergeOrders(state.value ?? cached, remote);
+          final merged = await _mergeRemoteInto(state.value ?? cached, remote);
           state = AsyncData(merged);
           await _persist(merged);
         },
         onError: (_) {},
       );
       try {
-        final remote = await ref.read(orderRepositoryProvider).getOrders();
-        final merged = _mergeOrders(cached, remote);
+        final merged = await _mergeRemoteInto(cached, await ref.read(orderRepositoryProvider).getOrders());
         await _persist(merged);
         return merged;
       } catch (_) {
@@ -76,13 +76,28 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     );
 
     try {
-      final remote = await ref.read(orderRepositoryProvider).getOrders();
-      final merged = _mergeOrders(cached, remote);
+      final merged = await _mergeRemoteInto(
+        cached,
+        await ref.read(orderRepositoryProvider).getOrders(),
+      );
       await _persist(merged);
       return merged;
     } catch (_) {
       return cached;
     }
+  }
+
+  Future<List<Order>> _mergeRemoteInto(List<Order> current, List<Order> remote) async {
+    var merged = _mergeOrders(current, remote);
+    final auth = ref.read(authProvider);
+    if (auth?.user.role == UserRole.customer) {
+      try {
+        final scoped =
+            await ref.read(orderRepositoryProvider).getCustomerOrders(auth!);
+        merged = _mergeOrders(merged, scoped);
+      } catch (_) {}
+    }
+    return merged;
   }
 
   List<Order> _mergeOrders(List<Order> cached, List<Order> remote) {
@@ -119,9 +134,9 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
 
   Future<void> _syncFromRepository() async {
     try {
-      final remote = await ref.read(orderRepositoryProvider).getOrders();
       final current = state.value ?? [];
-      final merged = _mergeOrders(current, remote);
+      final remote = await ref.read(orderRepositoryProvider).getOrders();
+      final merged = await _mergeRemoteInto(current, remote);
       if (merged.length != current.length ||
           !_listsEqual(merged, current)) {
         state = AsyncData(merged);
@@ -233,12 +248,15 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     required List<CartItem> items,
     required double totalAmount,
     required String branchId,
-    required int tableNumber,
+    int? tableNumber,
     required String waiterId,
     required String waiterName,
     String? waiterCode,
     String? orderNote,
     List<String> preparationTags = const [],
+    PaymentMethod paymentMethod = PaymentMethod.cashOnDelivery,
+    bool isPickup = false,
+    bool isTableAddon = false,
   }) async {
     final created = await ref.read(orderRepositoryProvider).placeDineInOrder(
           items: items,
@@ -250,6 +268,9 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
           waiterCode: waiterCode,
           orderNote: orderNote,
           preparationTags: preparationTags,
+          paymentMethod: paymentMethod,
+          isPickup: isPickup,
+          isTableAddon: isTableAddon,
         );
     final updated = [created, ...?state.value];
     await _ensureMockHas(created);
@@ -304,6 +325,41 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     }
     await _updateState(current);
     for (final order in closed) {
+      await _ensureMockHas(order);
+    }
+    unawaited(refresh());
+  }
+
+  Future<void> moveDineInTable({
+    required int fromTableNumber,
+    required int toTableNumber,
+  }) async {
+    final branch = ref.read(managedBranchProvider).value;
+    if (branch == null) {
+      throw StateError('managed_branch_unavailable');
+    }
+    if (fromTableNumber == toTableNumber) return;
+
+    final moved = await ref.read(orderRepositoryProvider).moveDineInTableOrders(
+          branchId: branch.id,
+          fromTableNumber: fromTableNumber,
+          toTableNumber: toTableNumber,
+        );
+    if (moved.isEmpty) {
+      throw StateError('dine_in_table_move_failed');
+    }
+
+    final current = List<Order>.from(state.value ?? []);
+    for (final order in moved) {
+      final index = current.indexWhere((o) => o.id == order.id);
+      if (index >= 0) {
+        current[index] = order;
+      } else {
+        current.insert(0, order);
+      }
+    }
+    await _updateState(current);
+    for (final order in moved) {
       await _ensureMockHas(order);
     }
     unawaited(refresh());
@@ -383,7 +439,11 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
       throw StateError('Order not found: $orderId');
     }
     if (existing.status != status &&
-        !OrderStatusUtils.isValidTransition(existing.status, status)) {
+        !OrderStatusUtils.isValidTransition(
+          existing.status,
+          status,
+          dineIn: existing.isDineIn,
+        )) {
       throw StateError(
         'Invalid status transition: ${existing.status.name} → ${status.name}',
       );
@@ -633,7 +693,9 @@ final customerOrdersProvider = Provider<List<Order>>((ref) {
   final auth = ref.watch(authProvider);
   final orders = ref.watch(ordersProvider).value ?? [];
   if (auth == null) return [];
-  return orders.where((o) => orderBelongsToCustomer(o, auth)).toList()
+  return orders
+      .where((o) => !o.phoneFailed && orderBelongsToCustomer(o, auth))
+      .toList()
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 });
 
@@ -654,18 +716,38 @@ final customerHistoryOrdersProvider = Provider<List<Order>>((ref) {
 });
 
 final branchOrdersProvider = Provider<List<Order>>((ref) {
+  final auth = ref.watch(authProvider);
   final branch = ref.watch(managedBranchProvider).value;
-  if (branch == null) return [];
   final orders = ref.watch(ordersProvider).value ?? [];
-  return orders
-      .where(
-        (o) =>
-            o.branchId == branch.id &&
-            o.isDelivery &&
-            o.status != OrderStatus.delivered &&
-            o.status != OrderStatus.cancelled,
-      )
-      .toList();
+  final failedCutoff = DateTime.now().toUtc().subtract(const Duration(hours: 48));
+  final isAdmin = auth?.user.role == UserRole.superAdmin;
+
+  final filtered = orders.where((o) {
+    if (!o.isDelivery) return false;
+    // Şube personeli: kendi şubesi. Admin ana ekran: tüm şubeler.
+    if (!isAdmin && (branch == null || o.branchId != branch.id)) {
+      return false;
+    }
+    if (o.phoneFailed) {
+      return !o.createdAt.toUtc().isBefore(failedCutoff);
+    }
+    if (o.status == OrderStatus.cancelled &&
+        o.isPhoneOrder &&
+        (o.phoneCancelReason?.trim().isNotEmpty ?? false)) {
+      return !o.createdAt.toUtc().isBefore(failedCutoff);
+    }
+    return o.status != OrderStatus.delivered &&
+        o.status != OrderStatus.cancelled;
+  }).toList();
+
+  filtered.sort((a, b) {
+    final byTime = b.createdAt.toUtc().millisecondsSinceEpoch.compareTo(
+          a.createdAt.toUtc().millisecondsSinceEpoch,
+        );
+    if (byTime != 0) return byTime;
+    return b.orderNumber.compareTo(a.orderNumber);
+  });
+  return filtered;
 });
 
 final branchDineInOrdersProvider = Provider<List<Order>>((ref) {
@@ -695,7 +777,8 @@ final kitchenQueueOrdersProvider = Provider<List<Order>>((ref) {
             o.branchId == branch.id &&
             o.isDineIn &&
             (o.status == OrderStatus.received ||
-                o.status == OrderStatus.preparing),
+                o.status == OrderStatus.preparing) &&
+            (!o.isTableAddon || o.hasKitchenItems),
       )
       .toList()
     ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -731,6 +814,7 @@ final courierOrdersProvider = Provider<List<Order>>((ref) {
   return orders
       .where(
         (o) =>
+            o.isDelivery &&
             o.courierId == auth.user.id &&
             o.status != OrderStatus.delivered &&
             o.status != OrderStatus.cancelled,
@@ -742,6 +826,7 @@ final waitingCourierOrdersProvider = Provider<List<Order>>((ref) {
   final auth = ref.watch(authProvider);
   final orders = ref.watch(ordersProvider).value ?? [];
   return orders.where((o) {
+    if (!o.isDelivery) return false;
     if (o.status != OrderStatus.waitingCourier || o.courierId != null) {
       return false;
     }
@@ -756,6 +841,7 @@ final activeDeliveryOrdersProvider = Provider<List<Order>>((ref) {
   final orders = ref.watch(ordersProvider).value ?? [];
   final now = DateTime.now();
   return orders.where((o) {
+    if (!o.isDelivery) return false;
     if (o.status == OrderStatus.waitingCourier ||
         o.status == OrderStatus.onTheWay) {
       return true;
@@ -775,6 +861,7 @@ final branchHistoryOrdersProvider = Provider<List<Order>>((ref) {
       .where(
         (o) =>
             o.branchId == branch.id &&
+            !o.phoneFailed &&
             (o.status == OrderStatus.delivered ||
                 o.status == OrderStatus.cancelled),
       )
@@ -803,13 +890,17 @@ final branchDailyStatsProvider = Provider<({double revenue, int count})>((ref) {
   final branch = ref.watch(managedBranchProvider).value;
   if (branch == null) return (revenue: 0, count: 0);
   final orders = ref.watch(ordersProvider).value ?? [];
-  final today = DateTime.now();
   final todayOrders = orders.where((o) {
-    return o.branchId == branch.id &&
-        o.createdAt.year == today.year &&
-        o.createdAt.month == today.month &&
-        o.createdAt.day == today.day;
+    return o.branchId == branch.id && TurkeyTime.isToday(o.createdAt);
   });
+  final revenue = todayOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
+  return (revenue: revenue, count: todayOrders.length);
+});
+
+/// Yönetici anasayfa / sipariş üstü — bugünün cirosu + sipariş (TR gece 12 sıfırlanır).
+final adminDailyStatsProvider = Provider<({double revenue, int count})>((ref) {
+  final orders = ref.watch(ordersProvider).value ?? [];
+  final todayOrders = orders.where((o) => TurkeyTime.isToday(o.createdAt));
   final revenue = todayOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
   return (revenue: revenue, count: todayOrders.length);
 });

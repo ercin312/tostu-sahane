@@ -53,10 +53,13 @@ ONEMLI: Tum klasoru oldugu gibi kopyalayin (sadece .exe degil).
          msvcp140.dll ve vcruntime140_1.dll klasorde olmali.
 
 ADIMLAR (diger bilgisayarda):
-  1) Tum "Tostu Sahane Windows" klasorunu kopyalayin
-  2) "Tostu Sahane Baslat.bat" ile acin
-  3) Hata devam ederse "1_VC_Runtime_Kur.bat" -> YONETICI olarak calistirin
-  4) Acilmazsa "Sorun_Gider.bat" calistirin
+  A) Setup.exe ile (onerilen):
+     TostuSahane-Setup-x.y.z.exe calistirin (Kurulum sihirbazi)
+  B) Klasor ile:
+     1) Tum "Tostu Sahane Windows" klasorunu kopyalayin
+     2) "Tostu Sahane Baslat.bat" ile acin
+     3) Hata devam ederse "1_VC_Runtime_Kur.bat" -> YONETICI olarak calistirin
+     4) Acilmazsa "Sorun_Gider.bat" calistirin
 
 SIK NEDENLER:
   - Sadece .exe kopyalandi (data/ ve DLL'ler eksik)
@@ -64,14 +67,8 @@ SIK NEDENLER:
   - data klasoru kopyalanmamis
   - Antivirus engelliyor
 
-ROLLER (giris ekraninda secin):
-  - Sube Yoneticisi / Sube Personeli: e-posta + sifre (siparis onay, ic siparis listesi)
-  - Garson: kullanici adi + sifre (masa siparisi; yonetici olusturur)
-  - Garson ornek (Firestore'da yoksa): garson1 / Sahane123!
-
-GARSON MODU:
-  - Masa sec -> urun ekle -> "Icecek / Aparatif Ekle" -> siparis gonder
-  - Ic siparis otomatik yazicidan cikar (masa + garson kodu, odeme satiri yok)
+GIRIS: Personel -> yonetici atadigi kullanici adi + sifre
+GARSON: Masa sec -> urun ekle -> siparis gonder
 ================================================================================
 '@ | Set-Content -Path (Join-Path $dest "KURULUM.txt") -Encoding UTF8
 

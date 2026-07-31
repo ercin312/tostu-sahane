@@ -12,4 +12,5 @@ Future<void> saveWaiterModeSettings(
   WaiterModeSettings settings,
 ) async {
   await ref.read(adminRepositoryProvider).updateWaiterModeSettings(settings);
+  ref.invalidate(waiterModeSettingsProvider);
 }

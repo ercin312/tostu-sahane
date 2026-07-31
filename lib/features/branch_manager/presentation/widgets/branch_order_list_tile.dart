@@ -32,6 +32,7 @@ class BranchOrderListTile extends StatelessWidget {
       OrderStatus.cancelled => AppColors.error,
       OrderStatus.delivered => AppColors.success,
       OrderStatus.received => AppColors.warning,
+      OrderStatus.ready => AppColors.success,
       _ => AppColors.primary,
     };
 
@@ -45,10 +46,12 @@ class BranchOrderListTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isNew
-                  ? AppColors.warning.withValues(alpha: 0.6)
-                  : AppColors.divider.withValues(alpha: 0.8),
-              width: isNew ? 2 : 1,
+              color: order.phoneFailed
+                  ? AppColors.error.withValues(alpha: 0.7)
+                  : isNew
+                      ? AppColors.warning.withValues(alpha: 0.6)
+                      : AppColors.divider.withValues(alpha: 0.8),
+              width: order.phoneFailed || isNew ? 2 : 1,
             ),
           ),
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -80,6 +83,39 @@ class BranchOrderListTile extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
+                        if (order.isPhoneOrder)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (order.phoneFailed
+                                      ? AppColors.error
+                                      : AppColors.primary)
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              order.phoneFailed
+                                  ? LocaleKeys.branchPhoneOrderFailedBadge.tr()
+                                  : order.phoneIncomplete
+                                      ? LocaleKeys
+                                          .branchPhoneOrderIncompleteBadge
+                                          .tr()
+                                      : LocaleKeys.branchPhoneOrderBadge.tr(),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: order.phoneFailed
+                                        ? AppColors.error
+                                        : AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
                         if (isNew)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -105,20 +141,88 @@ class BranchOrderListTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${order.customerName} · ${OrderStatusUtils.label(order.status)}',
+                      '${order.customerName} · ${OrderStatusUtils.labelFor(order)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
                           ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (order.isPhoneOrder &&
+                        (order.customerPhone?.trim().isNotEmpty ?? false))
+                      Text(
+                        order.customerPhone!.trim(),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: order.phoneFailed
+                                  ? AppColors.error
+                                  : AppColors.textSecondary,
+                              fontWeight: order.phoneFailed
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     Text(
-                      DateFormat('dd.MM.yyyy HH:mm').format(order.createdAt),
+                      FormatUtils.dateTimeTr(order.createdAt),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
                           ),
                     ),
-                    if (WaiterOrderNotes.hasNote(order)) ...[
+                    if (order.phoneStatusInquiry) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Text(
+                          order.phoneStatusInquiryNote?.trim().isNotEmpty == true
+                              ? order.phoneStatusInquiryNote!.trim()
+                              : LocaleKeys.branchPhoneOrderInquiryDefault.tr(),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: AppColors.warning,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                      ),
+                    ],
+                    if (order.phoneFailed) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.error.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Text(
+                          (order.orderNote?.trim().isNotEmpty ?? false)
+                              ? order.orderNote!.trim()
+                              : LocaleKeys.branchPhoneOrderFailedNote.tr(),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: AppColors.error,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                      ),
+                    ] else if (WaiterOrderNotes.hasNote(order)) ...[
                       const SizedBox(height: 6),
                       OrderPreparationPreferencesPanel(
                         order: order,

@@ -12,16 +12,17 @@ abstract final class MediaStorageService {
   static const base64Prefix = 'base64:';
 
   static Future<String?> pickAndSaveImage() async {
+    final syncRemote = AppConfig.useFirestoreBackend;
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      maxWidth: AppConfig.useFirestore ? 1024 : 1600,
-      imageQuality: AppConfig.useFirestore ? 75 : 85,
+      maxWidth: syncRemote ? 1024 : 1600,
+      imageQuality: syncRemote ? 75 : 85,
     );
     if (picked == null) return null;
 
     final bytes = await picked.readAsBytes();
 
-    if (kIsWeb || AppConfig.useFirestore) {
+    if (kIsWeb || syncRemote) {
       return '$base64Prefix${base64Encode(bytes)}';
     }
 
@@ -41,7 +42,7 @@ abstract final class MediaStorageService {
   static Future<String?> ensureRemoteReady(String? source) async {
     if (source == null || source.isEmpty) return source;
     if (isNetworkSource(source) || isBase64Source(source)) return source;
-    if (!AppConfig.useFirestore || kIsWeb) return source;
+    if (!AppConfig.useFirestoreBackend || kIsWeb) return source;
 
     final file = File(source);
     if (!await file.exists()) return source;
@@ -74,6 +75,18 @@ abstract final class MediaStorageService {
       source.startsWith('http://') || source.startsWith('https://');
 
   static bool isBase64Source(String source) => source.startsWith(base64Prefix);
+
+  /// Başka cihazdan kalan yerel dosya yolu (ör. Windows `C:\...`).
+  /// Bu cihazda dosya varsa yabancı sayılmaz.
+  static bool isForeignLocalPath(String source) {
+    if (isNetworkSource(source) || isBase64Source(source)) return false;
+    if (localFileExists(source)) return false;
+    if (source.contains(':\\')) return true;
+    if (source.startsWith('\\\\')) return true;
+    return source.startsWith('/') &&
+        !source.startsWith('file://') &&
+        source.contains('/media/');
+  }
 
   static Uint8List? decodeBase64(String source) {
     if (!isBase64Source(source)) return null;

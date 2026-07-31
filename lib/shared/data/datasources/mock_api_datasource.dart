@@ -318,6 +318,34 @@ class MockApiDataSource {
     return cancelled;
   }
 
+  Future<List<Order>> moveDineInTableOrders({
+    required String branchId,
+    required int fromTableNumber,
+    required int toTableNumber,
+  }) async {
+    await _delay();
+    if (fromTableNumber == toTableNumber) return const [];
+    final moved = <Order>[];
+    for (var i = 0; i < _orders.length; i++) {
+      final order = _orders[i];
+      if (order.branchId != branchId ||
+          order.tableNumber != fromTableNumber ||
+          order.isPickup ||
+          !order.isDineIn ||
+          !order.isActive) {
+        continue;
+      }
+      final updated = order.copyWith(
+        tableNumber: toTableNumber,
+        address: 'Salon - Masa $toTableNumber',
+        customerName: 'Masa $toTableNumber',
+      );
+      _orders[i] = updated;
+      moved.add(updated);
+    }
+    return moved;
+  }
+
   Future<Order> removeDineInOrderItem(
     String orderId,
     String cartItemId, {
@@ -494,12 +522,47 @@ class MockApiDataSource {
     );
   }
 
-  Future<AuthUserModel> verifyOtp(String phone, String otp, String role) async {
+  Future<AuthUserModel> verifyOtp(
+    String phone,
+    String otp,
+    String role, {
+    String? name,
+    String? password,
+  }) async {
     await _delay();
     if (otp != MockData.demoOtp) {
       throw const AuthCredentialsException('auth_invalid_otp');
     }
-    return _mockAuthUser(role: role, phone: phone);
+    if (password != null && password.trim().length < 6) {
+      throw const AuthCredentialsException('auth_invalid_password');
+    }
+    final user = _mockAuthUser(role: role, phone: phone);
+    if (name != null && name.trim().isNotEmpty) {
+      return AuthUserModel(
+        id: user.id,
+        name: name.trim(),
+        role: user.role,
+        phone: user.phone,
+        branchId: user.branchId,
+        username: user.username,
+        accessToken: user.accessToken,
+        refreshToken: user.refreshToken,
+      );
+    }
+    return user;
+  }
+
+  Future<AuthUserModel> loginCustomerPhonePassword(
+    String phone,
+    String password,
+  ) async {
+    await _delay();
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 10 || password.trim().length < 6) {
+      throw const AuthCredentialsException('auth_invalid_credentials');
+    }
+    // Demo: herhangi geçerli telefon + en az 6 karakter şifre
+    return _mockAuthUser(role: 'customer', phone: phone);
   }
 
   Future<AuthUserModel> verifyEmailOtp(
@@ -520,36 +583,29 @@ class MockApiDataSource {
     String role,
   ) async {
     await _delay();
-    if (role == 'waiter' || role == 'kitchenStaff') {
-      final normalized = email.trim().toLowerCase();
-      AdminUserModel? match;
-      for (final user in _adminUsers) {
-        if (user.role == role &&
-            user.isActive &&
-            user.username?.toLowerCase() == normalized &&
-            user.password == password) {
-          match = user;
-          break;
-        }
+    final normalized = email.trim().toLowerCase();
+    AdminUserModel? match;
+    for (final user in _adminUsers) {
+      if (user.isActive &&
+          user.username?.toLowerCase() == normalized &&
+          user.password == password) {
+        match = user;
+        break;
       }
-      if (match == null) {
-        throw const AuthCredentialsException('auth_invalid_credentials');
-      }
-      return AuthUserModel(
-        id: match.id,
-        name: match.name,
-        role: match.role,
-        phone: match.phone,
-        branchId: match.branchId,
-        username: match.username,
-        accessToken: 'mock_token',
-        refreshToken: 'mock_refresh',
-      );
     }
-    if (password != MockData.demoPassword) {
+    if (match == null) {
       throw const AuthCredentialsException('auth_invalid_credentials');
     }
-    return _mockAuthUser(role: role, phone: email);
+    return AuthUserModel(
+      id: match.id,
+      name: match.name,
+      role: match.role,
+      phone: match.phone,
+      branchId: match.branchId,
+      username: match.username,
+      accessToken: 'mock_token',
+      refreshToken: 'mock_refresh',
+    );
   }
 
   Future<void> registerPushToken(String token) async => _delay();
@@ -677,29 +733,35 @@ class MockApiDataSource {
     required List<CartItem> items,
     required double totalAmount,
     required String branchId,
-    required int tableNumber,
+    int? tableNumber,
     required String waiterId,
     required String waiterName,
     String? waiterCode,
     String? orderNote,
     List<String> preparationTags = const [],
+    PaymentMethod paymentMethod = PaymentMethod.cashOnDelivery,
+    bool isPickup = false,
+    bool isTableAddon = false,
   }) {
     _orderCounter++;
     final now = DateTime.now();
+    final tableLabel = isPickup
+        ? 'Gel Al #$_orderCounter'
+        : 'Masa $tableNumber';
     return Order(
       id: 'order_$_orderCounter',
       orderNumber: _orderCounter,
       customerId: waiterId,
-      customerName: 'Masa $tableNumber',
+      customerName: tableLabel,
       branchId: branchId,
       items: List.of(items),
       totalAmount: totalAmount,
       status: OrderStatus.preparing,
       createdAt: now,
-      address: 'Salon - Masa $tableNumber',
-      paymentMethod: PaymentMethod.cashOnDelivery,
+      address: isPickup ? 'Gel Al' : 'Salon - Masa $tableNumber',
+      paymentMethod: paymentMethod,
       orderType: OrderType.dineIn,
-      tableNumber: tableNumber,
+      tableNumber: isPickup ? null : tableNumber,
       waiterId: waiterId,
       waiterName: waiterName,
       waiterCode: waiterCode,
@@ -708,6 +770,8 @@ class MockApiDataSource {
       statusTimestamps: {OrderStatus.preparing: now},
       statusActorIds: {OrderStatus.preparing: waiterId},
       statusActorNames: {OrderStatus.preparing: waiterName},
+      isPickup: isPickup,
+      isTableAddon: isTableAddon,
     );
   }
 
@@ -783,18 +847,23 @@ class MockApiDataSource {
     return _waiterModeSettings;
   }
 
+  final _waiterSettingsChanges =
+      StreamController<WaiterModeSettings>.broadcast();
+
   Future<WaiterModeSettings> updateWaiterModeSettings(
     WaiterModeSettings settings,
   ) async {
     await _delay();
     _waiterModeSettings = settings.copyWith(
-      tableCount: settings.tableCount.clamp(1, 99),
+      tableCount: settings.tableCount.clamp(1, WaiterModeSettings.maxTableCount),
     );
+    _waiterSettingsChanges.add(_waiterModeSettings);
     return _waiterModeSettings;
   }
 
   Stream<WaiterModeSettings> watchWaiterModeSettings() async* {
     yield _waiterModeSettings;
+    yield* _waiterSettingsChanges.stream;
   }
 
   Future<PrintRoutingSettings> getPrintRoutingSettings() async {

@@ -9,6 +9,7 @@ import '../../../core/utils/platform_layout_utils.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/branch_manager/presentation/widgets/branch_order_alert_listener.dart';
 import '../../../features/customer/product_detail/presentation/providers/product_reviews_provider.dart';
+import '../../../features/waiter/presentation/widgets/table_service_request_listener.dart';
 import '../../../shared/domain/entities/user.dart';
 import '../../../shared/presentation/providers/cash_remittance_providers.dart';
 import '../../../features/admin/presentation/config/admin_nav_config.dart';
@@ -214,13 +215,16 @@ class BranchShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (_isWaiter(ref)) {
-      return BranchOrderAlertListener(child: child);
+      return BranchOrderAlertListener(
+        child: TableServiceRequestListener(child: child),
+      );
     }
 
     final index = _selectedIndex(context);
 
     return BranchOrderAlertListener(
-      child: LayoutBuilder(
+      child: TableServiceRequestListener(
+        child: LayoutBuilder(
         builder: (context, constraints) {
           if (PlatformLayout.useDesktopLayout(context)) {
             final extended = constraints.maxWidth >= 1200;
@@ -255,6 +259,7 @@ class BranchShell extends ConsumerWidget {
             ),
           );
         },
+        ),
       ),
     );
   }
@@ -402,7 +407,9 @@ class AdminShell extends ConsumerWidget {
     final useDesktop = PlatformLayout.useDesktopLayout(context);
     final index = _selectedIndex(context, desktop: useDesktop);
 
-    return LayoutBuilder(
+    return BranchOrderAlertListener(
+      child: TableServiceRequestListener(
+      child: LayoutBuilder(
       builder: (context, constraints) {
         if (useDesktop) {
           final extended = constraints.maxWidth >= 1280;
@@ -439,6 +446,8 @@ class AdminShell extends ConsumerWidget {
           ),
         );
       },
+      ),
+      ),
     );
   }
 }

@@ -30,8 +30,13 @@ class WaiterCartItem {
   String get displayNameKey =>
       product?.nameKey ?? catalogExtra!.name;
 
-  double unitPrice(Product productWithExtras) {
-    if (catalogExtra != null) return catalogExtra!.price;
+  double unitPrice(
+    Product productWithExtras, {
+    ProductExtra? resolvedCatalogExtra,
+  }) {
+    if (catalogExtra != null) {
+      return resolvedCatalogExtra?.price ?? catalogExtra!.price;
+    }
     var price = product!.price;
     for (final extra in productWithExtras.extras) {
       if (selectedExtraIds.contains(extra.id)) price += extra.price;
@@ -39,17 +44,28 @@ class WaiterCartItem {
     return price;
   }
 
-  double lineTotal(Product productWithExtras) =>
-      unitPrice(productWithExtras) * quantity;
+  double lineTotal(
+    Product productWithExtras, {
+    ProductExtra? resolvedCatalogExtra,
+  }) =>
+      unitPrice(
+        productWithExtras,
+        resolvedCatalogExtra: resolvedCatalogExtra,
+      ) *
+      quantity;
 
-  CartItem toCartItem([Product? productWithExtras]) {
+  CartItem toCartItem([
+    Product? productWithExtras,
+    ProductExtra? resolvedCatalogExtra,
+  ]) {
     final id = '${lineKey}_${DateTime.now().microsecondsSinceEpoch}';
     if (catalogExtra != null) {
+      final extra = resolvedCatalogExtra ?? catalogExtra!;
       return CartItem(
         id: id,
         productId: 'extra_${catalogExtra!.id}',
-        productNameKey: catalogExtra!.name,
-        unitPrice: catalogExtra!.price,
+        productNameKey: extra.name,
+        unitPrice: extra.price,
         quantity: quantity,
         note: note,
       );
@@ -150,10 +166,12 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     ];
   }
 
-  double total(List<Product> products) {
+  double total(List<Product> products, [List<ProductExtra> extras = const []]) {
     return state.fold(0, (sum, item) {
       if (item.catalogExtra != null) {
-        return sum + item.catalogExtra!.price * item.quantity;
+        final resolved = _resolveExtra(extras, item.catalogExtra!.id);
+        final price = resolved?.price ?? item.catalogExtra!.price;
+        return sum + price * item.quantity;
       }
       final product = products.firstWhere(
         (p) => p.id == item.product!.id,
@@ -163,15 +181,28 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     });
   }
 
-  List<CartItem> toCartItems(List<Product> products) {
+  List<CartItem> toCartItems(
+    List<Product> products, [
+    List<ProductExtra> extras = const [],
+  ]) {
     return state.map((item) {
-      if (item.catalogExtra != null) return item.toCartItem();
+      if (item.catalogExtra != null) {
+        final resolved = _resolveExtra(extras, item.catalogExtra!.id);
+        return item.toCartItem(null, resolved);
+      }
       final product = products.firstWhere(
         (p) => p.id == item.product!.id,
         orElse: () => item.product!,
       );
       return item.toCartItem(product);
     }).toList();
+  }
+
+  ProductExtra? _resolveExtra(List<ProductExtra> extras, String id) {
+    for (final extra in extras) {
+      if (extra.id == id) return extra;
+    }
+    return null;
   }
 }
 
