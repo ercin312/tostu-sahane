@@ -69,3 +69,5 @@ android/key.properties
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 ios/ExportOptions.plist
+qr_menu/config.js
+dart_defines.local.json

@@ -1,28 +1,22 @@
 {
   "project_info": {
-    "project_number": "512275443807",
-    "project_id": "tostusahane-e4e71",
-    "storage_bucket": "tostusahane-e4e71.firebasestorage.app"
+    "project_number": "000000000000",
+    "project_id": "REPLACE_WITH_FIREBASE_PROJECT_ID",
+    "storage_bucket": "REPLACE_WITH_FIREBASE_PROJECT_ID.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:512275443807:android:f7c5a66155c03719f8abea",
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
         "android_client_info": {
           "package_name": "com.tostusahane.tostu_sahane"
         }
       },
-      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDZ5iC72yPBXgLvYdndknKjNl83CbWkxuY"
+          "current_key": "REPLACE_WITH_FIREBASE_ANDROID_API_KEY"
         }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
+      ]
     }
   ],
   "configuration_version": "1"

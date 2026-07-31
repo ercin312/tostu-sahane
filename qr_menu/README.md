@@ -21,3 +21,10 @@ Flutter → **Yönetici → QR Menü**
 Veri: Cloud Function `getQrMenuPublic`
 
 Masa QR örneği: `https://www.tostusahane.com/qr/?table=1&branch=branch_1`
+
+## Config (gizli)
+
+```bash
+cp config.example.js config.js
+# config.js içine gerçek Firebase web apiKey / projectId yaz (commit etme)
+```
