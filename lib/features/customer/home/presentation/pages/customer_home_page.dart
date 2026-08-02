@@ -626,18 +626,19 @@ class _BranchSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        OutlinedButton.icon(
-          onPressed: onUseNearest,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: const BorderSide(color: AppColors.primary),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        if (allBranches.length > 1)
+          OutlinedButton.icon(
+            onPressed: onUseNearest,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
+            icon: const Icon(Icons.my_location, size: 18),
+            label: Text(LocaleKeys.locationUseNearest.tr()),
           ),
-          icon: const Icon(Icons.my_location, size: 18),
-          label: Text(LocaleKeys.locationUseNearest.tr()),
-        ),
       ],
     );
   }

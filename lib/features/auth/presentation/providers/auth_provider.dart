@@ -9,6 +9,7 @@ import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/utils/platform_layout_utils.dart';
+import '../../../../shared/data/datasources/local/local_datasources.dart';
 import '../../../../shared/domain/entities/auth.dart';
 import '../../../../shared/domain/entities/auth_session.dart';
 import '../../../../shared/domain/entities/user.dart';
@@ -310,6 +311,11 @@ class AuthNotifier extends Notifier<AuthState?> {
     await prefs.remove(_usernameKey);
     await prefs.remove(_needsAddressKey);
     await prefs.remove(_needsPhoneKey);
+
+    // Personel oturumundan kalan sipariş önbelleği müşteriye sızmasın.
+    try {
+      await OrderLocalDataSource().clearOrders();
+    } catch (_) {}
 
     final storage = ref.read(secureStorageProvider);
     await storage.delete(key: ApiTokens.accessToken);

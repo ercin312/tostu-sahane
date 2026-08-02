@@ -41,11 +41,6 @@ class CustomerProfilePage extends ConsumerWidget {
             onTap: () => context.push(RoutePaths.customerAddresses),
           ),
           _ProfileTile(
-            icon: Icons.credit_card,
-            titleKey: LocaleKeys.profileSavedCards,
-            onTap: () => context.push(RoutePaths.customerSavedCards),
-          ),
-          _ProfileTile(
             icon: Icons.favorite_border,
             titleKey: LocaleKeys.profileFavorites,
             onTap: () => context.push(RoutePaths.customerFavorites),

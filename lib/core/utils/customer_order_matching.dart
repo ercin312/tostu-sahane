@@ -31,24 +31,32 @@ Set<String> customerIdentityKeys(AuthState auth) {
 }
 
 /// Telefon/e-posta format farklarından kaynaklanan customerId uyumsuzluklarını tolere eder.
+///
+/// Bilinçli olarak gevşek `contains` eşleşmesi yok — rastgele sipariş sızıntısını önler.
 bool orderBelongsToCustomer(Order order, AuthState auth) {
   if (order.phoneFailed) return false;
   if (!order.isDelivery) return false;
+
+  final uid = auth.user.id.trim();
+  if (uid.isNotEmpty && order.customerId == uid) return true;
 
   final keys = customerIdentityKeys(auth);
   if (keys.contains(order.customerId)) return true;
 
   final authTen = normalizeTrPhoneDigits(auth.phone);
   if (authTen != null) {
-    final cid = order.customerId;
-    if (cid.endsWith(authTen) || cid.contains(authTen)) return true;
-    if (trPhonesMatch(order.customerPhone, auth.phone)) return true;
-    // Telefon AI siparişleri: customer_0… / phone_… / ham numara
+    final cid = order.customerId.trim();
+    // Sadece bilinen önek + telefon kuyruğu (içinde geçen rakamlar değil).
     if (cid == 'phone_$authTen' ||
         cid == 'customer_$authTen' ||
-        cid == 'customer_0$authTen') {
+        cid == 'customer_0$authTen' ||
+        cid == 'customer_+90$authTen' ||
+        cid == 'customer_90$authTen' ||
+        cid == authTen ||
+        cid == '0$authTen') {
       return true;
     }
+    if (trPhonesMatch(order.customerPhone, auth.phone)) return true;
   }
 
   final email = auth.email?.trim().toLowerCase();

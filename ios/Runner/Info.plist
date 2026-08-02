@@ -72,5 +72,7 @@
 	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır. Uygulama arka planda sürekli konum takibi yapmaz.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

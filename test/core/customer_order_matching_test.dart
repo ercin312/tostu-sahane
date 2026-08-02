@@ -105,6 +105,27 @@ void main() {
     expect(onTheWay.isActive, isTrue);
   });
 
+  test('does not match unrelated customerId that merely contains phone digits',
+      () {
+    final session = auth(id: 'uid_new_customer', phone: '5551234567');
+    final order = sampleOrder(
+      customerId: 'workplace_order_x5551234567y',
+      customerPhone: '05559998877',
+    );
+    expect(orderBelongsToCustomer(order, session), isFalse);
+  });
+
+  test('matches firebase uid exactly', () {
+    final session = auth(id: 'firebaseUidAbc', phone: '5551234567');
+    expect(
+      orderBelongsToCustomer(
+        sampleOrder(customerId: 'firebaseUidAbc'),
+        session,
+      ),
+      isTrue,
+    );
+  });
+
   test('delivered orders are not active', () {
     final delivered = sampleOrder(
       customerId: 'customer_5551234567',

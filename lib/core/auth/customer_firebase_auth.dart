@@ -28,7 +28,11 @@ class CustomerFirebaseAuth {
 
   Future<void> _ensureGoogle() async {
     if (_googleReady) return;
-    await GoogleSignIn.instance.initialize();
+    // Web client ID — Android'de Firebase idToken için gerekli (Play SHA sonrası da).
+    await GoogleSignIn.instance.initialize(
+      serverClientId:
+          '512275443807-oqepniuq84128ao36d5uh5c0e6diqa3l.apps.googleusercontent.com',
+    );
     _googleReady = true;
   }
 

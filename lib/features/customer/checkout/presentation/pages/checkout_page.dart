@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../../core/config/app_config.dart';
 import '../../../../../app/router/route_paths.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -13,22 +12,16 @@ import '../../../../../core/widgets/app_button.dart';
 import '../../../../../shared/domain/entities/delivery_address.dart';
 import '../../../../../shared/domain/entities/branch.dart';
 import '../../../../../shared/domain/entities/order.dart';
-import '../../../../../shared/data/repositories/payment_repository.dart';
 import '../../../../../shared/presentation/providers/orders_provider.dart';
-import '../models/paytr_checkout_args.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../customer/cart/presentation/providers/cart_provider.dart';
 import '../../../../customer/home/presentation/providers/branch_provider.dart';
 import '../../../../customer/profile/presentation/providers/address_provider.dart';
 import '../../../../customer/cart/presentation/providers/delivery_providers.dart';
-import '../../../../../shared/domain/entities/saved_card.dart';
-import '../../../../customer/profile/presentation/providers/saved_cards_provider.dart';
 import '../../../../../shared/presentation/providers/delivery_settings_provider.dart';
 import '../../../../../shared/presentation/providers/checkout_paytr_providers.dart';
 import '../../../../../shared/presentation/providers/paytr_settings_provider.dart';
-import '../providers/checkout_payment_provider.dart';
 import '../providers/coupon_provider.dart';
-import '../models/payment_page_args.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({super.key});
@@ -38,7 +31,7 @@ class CheckoutPage extends ConsumerStatefulWidget {
 }
 
 class _CheckoutPageState extends ConsumerState<CheckoutPage> {
-  PaymentMethod _paymentMethod = PaymentMethod.onlineCard;
+  PaymentMethod _paymentMethod = PaymentMethod.cashOnDelivery;
   bool _deliveryNow = true;
   DateTime? _scheduledAt;
   final _noteController = TextEditingController();
@@ -273,41 +266,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     }
 
     String? paymentTransactionId;
+    // Online kart / PayTR bu sürümde kapalı — sadece kapıda ödeme.
     if (_paymentMethod == PaymentMethod.onlineCard) {
-      PaymentResult? paymentResult;
-      final savedCard = ref.read(selectedCheckoutCardProvider);
-
-      final paytrEnabled = ref.read(paytrEnabledProvider);
-
-      if (paytrEnabled) {
-        final email = auth.email?.isNotEmpty == true
-            ? auth.email!
-            : '${auth.phone}@tostusahane.com';
-        paymentResult = await context.push<PaymentResult>(
-          RoutePaths.customerPaytrPayment,
-          extra: PaytrCheckoutArgs(
-            amount: total,
-            email: email,
-            customerName: auth.user.name.tr(),
-            phone: auth.phone,
-            address: selectedAddress.fullAddress,
-            basketSummary: buildPaytrBasketSummary(cart),
-            items: cart,
-          ),
-        );
-      } else if (savedCard != null) {
-        paymentResult = await context.push<PaymentResult>(
-          RoutePaths.customerPayment,
-          extra: PaymentPageArgs(amount: total, savedCard: savedCard),
-        );
-      } else {
-        paymentResult = await context.push<PaymentResult>(
-          RoutePaths.customerPayment,
-          extra: PaymentPageArgs(amount: total),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(LocaleKeys.checkoutPaymentCash.tr())),
         );
       }
-      if (paymentResult == null || !mounted) return;
-      paymentTransactionId = paymentResult.transactionId;
+      return;
     }
 
     var orderNote = _noteController.text.trim();
@@ -386,16 +352,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     final total = ref.watch(checkoutPayableTotalProvider);
     final vatAmount = ref.watch(checkoutVatAmountProvider);
     final showVatLine = ref.watch(checkoutShowsVatLineProvider);
-    final paytrEnabled = ref.watch(paytrEnabledProvider);
-    final paytrSettings = ref.watch(paytrSettingsProvider).valueOrNull;
     final discount = ref.watch(checkoutDiscountProvider);
     final discountLabel = ref.watch(checkoutDiscountLabelProvider);
     final discountCode = ref.watch(checkoutDiscountCodeProvider);
     final freeDeliveryMinOrder = ref.watch(effectiveFreeDeliveryMinOrderProvider);
     final deliveryFee = ref.watch(deliveryFeeProvider);
     final etaMinutes = ref.watch(checkoutEtaMinutesProvider);
-    final savedCardsAsync = ref.watch(savedCardsProvider);
-    final selectedCard = ref.watch(selectedCheckoutCardProvider);
+    final paytrSettings = ref.watch(paytrSettingsProvider).valueOrNull;
     final addressesAsync = ref.watch(addressProvider);
     final selectedAddress = ref.watch(selectedCheckoutAddressProvider);
     final branch = ref.watch(branchProvider).value;
@@ -547,12 +510,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 RadioListTile<PaymentMethod>(
-                  title: Text(LocaleKeys.checkoutPaymentCard.tr()),
-                  value: PaymentMethod.onlineCard,
-                  groupValue: _paymentMethod,
-                  onChanged: (v) => setState(() => _paymentMethod = v!),
-                ),
-                RadioListTile<PaymentMethod>(
                   title: Text(LocaleKeys.checkoutPaymentCash.tr()),
                   value: PaymentMethod.cashOnDelivery,
                   groupValue: _paymentMethod,
@@ -564,54 +521,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   groupValue: _paymentMethod,
                   onChanged: (v) => setState(() => _paymentMethod = v!),
                 ),
-                if (_paymentMethod == PaymentMethod.onlineCard &&
-                    !paytrEnabled)
-                  savedCardsAsync.when(
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                    data: (cards) {
-                      if (cards.isEmpty) return const SizedBox.shrink();
-                      return Column(
-                        children: [
-                          RadioListTile<SavedCard?>(
-                            title: Text(LocaleKeys.checkoutNewCard.tr()),
-                            value: null,
-                            groupValue: selectedCard,
-                            onChanged: (v) => ref
-                                .read(selectedCheckoutCardProvider.notifier)
-                                .state = null,
-                          ),
-                          ...cards.map(
-                            (card) => RadioListTile<SavedCard?>(
-                              title: Text(
-                                LocaleKeys.checkoutSavedCard.tr(
-                                  namedArgs: {'last4': card.lastFour},
-                                ),
-                              ),
-                              subtitle: Text(card.holderName),
-                              value: card,
-                              groupValue: selectedCard,
-                              onChanged: (v) => ref
-                                  .read(selectedCheckoutCardProvider.notifier)
-                                  .state = card,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                if (_paymentMethod == PaymentMethod.onlineCard &&
-                    paytrEnabled &&
-                    selectedCard != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: AppSpacing.md),
-                    child: Text(
-                      LocaleKeys.checkoutPaytrNote.tr(),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                  ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   LocaleKeys.checkoutCouponTitle.tr(),

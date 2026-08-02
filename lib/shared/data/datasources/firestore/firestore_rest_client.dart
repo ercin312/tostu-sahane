@@ -160,11 +160,14 @@ class FirestoreRestClient {
       if (!order.isDelivery) return false;
       if (ids.contains(order.customerId)) return true;
       if (authTen == null) return false;
-      final cid = order.customerId;
-      if (cid.endsWith(authTen) ||
-          cid == 'phone_$authTen' ||
+      final cid = order.customerId.trim();
+      if (cid == 'phone_$authTen' ||
           cid == 'customer_$authTen' ||
-          cid == 'customer_0$authTen') {
+          cid == 'customer_0$authTen' ||
+          cid == 'customer_+90$authTen' ||
+          cid == 'customer_90$authTen' ||
+          cid == authTen ||
+          cid == '0$authTen') {
         return true;
       }
       return trPhonesMatch(order.customerPhone, phoneDigits);

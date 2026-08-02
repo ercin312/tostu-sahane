@@ -137,12 +137,10 @@ class ProductRepository {
         !MediaStorageService.isNetworkSource(imageUrl) &&
         !MediaStorageService.isBase64Source(imageUrl) &&
         !MediaStorageService.localFileExists(imageUrl)) {
-      // Yabancı cihaz yolu: Firestore kaydını silme; sadece gösterimde seed URL dene.
+      // Yabancı cihaz yolu / bozuk path: seed varsa kullan, yoksa boş bırak
+      // (ProductThumbnail kategori placeholder gösterir; kırık ikon olmaz).
       final seed = MockData.imageUrlForProduct(product.id);
-      if (seed != null && seed.isNotEmpty) {
-        imageUrl = seed;
-      }
-      // Yerel path çözülemiyorsa olduğu gibi bırak (AppImage placeholder gösterir).
+      imageUrl = (seed != null && seed.isNotEmpty) ? seed : '';
     }
     if (imageUrl == product.imageUrl) return product;
     return product.copyWith(imageUrl: imageUrl);

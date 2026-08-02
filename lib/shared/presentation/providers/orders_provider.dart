@@ -88,16 +88,21 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
   }
 
   Future<List<Order>> _mergeRemoteInto(List<Order> current, List<Order> remote) async {
-    var merged = _mergeOrders(current, remote);
     final auth = ref.read(authProvider);
     if (auth?.user.role == UserRole.customer) {
+      // Müşteri: ops/global sipariş feed'ini karıştırma — sadece kendi siparişleri.
       try {
         final scoped =
             await ref.read(orderRepositoryProvider).getCustomerOrders(auth!);
-        merged = _mergeOrders(merged, scoped);
-      } catch (_) {}
+        return _mergeOrders(
+          current.where((o) => orderBelongsToCustomer(o, auth)).toList(),
+          scoped,
+        );
+      } catch (_) {
+        return current.where((o) => orderBelongsToCustomer(o, auth!)).toList();
+      }
     }
-    return merged;
+    return _mergeOrders(current, remote);
   }
 
   List<Order> _mergeOrders(List<Order> cached, List<Order> remote) {

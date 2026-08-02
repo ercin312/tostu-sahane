@@ -71,3 +71,8 @@ ios/Runner/GoogleService-Info.plist
 ios/ExportOptions.plist
 qr_menu/config.js
 dart_defines.local.json
+
+.secrets-local/
+
+_tmp_dist.p12
+.secrets-local/
