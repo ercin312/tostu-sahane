@@ -4,14 +4,9 @@ import 'package:flutter/foundation.dart'
 
 import 'core/config/app_config.dart';
 
-/// Firebase yapılandırması.
+/// Firebase yapılandırması (client SDK anahtarları).
 ///
-/// Yerel geliştirme (gerçek anahtarlar — asla commit etmeyin):
-/// 1. `dart_defines.local.json.example` → `dart_defines.local.json` kopyala, doldur
-/// 2. `flutter run --dart-define-from-file=dart_defines.local.json`
-/// veya `flutterfire configure --project=YOUR_PROJECT_ID` (yerel; commit etme)
-///
-/// CI: Secrets + `--dart-define=FIREBASE_*` ile override.
+/// CI override: `--dart-define=FIREBASE_*` ile [AppConfig.useFirebaseOverrides].
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (AppConfig.useFirebaseOverrides) {
@@ -36,38 +31,38 @@ class DefaultFirebaseOptions {
       );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_WEB_API_KEY',
-    appId: 'REPLACE_WITH_FIREBASE_WEB_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_FIREBASE_SENDER_ID',
-    projectId: 'REPLACE_WITH_FIREBASE_PROJECT_ID',
-    authDomain: 'REPLACE_WITH_FIREBASE_AUTH_DOMAIN',
-    storageBucket: 'REPLACE_WITH_FIREBASE_STORAGE_BUCKET',
-    measurementId: 'REPLACE_WITH_FIREBASE_MEASUREMENT_ID',
+    apiKey: 'AIzaSyCru2ksZtgaeUmg5UB_rPVHQZ9ujRYJj0Y',
+    appId: '1:512275443807:web:fa809bb41a6b1e50f8abea',
+    messagingSenderId: '512275443807',
+    projectId: 'tostusahane-e4e71',
+    authDomain: 'tostusahane-e4e71.firebaseapp.com',
+    storageBucket: 'tostusahane-e4e71.firebasestorage.app',
+    measurementId: 'G-S892L4MV4M',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_ANDROID_API_KEY',
-    appId: 'REPLACE_WITH_FIREBASE_ANDROID_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_FIREBASE_SENDER_ID',
-    projectId: 'REPLACE_WITH_FIREBASE_PROJECT_ID',
-    storageBucket: 'REPLACE_WITH_FIREBASE_STORAGE_BUCKET',
+    apiKey: 'AIzaSyDZ5iC72yPBXgLvYdndknKjNl83CbWkxuY',
+    appId: '1:512275443807:android:f7c5a66155c03719f8abea',
+    messagingSenderId: '512275443807',
+    projectId: 'tostusahane-e4e71',
+    storageBucket: 'tostusahane-e4e71.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_IOS_API_KEY',
-    appId: 'REPLACE_WITH_FIREBASE_IOS_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_FIREBASE_SENDER_ID',
-    projectId: 'REPLACE_WITH_FIREBASE_PROJECT_ID',
-    storageBucket: 'REPLACE_WITH_FIREBASE_STORAGE_BUCKET',
+    apiKey: 'AIzaSyCF1mhSP7NxM4pHrMlQy0yNjVOuMJuNIAQ',
+    appId: '1:512275443807:ios:2f91baf3ec6c1dbcf8abea',
+    messagingSenderId: '512275443807',
+    projectId: 'tostusahane-e4e71',
+    storageBucket: 'tostusahane-e4e71.firebasestorage.app',
     iosBundleId: 'com.tostusahane.tostuSahane',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_WEB_API_KEY',
-    appId: 'REPLACE_WITH_FIREBASE_WEB_APP_ID',
-    messagingSenderId: 'REPLACE_WITH_FIREBASE_SENDER_ID',
-    projectId: 'REPLACE_WITH_FIREBASE_PROJECT_ID',
-    authDomain: 'REPLACE_WITH_FIREBASE_AUTH_DOMAIN',
-    storageBucket: 'REPLACE_WITH_FIREBASE_STORAGE_BUCKET',
+    apiKey: 'AIzaSyCru2ksZtgaeUmg5UB_rPVHQZ9ujRYJj0Y',
+    appId: '1:512275443807:web:fa809bb41a6b1e50f8abea',
+    messagingSenderId: '512275443807',
+    projectId: 'tostusahane-e4e71',
+    authDomain: 'tostusahane-e4e71.firebaseapp.com',
+    storageBucket: 'tostusahane-e4e71.firebasestorage.app',
   );
 }

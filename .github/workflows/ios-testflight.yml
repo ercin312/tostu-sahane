@@ -55,7 +55,16 @@ jobs:
             echo "${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
           else
             cp ios/Runner/GoogleService-Info.plist.example ios/Runner/GoogleService-Info.plist
-            echo "::warning::IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 not set; using example plist."
+            echo "::notice::Using committed GoogleService-Info.plist.example"
+          fi
+          # Fail CI if placeholder config would ship to App Review (launch crash risk).
+          if grep -q 'REPLACE_WITH' ios/Runner/GoogleService-Info.plist; then
+            echo "::error::GoogleService-Info.plist still contains REPLACE placeholders"
+            exit 1
+          fi
+          if grep -q 'REPLACE_WITH' lib/firebase_options.dart; then
+            echo "::error::lib/firebase_options.dart still contains REPLACE placeholders"
+            exit 1
           fi
 
       - name: Set CI build number
