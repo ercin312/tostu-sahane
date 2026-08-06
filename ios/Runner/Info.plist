@@ -74,5 +74,16 @@
 	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır. Uygulama arka planda sürekli konum takibi yapmaz.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.512275443807-8e8orffpvgvkffc6vi19tnv98di7jkao</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

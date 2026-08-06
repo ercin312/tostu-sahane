@@ -1,6 +1,5 @@
 import Flutter
 import UIKit
-import GoogleMaps
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -8,14 +7,8 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Maps key is optional (app uses OSM by default). Never crash launch on missing/placeholder plist.
-    if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
-       let dict = NSDictionary(contentsOfFile: path),
-       let apiKey = dict["API_KEY"] as? String,
-       !apiKey.isEmpty,
-       !apiKey.contains("REPLACE") {
-      GMSServices.provideAPIKey(apiKey)
-    }
+    // Do not init Google Maps here: the app uses OSM by default, and Firebase's
+    // API_KEY is not a Maps SDK key (invalid key at launch has caused review crashes).
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

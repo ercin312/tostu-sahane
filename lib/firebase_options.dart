@@ -55,6 +55,8 @@ class DefaultFirebaseOptions {
     projectId: 'tostusahane-e4e71',
     storageBucket: 'tostusahane-e4e71.firebasestorage.app',
     iosBundleId: 'com.tostusahane.tostuSahane',
+    iosClientId:
+        '512275443807-8e8orffpvgvkffc6vi19tnv98di7jkao.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
