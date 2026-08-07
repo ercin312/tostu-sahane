@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/auth/guest_access.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -143,8 +145,23 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                         color: isFavorite ? AppColors.primary : AppColors.textPrimary,
                       ),
                     ),
-                    onPressed: () =>
-                        ref.read(favoritesProvider.notifier).toggle(product.id),
+                    onPressed: () {
+                      if (!GuestAccess.requireAuth(
+                        context,
+                        ref,
+                        redirectTo: RoutePaths.customerProduct(product.id),
+                      )) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              LocaleKeys.authLoginRequiredAccount.tr(),
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      ref.read(favoritesProvider.notifier).toggle(product.id);
+                    },
                   ),
                   const SizedBox(width: AppSpacing.sm),
                 ],

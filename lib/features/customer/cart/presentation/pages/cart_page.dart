@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/auth/guest_access.dart';
 import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -131,7 +132,23 @@ class CartPage extends ConsumerWidget {
                       AppButton(
                         labelKey: LocaleKeys.customerGoCheckout,
                         onPressed: meetsMinimum
-                            ? () => context.push(RoutePaths.customerCheckout)
+                            ? () {
+                                if (!GuestAccess.requireAuth(
+                                  context,
+                                  ref,
+                                  redirectTo: RoutePaths.customerCheckout,
+                                )) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        LocaleKeys.authLoginRequiredOrder.tr(),
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                context.push(RoutePaths.customerCheckout);
+                              }
                             : null,
                       ),
                     ],

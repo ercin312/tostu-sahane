@@ -7,6 +7,7 @@ import '../../../../app/router/route_paths.dart';
 import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/platform_layout_utils.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../shared/domain/entities/user.dart';
 import '../providers/auth_provider.dart';
@@ -36,8 +37,12 @@ class _SplashPageState extends ConsumerState<SplashPage> {
           } else {
             context.go(_homeForRole(auth.user.role));
           }
-        } else {
+        } else if (PlatformLayout.isOpsDesktop) {
+          // Ops desktop has no guest menu; staff must sign in.
           context.go(RoutePaths.authLogin);
+        } else {
+          // Apple 5.1.1(v): guests can browse the menu without registering.
+          context.go(RoutePaths.customerHome);
         }
       });
     });

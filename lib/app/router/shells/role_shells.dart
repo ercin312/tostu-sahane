@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/localization/locale_keys.dart';
 import '../../../core/widgets/ops_cashier_switch_fab.dart';
 import '../../../core/utils/platform_layout_utils.dart';
+import '../../../core/auth/guest_access.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/branch_manager/presentation/widgets/branch_order_alert_listener.dart';
 import '../../../features/customer/product_detail/presentation/providers/product_reviews_provider.dart';
@@ -15,7 +16,7 @@ import '../../../shared/presentation/providers/cash_remittance_providers.dart';
 import '../../../features/admin/presentation/config/admin_nav_config.dart';
 import '../route_paths.dart';
 
-class CustomerShell extends StatelessWidget {
+class CustomerShell extends ConsumerWidget {
   const CustomerShell({super.key, required this.child});
 
   final Widget child;
@@ -41,19 +42,33 @@ class CustomerShell extends StatelessWidget {
     return 0;
   }
 
-  void _onItemTapped(BuildContext context, int index) {
+  void _onItemTapped(BuildContext context, WidgetRef ref, int index) {
     switch (index) {
       case 0:
         context.go(RoutePaths.customerHome);
       case 1:
+        if (!GuestAccess.requireAuth(
+          context,
+          ref,
+          redirectTo: RoutePaths.customerOrders,
+        )) {
+          return;
+        }
         context.go(RoutePaths.customerOrders);
       case 2:
+        if (!GuestAccess.requireAuth(
+          context,
+          ref,
+          redirectTo: RoutePaths.customerProfile,
+        )) {
+          return;
+        }
         context.go(RoutePaths.customerProfile);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final showNav = _shouldShowNav(location);
 
@@ -62,7 +77,7 @@ class CustomerShell extends StatelessWidget {
       bottomNavigationBar: showNav
           ? BottomNavigationBar(
               currentIndex: _selectedIndex(context),
-              onTap: (index) => _onItemTapped(context, index),
+              onTap: (index) => _onItemTapped(context, ref, index),
               items: [
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.home_outlined),

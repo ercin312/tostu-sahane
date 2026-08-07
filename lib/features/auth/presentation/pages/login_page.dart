@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/route_paths.dart';
+import '../../../../core/auth/guest_access.dart';
 import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -11,6 +12,7 @@ import '../../../../core/utils/platform_layout_utils.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../shared/domain/entities/auth.dart';
+import '../../../../shared/domain/entities/user.dart';
 import '../providers/auth_provider.dart';
 
 enum _LoginAudience { customer, staff }
@@ -67,11 +69,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (auth == null) return;
     if (auth.needsPhoneOnboarding) {
       context.go(RoutePaths.authPhoneOnboarding);
-    } else if (auth.needsAddressOnboarding) {
-      context.go(RoutePaths.authAddressOnboarding);
-    } else {
-      context.go(RoutePaths.splash);
+      return;
     }
+    if (auth.needsAddressOnboarding) {
+      context.go(RoutePaths.authAddressOnboarding);
+      return;
+    }
+    final redirect = GuestAccess.redirectFromUri(GoRouterState.of(context).uri);
+    if (redirect != null && auth.user.role == UserRole.customer) {
+      context.go(redirect);
+      return;
+    }
+    context.go(RoutePaths.splash);
   }
 
   Future<void> _submitStaff() async {
@@ -367,6 +376,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ? null
                           : () => context.push(RoutePaths.authRegister),
                       child: Text(LocaleKeys.authRegisterLink.tr()),
+                    ),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () => context.go(RoutePaths.customerHome),
+                      child: Text(LocaleKeys.authBrowseMenu.tr()),
                     ),
                   ],
                   if (_loading)

@@ -67,6 +67,9 @@ abstract final class LocaleKeys {
   static const authResendOtp = 'auth_resend_otp';
   static const authLoginButton = 'auth_login_button';
   static const authLogin = 'auth_login_button';
+  static const authBrowseMenu = 'auth_browse_menu';
+  static const authLoginRequiredOrder = 'auth_login_required_order';
+  static const authLoginRequiredAccount = 'auth_login_required_account';
   static const authRegisterLink = 'auth_register_link';
   static const authRegisterTitle = 'auth_register_title';
   static const authRegisterSubtitle = 'auth_register_subtitle';

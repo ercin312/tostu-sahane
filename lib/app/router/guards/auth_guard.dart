@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/guest_access.dart';
+import '../../../core/utils/platform_layout_utils.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../shared/domain/entities/user.dart';
 import '../route_paths.dart';
@@ -17,8 +19,14 @@ String? authRedirect(Ref ref, GoRouterState state) {
   final isSplash = path == RoutePaths.splash;
 
   if (auth == null) {
-    if (isAuthRoute || isSplash) return null;
-    return RoutePaths.authLogin;
+    if (isAuthRoute || isSplash || GuestAccess.isBrowsablePath(path)) {
+      return null;
+    }
+    // Staff / ops / account routes stay behind login.
+    if (PlatformLayout.isOpsDesktop) {
+      return RoutePaths.authLogin;
+    }
+    return GuestAccess.loginLocation(redirectTo: path);
   }
 
   if (auth.needsPhoneOnboarding &&
@@ -54,6 +62,10 @@ String? authRedirect(Ref ref, GoRouterState state) {
   }
 
   if (isAuthRoute || isSplash) {
+    final redirect = GuestAccess.redirectFromUri(state.uri);
+    if (redirect != null && auth.user.role == UserRole.customer) {
+      return redirect;
+    }
     return RoutePaths.homeForRole(auth.user.role.name);
   }
 

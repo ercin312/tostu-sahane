@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/auth/guest_access.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/localization/localization_service.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -15,7 +16,35 @@ class CustomerProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider)!;
+    final auth = ref.watch(authProvider);
+    if (auth == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(LocaleKeys.customerProfileTitle.tr())),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  LocaleKeys.authLoginRequiredAccount.tr(),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  labelKey: LocaleKeys.authLogin,
+                  onPressed: () => context.push(
+                    GuestAccess.loginLocation(
+                      redirectTo: RoutePaths.customerProfile,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(LocaleKeys.customerProfileTitle.tr())),
@@ -55,7 +84,7 @@ class CustomerProfilePage extends ConsumerWidget {
             labelKey: LocaleKeys.authLogout,
             onPressed: () async {
               await ref.read(authProvider.notifier).logout();
-              if (context.mounted) context.go(RoutePaths.authLogin);
+              if (context.mounted) context.go(RoutePaths.customerHome);
             },
           ),
         ],
