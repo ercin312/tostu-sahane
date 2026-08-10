@@ -116,6 +116,28 @@ class BranchOrderListTile extends StatelessWidget {
                                   ),
                             ),
                           ),
+                        if (order.isWebOrder)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              LocaleKeys.branchWebOrderBadge.tr(),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
                         if (isNew)
                           Container(
                             padding: const EdgeInsets.symmetric(

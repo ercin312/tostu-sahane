@@ -297,6 +297,7 @@ abstract final class LocaleKeys {
   static const branchNewOrderAlert = 'branch_new_order_alert';
   static const branchNewOrderBadge = 'branch_new_order_badge';
   static const branchPhoneOrderBadge = 'branch_phone_order_badge';
+  static const branchWebOrderBadge = 'branch_web_order_badge';
   static const branchPhoneOrderIncompleteBadge =
       'branch_phone_order_incomplete_badge';
   static const branchPhoneOrderFailedBadge = 'branch_phone_order_failed_badge';

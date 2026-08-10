@@ -267,6 +267,7 @@
   "branch_new_order_alert": "New Order! ({count})",
   "branch_new_order_badge": "New",
   "branch_phone_order_badge": "Phone",
+  "branch_web_order_badge": "Web",
   "branch_phone_order_incomplete_badge": "On call",
   "branch_phone_order_failed_badge": "Failed call",
   "branch_phone_order_failed_note": "Failed call — conversation was cut off",

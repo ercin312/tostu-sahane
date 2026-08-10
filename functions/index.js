@@ -21,6 +21,9 @@ const {
   handleSavePhoneAiTraining,
   handleSyncPhoneAiAgent,
 } = require('./phone_ai_training');
+const {
+  handleWooCommerceOrderWebhook,
+} = require('./woocommerce_order');
 const { loadDotEnvOnce } = require('./elevenlabs_config');
 
 loadDotEnvOnce();
@@ -242,6 +245,11 @@ exports.savePhoneAiTraining = functions.https.onRequest((req, res) =>
 );
 exports.syncPhoneAiAgent = functions.https.onRequest((req, res) =>
   handleSyncPhoneAiAgent(req, res),
+);
+
+/** WooCommerce web sipariş → Firestore (Windows şube ekranı) */
+exports.woocommerceOrderWebhook = functions.https.onRequest((req, res) =>
+  handleWooCommerceOrderWebhook(req, res),
 );
 
 /** QR menüden: garson çağır / hesap iste */

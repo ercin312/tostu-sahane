@@ -13,8 +13,8 @@ enum OrderStatus {
 
 enum OrderType { delivery, dineIn }
 
-/// Siparişin geldiği kanal (uygulama / garson / telefon AI).
-enum OrderSource { app, waiter, phone }
+/// Siparişin geldiği kanal (uygulama / garson / telefon AI / web sitesi).
+enum OrderSource { app, waiter, phone, web }
 
 enum PaymentMethod { onlineCard, cashOnDelivery, cardOnDelivery }
 
@@ -187,6 +187,7 @@ class Order extends Equatable {
   bool get isDelivery => orderType == OrderType.delivery;
 
   bool get isPhoneOrder => orderSource == OrderSource.phone;
+  bool get isWebOrder => orderSource == OrderSource.web;
 
   /// Mutfakta hazırlanması gereken kalem var mı (içecek/aparatif hariç).
   bool get hasKitchenItems =>

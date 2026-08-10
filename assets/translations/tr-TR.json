@@ -267,6 +267,7 @@
   "branch_new_order_alert": "Yeni Sipariş! ({count})",
   "branch_new_order_badge": "Yeni",
   "branch_phone_order_badge": "Telefon",
+  "branch_web_order_badge": "Web",
   "branch_phone_order_incomplete_badge": "Görüşmede",
   "branch_phone_order_failed_badge": "Başarısız arama",
   "branch_phone_order_failed_note": "Başarısız arama — görüşme yarıda kesildi",

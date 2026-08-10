@@ -61,6 +61,9 @@ functions/node_modules/
 functions/.env
 functions/.env.*
 !functions/.env.example
+
+# WordPress secrets (FTP only)
+wordpress/mu-plugins/tostu-ops-config.php
 *.keystore
 *.jks
 key.properties

@@ -64,6 +64,14 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
                     ),
                     backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                   ),
+                if (order.isWebOrder)
+                  Chip(
+                    label: Text(
+                      LocaleKeys.branchWebOrderBadge.tr(),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  ),
                 if (isNew)
                   Chip(
                     label: Text(
