@@ -281,6 +281,8 @@ abstract final class LocaleKeys {
   static const locationNearestSelected = 'location_nearest_selected';
   static const reorderAddedToCart = 'reorder_added_to_cart';
   static const checkoutSelectAddress = 'checkout_select_address';
+  static const checkoutAddressSaveHint = 'checkout_address_save_hint';
+  static const checkoutAddressRequiredHint = 'checkout_address_required_hint';
   static const checkoutScheduledPickDate = 'checkout_scheduled_pick_date';
   static const checkoutScheduledLabel = 'checkout_scheduled_label';
   static const checkoutScheduledRequired = 'checkout_scheduled_required';

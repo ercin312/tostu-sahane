@@ -68,17 +68,20 @@ final adminBranchesProvider =
 );
 
 void _invalidateCatalogCaches(Ref ref) {
+  invalidateProductCatalogCaches(ref);
   Future.microtask(() {
-    ref.invalidate(productsProvider);
-    ref.invalidate(catalogExtrasProvider);
-    ref.invalidate(opsBranchProductsProvider);
     ref.invalidate(waiterModeSettingsProvider);
+    ref.invalidate(adminProductsProvider);
+    ref.invalidate(adminCatalogExtrasProvider);
   });
 }
 
 class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
   @override
-  Future<List<Product>> build() {
+  Future<List<Product>> build() async {
+    final live = ref.watch(productsCatalogStreamProvider);
+    if (live.hasValue) return live.requireValue;
+    if (live.hasError) throw live.error!;
     return ref.read(productRepositoryProvider).getProducts();
   }
 
@@ -148,7 +151,10 @@ final adminProductsProvider =
 
 class AdminCatalogExtrasNotifier extends AsyncNotifier<List<ProductExtra>> {
   @override
-  Future<List<ProductExtra>> build() {
+  Future<List<ProductExtra>> build() async {
+    final live = ref.watch(catalogExtrasStreamProvider);
+    if (live.hasValue) return live.requireValue;
+    if (live.hasError) throw live.error!;
     return ref.read(productRepositoryProvider).getCatalogExtras();
   }
 

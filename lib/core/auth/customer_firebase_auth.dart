@@ -79,7 +79,7 @@ class CustomerFirebaseAuth {
       email: email.trim().toLowerCase(),
       phone: normalizedPhone,
       provider: 'password',
-      needsAddressOnboarding: true,
+      needsAddressOnboarding: false,
     );
       await _auth.signOut();
     } on fb.FirebaseAuthException catch (e) {
@@ -247,7 +247,6 @@ class CustomerFirebaseAuth {
     final existing = await _db.collection('users').doc(user.uid).get();
     final data = existing.data() ?? {};
     final phone = (data['phone'] as String?)?.trim() ?? '';
-    final needsAddress = data['needs_address_onboarding'] == true;
 
     await _upsertProfile(
       uid: user.uid,
@@ -260,6 +259,10 @@ class CustomerFirebaseAuth {
       phone: phone,
       provider: providerHint,
     );
+    // Eski hesaplarda kalan adres onboarding bayrağını temizle.
+    if (data['needs_address_onboarding'] == true) {
+      await clearNeedsAddressFlag(user.uid);
+    }
 
     final token = await user.getIdToken();
     return AuthSessionResult(
@@ -272,7 +275,8 @@ class CustomerFirebaseAuth {
       email: email.isNotEmpty ? email : null,
       accessToken: token,
       refreshToken: user.refreshToken,
-      needsAddressOnboarding: needsAddress,
+      // Adres üyelikte sorulmaz; sipariş sırasında eklenir.
+      needsAddressOnboarding: false,
     );
   }
 

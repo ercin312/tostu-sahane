@@ -147,6 +147,8 @@
   "checkout_button_text": "Place Order",
   "checkout_address": "Delivery Address",
   "checkout_add_address": "Add New Address",
+  "checkout_address_save_hint": "This address is saved to your account so you can choose it later.",
+  "checkout_address_required_hint": "Add a delivery address to place your order.",
   "checkout_delivery_time": "Delivery Time",
   "checkout_delivery_now": "Now",
   "checkout_delivery_scheduled": "Scheduled",

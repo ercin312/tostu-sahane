@@ -42,12 +42,7 @@ class _PhoneOnboardingPageState extends ConsumerState<PhoneOnboardingPage> {
     try {
       await ref.read(authProvider.notifier).completeCustomerPhone(phone);
       if (!mounted) return;
-      final auth = ref.read(authProvider);
-      if (auth?.needsAddressOnboarding == true) {
-        context.go(RoutePaths.authAddressOnboarding);
-      } else {
-        context.go(RoutePaths.customerHome);
-      }
+      context.go(RoutePaths.customerHome);
     } on AuthCredentialsException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

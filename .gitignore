@@ -64,6 +64,27 @@ functions/.env.*
 
 # WordPress secrets (FTP only)
 wordpress/mu-plugins/tostu-ops-config.php
+
+# Local checkout debug artifacts
+scripts/node_modules/
+scripts/package-lock.json
+scripts/package.json
+scripts/odeme*.png
+scripts/odeme*.html
+scripts/odeme_cookies.txt
+scripts/screenshot_*.js
+scripts/inspect_*.js
+scripts/poco_child_*.css
+scripts/poco_child_*.php
+scripts/poco_checkout/
+scripts/add_cart.html
+scripts/checkout_alt.html
+scripts/icecek.html
+scripts/odeme_page_api.json
+scripts/restomi_*
+scripts/scrape_restomi_prices.py
+scripts/update_restomi_prices.js
+scripts/_qr_settings_dump.json
 *.keystore
 *.jks
 key.properties

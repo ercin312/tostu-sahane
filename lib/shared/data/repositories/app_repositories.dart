@@ -83,12 +83,9 @@ class ProductRepository {
         extras = await _firestore
             .getCatalogExtras()
             .timeout(AppConfig.apiTimeout);
-        // Windows ops: asla mock kataloga düşme — eklenen görseller/ürünler kaybolmasın.
-        if (extras.isEmpty && !AppConfig.useWindowsOpsFirestoreRest) {
-          extras = await _mock.getCatalogExtras();
-        }
+        // Firestore boşsa mock ekstra listesine düşme.
       } catch (_) {
-        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        if (AppConfig.useFirestoreBackend) rethrow;
         extras = await _mock.getCatalogExtras();
       }
     } else {
@@ -278,15 +275,12 @@ class ProductRepository {
       try {
         if (AppConfig.useFirestore) await _firestore.ensureSeeded();
         final products = await _firestore.getProducts(branchId: branchId);
-        // Windows ops: boş veya hata durumunda mock katalog göstermeyelim —
-        // admin'in eklediği ürünler kaybolmuş gibi görünür.
-        if (products.isEmpty && !AppConfig.useWindowsOpsFirestoreRest) {
-          return _resolveProducts(await _mock.getProducts(branchId: branchId));
-        }
+        // Firestore boşsa mock katalog GÖSTERME — eski fiyatlar/görseller
+        // Windows veya mobilde gerçek verinin üstüne binmesin.
         final migrated = await _migrateLocalProductImages(products);
         return _resolveProducts(migrated);
       } catch (_) {
-        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
+        if (AppConfig.useFirestoreBackend) rethrow;
         return _resolveProducts(await _mock.getProducts(branchId: branchId));
       }
     }
@@ -295,6 +289,57 @@ class ProductRepository {
       return _resolveProducts(models.map(EntityMappers.toProduct).toList());
     } catch (_) {
       return _resolveProducts(await _mock.getProducts(branchId: branchId));
+    }
+  }
+
+  /// Windows REST poll + mobil Firestore snapshots → aynı katalog akışı.
+  Stream<List<Product>> watchProducts({String? branchId}) async* {
+    if (AppConfig.useMockApi) {
+      yield await getProducts(branchId: branchId);
+      return;
+    }
+    if (!AppConfig.useFirestoreBackend) {
+      yield await getProducts(branchId: branchId);
+      return;
+    }
+
+    var migratedOnce = false;
+    await for (final raw in _firestore.watchProducts(branchId: branchId)) {
+      var list = raw;
+      if (!migratedOnce) {
+        migratedOnce = true;
+        try {
+          list = await _migrateLocalProductImages(raw);
+        } catch (_) {
+          list = raw;
+        }
+      }
+      yield await _resolveProducts(list);
+    }
+  }
+
+  Stream<List<ProductExtra>> watchCatalogExtras() async* {
+    if (AppConfig.useMockApi || !AppConfig.useFirestoreBackend) {
+      yield await getCatalogExtras();
+      return;
+    }
+
+    var migratedOnce = false;
+    await for (final raw in _firestore.watchCatalogExtras()) {
+      var list = raw;
+      if (!migratedOnce) {
+        migratedOnce = true;
+        try {
+          list = await _migrateLocalExtraImages(raw);
+        } catch (_) {
+          list = raw;
+        }
+      }
+      final normalized = <ProductExtra>[];
+      for (final extra in list) {
+        normalized.add(await _normalizeExtraImage(extra));
+      }
+      yield normalized;
     }
   }
 

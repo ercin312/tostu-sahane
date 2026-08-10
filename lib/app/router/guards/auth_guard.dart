@@ -35,30 +35,19 @@ String? authRedirect(Ref ref, GoRouterState state) {
     return RoutePaths.authPhoneOnboarding;
   }
 
-  if (auth.needsAddressOnboarding &&
-      auth.user.role == UserRole.customer &&
-      !isAddressOnboarding &&
-      !isPhoneOnboarding) {
-    return RoutePaths.authAddressOnboarding;
-  }
-
   if (isPhoneOnboarding) {
     if (auth.user.role != UserRole.customer) {
       return RoutePaths.homeForRole(auth.user.role.name);
     }
     if (!auth.needsPhoneOnboarding) {
-      return auth.needsAddressOnboarding
-          ? RoutePaths.authAddressOnboarding
-          : RoutePaths.homeForRole(auth.user.role.name);
+      return RoutePaths.homeForRole(auth.user.role.name);
     }
     return null;
   }
 
   if (isAddressOnboarding) {
-    if (auth.user.role != UserRole.customer) {
-      return RoutePaths.homeForRole(auth.user.role.name);
-    }
-    return null;
+    // Adres onboarding artık zorunlu değil; eski deep-link varsa ana sayfaya al.
+    return RoutePaths.homeForRole(auth.user.role.name);
   }
 
   if (isAuthRoute || isSplash) {

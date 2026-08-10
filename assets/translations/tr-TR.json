@@ -147,6 +147,8 @@
   "checkout_button_text": "Sipariş Ver",
   "checkout_address": "Teslimat Adresi",
   "checkout_add_address": "Yeni Adres Ekle",
+  "checkout_address_save_hint": "Girdiğiniz adres hesabınıza kaydedilir; sonra istediğiniz adresi seçebilirsiniz.",
+  "checkout_address_required_hint": "Sipariş vermek için teslimat adresi ekleyin.",
   "checkout_delivery_time": "Teslimat Zamanı",
   "checkout_delivery_now": "Hemen",
   "checkout_delivery_scheduled": "İleri Tarihli",

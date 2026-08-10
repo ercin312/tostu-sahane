@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/route_paths.dart';
+import '../../../../core/auth/guest_access.dart';
 import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -82,7 +83,13 @@ class _AddressOnboardingPageState extends ConsumerState<AddressOnboardingPage> {
           );
       await ref.read(authProvider.notifier).clearNeedsAddressOnboarding();
       if (!mounted) return;
-      context.go(RoutePaths.customerHome);
+      final redirect =
+          GuestAccess.redirectFromUri(GoRouterState.of(context).uri);
+      context.go(
+        redirect != null && redirect.startsWith('/customer')
+            ? redirect
+            : RoutePaths.customerHome,
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

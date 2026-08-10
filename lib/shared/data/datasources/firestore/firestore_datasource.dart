@@ -518,6 +518,21 @@ class FirestoreDataSource {
         .toList();
   }
 
+  /// Native: Firestore snapshots. Windows REST: kısa aralıklı poll.
+  Stream<List<Product>> watchProducts({String? branchId}) {
+    if (_rest != null) return _rest!.watchProducts();
+    return _activeDb.collection(_products).snapshots().asyncMap((snap) async {
+      await ensureSeeded();
+      return snap.docs
+          .map(
+            (d) => EntityMappers.toProduct(
+              ProductModel.fromJson({...d.data(), 'id': d.id}),
+            ),
+          )
+          .toList();
+    });
+  }
+
   Future<Product> updateProductAvailability(String productId, bool available) async {
     if (_rest != null) {
       return _rest!.updateProductAvailability(productId, available);
@@ -578,6 +593,20 @@ class FirestoreDataSource {
           ),
         )
         .toList();
+  }
+
+  Stream<List<ProductExtra>> watchCatalogExtras() {
+    if (_rest != null) return _rest!.watchCatalogExtras();
+    return _activeDb.collection(_catalogExtras).snapshots().asyncMap((snap) async {
+      await ensureCatalogExtrasSeeded();
+      return snap.docs
+          .map(
+            (doc) => EntityMappers.toProductExtra(
+              ProductExtraModel.fromJson({...doc.data(), 'id': doc.id}),
+            ),
+          )
+          .toList();
+    });
   }
 
   Future<ProductExtra> createCatalogExtra(ProductExtra extra) async {
@@ -1515,13 +1544,17 @@ class FirestoreDataSource {
   Future<List<DeliveryAddress>> getUserAddresses(String userId) async {
     if (_rest != null) return const [];
     final snap = await _userAddresses(userId).get();
-    return snap.docs
-        .map((d) => DeliveryAddress.fromJson({...d.data(), 'id': d.id}))
-        .toList()
-      ..sort((a, b) {
-        if (a.isDefault == b.isDefault) return a.title.compareTo(b.title);
-        return a.isDefault ? -1 : 1;
-      });
+    final addresses = <DeliveryAddress>[];
+    for (final d in snap.docs) {
+      try {
+        addresses.add(DeliveryAddress.fromJson({...d.data(), 'id': d.id}));
+      } catch (_) {}
+    }
+    addresses.sort((a, b) {
+      if (a.isDefault == b.isDefault) return a.title.compareTo(b.title);
+      return a.isDefault ? -1 : 1;
+    });
+    return addresses;
   }
 
   Future<void> saveUserAddresses(

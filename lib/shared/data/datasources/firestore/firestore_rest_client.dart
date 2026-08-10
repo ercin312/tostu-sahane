@@ -26,6 +26,8 @@ class FirestoreRestClient {
 
   static final _options = DefaultFirebaseOptions.windows;
   static const _pollInterval = Duration(seconds: 1);
+  /// Ürün/fiyat/görsel senkronu — Windows↔mobil/garson.
+  static const _catalogPollInterval = Duration(seconds: 5);
 
   static BaseOptions get _baseOptions => BaseOptions(
         connectTimeout: const Duration(seconds: 20),
@@ -504,6 +506,18 @@ class FirestoreRestClient {
     }
   }
 
+  Stream<List<Product>> watchProducts() async* {
+    while (true) {
+      try {
+        yield await getProducts();
+      } catch (e) {
+        debugPrint('Firestore REST products poll failed: $e');
+        yield const [];
+      }
+      await Future<void>.delayed(_catalogPollInterval);
+    }
+  }
+
   List<Product> _parseProductsResponse(Map<String, dynamic>? data) {
     final docs = data?['documents'] as List<dynamic>? ?? const [];
     final products = <Product>[];
@@ -618,6 +632,18 @@ class FirestoreRestClient {
     } catch (e) {
       debugPrint('Firestore REST catalog_extras read failed: $e');
       return const [];
+    }
+  }
+
+  Stream<List<ProductExtra>> watchCatalogExtras() async* {
+    while (true) {
+      try {
+        yield await getCatalogExtras();
+      } catch (e) {
+        debugPrint('Firestore REST catalog_extras poll failed: $e');
+        yield const [];
+      }
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 

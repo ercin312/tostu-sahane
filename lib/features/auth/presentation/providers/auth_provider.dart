@@ -58,7 +58,6 @@ class AuthNotifier extends Notifier<AuthState?> {
     final name = prefs.getString(_nameKey);
     final branchId = prefs.getString(_branchKey);
     final username = prefs.getString(_usernameKey);
-    final needsAddress = prefs.getBool(_needsAddressKey) ?? false;
     final needsPhone = prefs.getBool(_needsPhoneKey) ?? false;
 
     if (userId != null && roleName != null && name != null) {
@@ -72,7 +71,7 @@ class AuthNotifier extends Notifier<AuthState?> {
         ),
         phone: phone ?? '',
         email: email,
-        needsAddressOnboarding: needsAddress,
+        needsAddressOnboarding: false,
         needsPhoneOnboarding: needsPhone,
       );
     }
@@ -117,7 +116,7 @@ class AuthNotifier extends Notifier<AuthState?> {
       );
       await _persistSession(
         session,
-        needsAddressOnboarding: session.needsAddressOnboarding,
+        needsAddressOnboarding: false,
         needsPhoneOnboarding: session.phone.trim().isEmpty,
       );
       return true;
@@ -130,7 +129,7 @@ class AuthNotifier extends Notifier<AuthState?> {
     final session = await _customerAuth.loginWithGoogle();
     await _persistSession(
       session,
-      needsAddressOnboarding: session.needsAddressOnboarding,
+      needsAddressOnboarding: false,
       needsPhoneOnboarding: session.phone.trim().isEmpty,
     );
     return true;
@@ -140,7 +139,7 @@ class AuthNotifier extends Notifier<AuthState?> {
     final session = await _customerAuth.loginWithApple();
     await _persistSession(
       session,
-      needsAddressOnboarding: session.needsAddressOnboarding,
+      needsAddressOnboarding: false,
       needsPhoneOnboarding: session.phone.trim().isEmpty,
     );
     return true;
@@ -161,12 +160,13 @@ class AuthNotifier extends Notifier<AuthState?> {
       user: current.user,
       phone: normalized,
       email: current.email,
-      needsAddressOnboarding: current.needsAddressOnboarding,
+      needsAddressOnboarding: false,
       needsPhoneOnboarding: false,
     );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_phoneKey, normalized);
     await prefs.setBool(_needsPhoneKey, false);
+    await prefs.setBool(_needsAddressKey, false);
   }
 
   Future<void> sendPasswordReset(String email) =>
@@ -226,9 +226,8 @@ class AuthNotifier extends Notifier<AuthState?> {
 
     final phoneNeeded =
         session.role == UserRole.customer && needsPhoneOnboarding;
-    final addressNeeded = session.role == UserRole.customer &&
-        needsAddressOnboarding &&
-        !phoneNeeded;
+    // Adres üyelikte zorunlu değil.
+    const addressNeeded = false;
 
     state = AuthState(
       user: user,

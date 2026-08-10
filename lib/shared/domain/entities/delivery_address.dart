@@ -49,12 +49,18 @@ class DeliveryAddress extends Equatable {
       };
 
   factory DeliveryAddress.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString().trim() ?? '';
+    final title = (json['title'] ?? json['name'] ?? '').toString().trim();
+    final fullAddress =
+        (json['full_address'] ?? json['fullAddress'] ?? json['address'] ?? '')
+            .toString()
+            .trim();
     return DeliveryAddress(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      fullAddress: json['full_address'] as String,
-      note: json['note'] as String?,
-      isDefault: json['is_default'] as bool? ?? false,
+      id: id.isEmpty ? 'addr_${fullAddress.hashCode}' : id,
+      title: title.isEmpty ? 'Ev' : title,
+      fullAddress: fullAddress,
+      note: json['note']?.toString(),
+      isDefault: json['is_default'] == true || json['isDefault'] == true,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
     );

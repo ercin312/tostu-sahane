@@ -17,6 +17,7 @@ import '../../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../customer/cart/presentation/providers/cart_provider.dart';
 import '../../../../customer/home/presentation/providers/branch_provider.dart';
 import '../../../../customer/profile/presentation/providers/address_provider.dart';
+import '../../../../customer/profile/presentation/widgets/address_editor_sheet.dart';
 import '../../../../customer/cart/presentation/providers/delivery_providers.dart';
 import '../../../../../shared/presentation/providers/delivery_settings_provider.dart';
 import '../../../../../shared/presentation/providers/checkout_paytr_providers.dart';
@@ -117,37 +118,62 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     return _isScheduledDeliveryValid(branch);
   }
 
+  Future<void> _addOrEditCheckoutAddress({DeliveryAddress? existing}) async {
+    final created = await showAddressEditorSheet(
+      context: context,
+      ref: ref,
+      existing: existing,
+      defaultSaveAsDefault: existing == null,
+      saveHint: LocaleKeys.checkoutAddressSaveHint.tr(),
+    );
+    if (created == null || !mounted) return;
+    ref.read(selectedCheckoutAddressProvider.notifier).state = created;
+  }
+
   void _showAddressPicker(List<DeliveryAddress> addresses) {
     showModalBottomSheet<void>(
       context: context,
-      builder: (context) {
+      builder: (sheetContext) {
+        final selectedId = ref.read(selectedCheckoutAddressProvider)?.id;
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(title: Text(LocaleKeys.checkoutSelectAddress.tr())),
-              ...addresses.map(
-                (address) => ListTile(
-                  leading: const Icon(Icons.location_on),
-                  title: Text(_addressTitle(address)),
-                  subtitle: Text(address.fullAddress),
-                  onTap: () {
-                    ref
-                        .read(selectedCheckoutAddressProvider.notifier)
-                        .state = address;
-                    Navigator.pop(context);
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(title: Text(LocaleKeys.checkoutSelectAddress.tr())),
+                ...addresses.map(
+                  (address) => ListTile(
+                    leading: Icon(
+                      address.isDefault
+                          ? Icons.home
+                          : Icons.location_on_outlined,
+                      color: address.isDefault ? AppColors.primary : null,
+                    ),
+                    title: Text(_addressTitle(address)),
+                    subtitle: Text(address.fullAddress),
+                    trailing: address.id == selectedId ||
+                            (selectedId == null && address.isDefault)
+                        ? const Icon(Icons.check, color: AppColors.primary)
+                        : null,
+                    onTap: () {
+                      ref
+                          .read(selectedCheckoutAddressProvider.notifier)
+                          .state = address;
+                      Navigator.pop(sheetContext);
+                    },
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: Text(LocaleKeys.checkoutAddAddress.tr()),
+                  subtitle: Text(LocaleKeys.checkoutAddressSaveHint.tr()),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    await _addOrEditCheckoutAddress();
                   },
                 ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: Text(LocaleKeys.checkoutAddAddress.tr()),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push(RoutePaths.customerAddresses);
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -387,8 +413,56 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       appBar: AppBar(title: Text(LocaleKeys.checkoutTitle.tr())),
       body: addressesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
+        error: (_, __) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(LocaleKeys.commonError.tr()),
+                const SizedBox(height: AppSpacing.md),
+                OutlinedButton(
+                  onPressed: () => ref.invalidate(addressProvider),
+                  child: Text(LocaleKeys.commonRetry.tr()),
+                ),
+              ],
+            ),
+          ),
+        ),
         data: (addresses) {
+          if (addresses.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_location_alt_outlined, size: 48),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      LocaleKeys.checkoutAddressRequiredHint.tr(),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      LocaleKeys.checkoutAddressSaveHint.tr(),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppButton(
+                      labelKey: LocaleKeys.checkoutAddAddress,
+                      onPressed: () => _addOrEditCheckoutAddress(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           final address = selectedAddress ??
               addresses.firstWhere(
                 (a) => a.isDefault,
@@ -436,9 +510,19 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   leading: const Icon(Icons.location_on),
                   title: Text(_addressTitle(address)),
                   subtitle: Text(address.fullAddress),
-                  trailing: TextButton(
-                    onPressed: () => _showAddressPicker(addresses),
-                    child: Text(LocaleKeys.checkoutSelectAddress.tr()),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        onPressed: () => _showAddressPicker(addresses),
+                        child: Text(LocaleKeys.checkoutSelectAddress.tr()),
+                      ),
+                      IconButton(
+                        tooltip: LocaleKeys.checkoutAddAddress.tr(),
+                        onPressed: () => _addOrEditCheckoutAddress(),
+                        icon: const Icon(Icons.add_location_alt_outlined),
+                      ),
+                    ],
                   ),
                 ),
                 if (outOfZone)

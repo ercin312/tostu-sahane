@@ -71,10 +71,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       context.go(RoutePaths.authPhoneOnboarding);
       return;
     }
-    if (auth.needsAddressOnboarding) {
-      context.go(RoutePaths.authAddressOnboarding);
-      return;
-    }
     final redirect = GuestAccess.redirectFromUri(GoRouterState.of(context).uri);
     if (redirect != null && auth.user.role == UserRole.customer) {
       context.go(redirect);

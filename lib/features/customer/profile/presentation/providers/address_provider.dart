@@ -18,8 +18,10 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
 
     if (AppConfig.useFirestore && !AppConfig.useMockApi) {
       try {
-        var remote =
-            await ref.read(authRepositoryProvider).getUserAddresses(auth.user.id);
+        var remote = await ref
+            .read(authRepositoryProvider)
+            .getUserAddresses(auth.user.id)
+            .timeout(const Duration(seconds: 10));
         if (remote.isEmpty) {
           final local = await _local.loadAddresses(auth.user.id);
           if (local.isNotEmpty) {
@@ -57,8 +59,26 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
     double? latitude,
     double? longitude,
   }) async {
+    await createAddress(
+      title: title,
+      fullAddress: fullAddress,
+      note: note,
+      setDefault: setDefault,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
+
+  Future<DeliveryAddress?> createAddress({
+    required String title,
+    required String fullAddress,
+    String? note,
+    bool setDefault = false,
+    double? latitude,
+    double? longitude,
+  }) async {
     final auth = ref.read(authProvider);
-    if (auth == null) return;
+    if (auth == null) return null;
 
     final coords = latitude != null && longitude != null
         ? (latitude, longitude)
@@ -67,20 +87,22 @@ class AddressNotifier extends AsyncNotifier<List<DeliveryAddress>> {
             );
     final current = List<DeliveryAddress>.from(state.value ?? []);
     final id = 'addr_${DateTime.now().millisecondsSinceEpoch}';
+    final created = DeliveryAddress(
+      id: id,
+      title: title,
+      fullAddress: fullAddress,
+      note: note,
+      isDefault: setDefault || current.isEmpty,
+      latitude: coords?.$1,
+      longitude: coords?.$2,
+    );
     final updated = [
-      ...current.map((a) => setDefault ? a.copyWith(isDefault: false) : a),
-      DeliveryAddress(
-        id: id,
-        title: title,
-        fullAddress: fullAddress,
-        note: note,
-        isDefault: setDefault || current.isEmpty,
-        latitude: coords?.$1,
-        longitude: coords?.$2,
-      ),
+      ...current.map((a) => created.isDefault ? a.copyWith(isDefault: false) : a),
+      created,
     ];
     await _persist(auth.user.id, updated);
     state = AsyncData(updated);
+    return created;
   }
 
   Future<void> updateAddress({

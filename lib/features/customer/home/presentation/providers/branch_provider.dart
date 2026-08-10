@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -128,7 +130,7 @@ final managedBranchProvider = FutureProvider<Branch?>((ref) async {
   }
   if (branches.isEmpty) return null;
 
-    if (auth?.user.role == UserRole.branchManager ||
+  if (auth?.user.role == UserRole.branchManager ||
       auth?.user.role == UserRole.branchStaff ||
       auth?.user.role == UserRole.waiter ||
       auth?.user.role == UserRole.kitchenStaff) {
@@ -146,24 +148,36 @@ final deliverableBranchesProvider = Provider<List<Branch>>((ref) {
   return ref.watch(branchesProvider).value ?? MockData.branches;
 });
 
+/// Tek kaynak: Windows REST poll + mobil Firestore snapshots.
+final productsCatalogStreamProvider = StreamProvider<List<Product>>((ref) {
+  return ref.watch(productRepositoryProvider).watchProducts();
+});
+
+final catalogExtrasStreamProvider = StreamProvider<List<ProductExtra>>((ref) {
+  return ref.watch(productRepositoryProvider).watchCatalogExtras();
+});
+
+void invalidateProductCatalogCaches(Ref ref) {
+  Future.microtask(() {
+    ref.invalidate(productsCatalogStreamProvider);
+    ref.invalidate(catalogExtrasStreamProvider);
+    ref.invalidate(productsProvider);
+    ref.invalidate(catalogExtrasProvider);
+    ref.invalidate(opsBranchProductsProvider);
+  });
+}
+
 class ProductsNotifier extends AsyncNotifier<List<Product>> {
   @override
   Future<List<Product>> build() async {
-    ref.listen(branchProvider, (previous, next) {
-      final prevId = previous?.value?.id;
-      final nextId = next.value?.id;
-      if (prevId != nextId && next.hasValue) {
-        ref.invalidateSelf();
-      }
-    });
-
-    final branchId = ref.read(branchProvider).value?.id;
+    // Canlı katalog: fiyat/görsel/yeni ürün Windows veya mobilden gelince güncellenir.
+    final live = ref.watch(productsCatalogStreamProvider);
+    if (live.hasValue) return live.requireValue;
+    if (live.hasError) throw live.error!;
     try {
-      return await ref
-          .read(productRepositoryProvider)
-          .getProducts(branchId: branchId);
+      return await ref.read(productRepositoryProvider).getProducts();
     } catch (_) {
-      return MockData.products;
+      return const [];
     }
   }
 
@@ -174,8 +188,14 @@ class ProductsNotifier extends AsyncNotifier<List<Product>> {
         .read(productRepositoryProvider)
         .toggleAvailability(productId, !product.isAvailable);
     state = AsyncData([
-      for (final p in current) if (p.id == productId) updated else p,
+      for (final p in current)
+        if (p.id == productId) updated else p,
     ]);
+    invalidateProductCatalogCaches(ref);
+  }
+
+  Future<void> refresh() async {
+    invalidateProductCatalogCaches(ref);
   }
 }
 
@@ -183,24 +203,13 @@ final productsProvider = AsyncNotifierProvider<ProductsNotifier, List<Product>>(
   ProductsNotifier.new,
 );
 
-final opsBranchProductsProvider = FutureProvider<List<Product>>((ref) async {
-  final branch = await ref.watch(managedBranchProvider.future);
-  if (branch == null) return [];
-  try {
-    return await ref
-        .read(productRepositoryProvider)
-        .getProducts(branchId: branch.id);
-  } catch (_) {
-    return MockData.products;
-  }
+final opsBranchProductsProvider = Provider<AsyncValue<List<Product>>>((ref) {
+  // Garson / şube: aynı Firestore katalog akışı.
+  return ref.watch(productsCatalogStreamProvider);
 });
 
-final catalogExtrasProvider = FutureProvider<List<ProductExtra>>((ref) async {
-  try {
-    return await ref.read(productRepositoryProvider).getCatalogExtras();
-  } catch (_) {
-    return MockData.catalogExtras;
-  }
+final catalogExtrasProvider = Provider<AsyncValue<List<ProductExtra>>>((ref) {
+  return ref.watch(catalogExtrasStreamProvider);
 });
 
 final selectedCategoryProvider =
@@ -209,8 +218,7 @@ final selectedCategoryProvider =
 final productSearchQueryProvider = StateProvider<String>((ref) => '');
 
 final customerVisibleCategoriesProvider = Provider<List<ProductCategory>>((ref) {
-  final settings =
-      ref.watch(waiterModeSettingsProvider).valueOrNull;
+  final settings = ref.watch(waiterModeSettingsProvider).valueOrNull;
   final sahandaEnabled = settings?.customerSahandaEnabled ?? true;
   return ProductCategory.values.where((category) {
     if (category == ProductCategory.sahanda && !sahandaEnabled) {

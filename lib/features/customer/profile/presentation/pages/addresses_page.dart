@@ -7,7 +7,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/domain/entities/delivery_address.dart';
 import '../providers/address_provider.dart';
-import 'address_map_picker_page.dart';
+import '../widgets/address_editor_sheet.dart';
 
 class AddressesPage extends ConsumerWidget {
   const AddressesPage({super.key});
@@ -22,7 +22,30 @@ class AddressesPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
         data: (addresses) => addresses.isEmpty
-            ? Center(child: Text(LocaleKeys.addressEmpty.tr()))
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        LocaleKeys.addressEmpty.tr(),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      FilledButton.icon(
+                        onPressed: () => showAddressEditorSheet(
+                          context: context,
+                          ref: ref,
+                          defaultSaveAsDefault: true,
+                        ),
+                        icon: const Icon(Icons.add_location_alt_outlined),
+                        label: Text(LocaleKeys.addressAddNew.tr()),
+                      ),
+                    ],
+                  ),
+                ),
+              )
             : ListView.separated(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 itemCount: addresses.length,
@@ -32,161 +55,24 @@ class AddressesPage extends ConsumerWidget {
                   final address = addresses[index];
                   return _AddressTile(
                     address: address,
-                    onEdit: () => _showAddressDialog(context, ref, address),
+                    onEdit: () => showAddressEditorSheet(
+                      context: context,
+                      ref: ref,
+                      existing: address,
+                    ),
                   );
                 },
               ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddressDialog(context, ref, null),
+        onPressed: () => showAddressEditorSheet(
+          context: context,
+          ref: ref,
+          defaultSaveAsDefault: false,
+        ),
         icon: const Icon(Icons.add),
         label: Text(LocaleKeys.addressAddNew.tr()),
       ),
-    );
-  }
-
-  Future<void> _showAddressDialog(
-    BuildContext context,
-    WidgetRef ref,
-    DeliveryAddress? existing,
-  ) async {
-    final titleController = TextEditingController(
-      text: existing != null && !existing.title.startsWith('address_')
-          ? existing.title
-          : '',
-    );
-    final addressController =
-        TextEditingController(text: existing?.fullAddress ?? '');
-    var setDefault = existing?.isDefault ?? false;
-    var saving = false;
-    double? pickedLat = existing?.latitude;
-    double? pickedLng = existing?.longitude;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(
-                existing == null
-                    ? LocaleKeys.addressAddNew.tr()
-                    : LocaleKeys.addressEdit.tr(),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titleController,
-                    decoration: InputDecoration(
-                      labelText: LocaleKeys.addressTitleLabel.tr(),
-                      hintText: LocaleKeys.addressTitleHome.tr(),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextField(
-                    controller: addressController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: LocaleKeys.addressFullLabel.tr(),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton.icon(
-                    onPressed: saving
-                        ? null
-                        : () async {
-                            final result = await Navigator.push<Map<String, dynamic>>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AddressMapPickerPage(
-                                  initialLat: pickedLat,
-                                  initialLng: pickedLng,
-                                ),
-                              ),
-                            );
-                            if (result != null) {
-                              setState(() {
-                                pickedLat = result['latitude'] as double;
-                                pickedLng = result['longitude'] as double;
-                                addressController.text =
-                                    result['address'] as String;
-                              });
-                            }
-                          },
-                    icon: const Icon(Icons.map_outlined),
-                    label: Text(LocaleKeys.addressPickOnMap.tr()),
-                  ),
-                  CheckboxListTile(
-                    value: setDefault,
-                    onChanged: (v) => setState(() => setDefault = v ?? false),
-                    title: Text(LocaleKeys.addressSetDefault.tr()),
-                    activeColor: AppColors.primary,
-                  ),
-                  if (saving)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.sm),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(LocaleKeys.addressGeocoding.tr()),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: saving ? null : () => Navigator.pop(context),
-                  child: Text(LocaleKeys.commonCancel.tr()),
-                ),
-                TextButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          if (addressController.text.trim().isEmpty) return;
-                          setState(() => saving = true);
-                          final title = titleController.text.trim().isEmpty
-                              ? LocaleKeys.addressTitleHome
-                              : titleController.text.trim();
-                          if (existing == null) {
-                            await ref.read(addressProvider.notifier).addAddress(
-                                  title: title,
-                                  fullAddress: addressController.text.trim(),
-                                  setDefault: setDefault,
-                                  latitude: pickedLat,
-                                  longitude: pickedLng,
-                                );
-                          } else {
-                            await ref
-                                .read(addressProvider.notifier)
-                                .updateAddress(
-                                  id: existing.id,
-                                  title: title,
-                                  fullAddress: addressController.text.trim(),
-                                  latitude: pickedLat,
-                                  longitude: pickedLng,
-                                );
-                            if (setDefault && !existing.isDefault) {
-                              await ref
-                                  .read(addressProvider.notifier)
-                                  .setDefault(existing.id);
-                            }
-                          }
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                  child: Text(LocaleKeys.commonSave.tr()),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 }
@@ -217,18 +103,17 @@ class _AddressTile extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              if (address.isDefault) ...[
-                const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+              ),
+              if (address.isDefault)
                 Chip(
                   label: Text(
                     LocaleKeys.addressDefaultBadge.tr(),
                     style: const TextStyle(fontSize: 11),
                   ),
-                  backgroundColor:
-                      AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                 ),
-              ],
             ],
           ),
           Text(address.fullAddress),
