@@ -13,6 +13,7 @@ if (-not (Test-Path $registrant)) {
 $removePlugins = @(
     'cloud_firestore',
     'firebase_core',
+    'firebase_auth',
     'audioplayers_windows',
     'geolocator_windows',
     'share_plus'
@@ -25,6 +26,7 @@ foreach ($plugin in $removePlugins) {
 }
 $cc = $cc -replace '(?ms)^\s*CloudFirestorePluginCApiRegisterWithRegistrar\(.*?\);\s*\r?\n', ''
 $cc = $cc -replace '(?ms)^\s*FirebaseCorePluginCApiRegisterWithRegistrar\(.*?\);\s*\r?\n', ''
+$cc = $cc -replace '(?ms)^\s*FirebaseAuthPluginCApiRegisterWithRegistrar\(.*?\);\s*\r?\n', ''
 $cc = $cc -replace '(?ms)^\s*AudioplayersWindowsPluginRegisterWithRegistrar\(.*?\);\s*\r?\n', ''
 $cc = $cc -replace '(?ms)^\s*GeolocatorWindowsRegisterWithRegistrar\(.*?\);\s*\r?\n', ''
 $cc = $cc -replace '(?ms)^\s*SharePlusWindowsPluginCApiRegisterWithRegistrar\(.*?\);\s*\r?\n', ''
@@ -41,4 +43,4 @@ if (Test-Path $cmake) {
     Set-Content -Path $cmake -Value $cmakeContent -NoNewline
 }
 
-Write-Host "Ops Windows eklenti yamasi uygulandi (Firestore/Firebase native kaldirildi)."
+Write-Host "Ops Windows eklenti yamasi uygulandi (Firestore/Firebase Auth native kaldirildi)."

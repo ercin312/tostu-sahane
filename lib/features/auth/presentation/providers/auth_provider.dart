@@ -44,7 +44,10 @@ class AuthNotifier extends Notifier<AuthState?> {
   static const _needsAddressKey = 'auth_needs_address';
   static const _needsPhoneKey = 'auth_needs_phone';
 
-  final _customerAuth = CustomerFirebaseAuth();
+  CustomerFirebaseAuth? _customerAuthInstance;
+
+  CustomerFirebaseAuth get _customerAuth =>
+      _customerAuthInstance ??= CustomerFirebaseAuth();
 
   Future<void> loadSavedAuth() async {
     final prefs = await SharedPreferences.getInstance();
