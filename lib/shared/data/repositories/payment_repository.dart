@@ -62,8 +62,9 @@ class PaymentRepository {
   }
 }
 
+/// PayTR merchant_oid: en fazla 64 karakter, yalnızca alfanumerik.
 String buildPaytrMerchantOid() =>
-    'ts_${DateTime.now().millisecondsSinceEpoch}';
+    'ts${DateTime.now().millisecondsSinceEpoch}';
 
 String buildPaytrBasketSummary(List<CartItem> items) {
   return items

@@ -35,6 +35,8 @@ class AdminWaiterMenuTab extends ConsumerWidget {
     final productsAsync = ref.watch(adminProductsProvider);
 
     return productsAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
       data: (products) {

@@ -9,6 +9,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/format_utils.dart';
 import '../../../../../core/widgets/app_button.dart';
+import '../../../../../shared/data/repositories/payment_repository.dart';
 import '../../../../../shared/domain/entities/delivery_address.dart';
 import '../../../../../shared/domain/entities/branch.dart';
 import '../../../../../shared/domain/entities/order.dart';
@@ -22,6 +23,7 @@ import '../../../../customer/cart/presentation/providers/delivery_providers.dart
 import '../../../../../shared/presentation/providers/delivery_settings_provider.dart';
 import '../../../../../shared/presentation/providers/checkout_paytr_providers.dart';
 import '../../../../../shared/presentation/providers/paytr_settings_provider.dart';
+import '../models/paytr_checkout_args.dart';
 import '../providers/coupon_provider.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
@@ -292,14 +294,34 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     }
 
     String? paymentTransactionId;
-    // Online kart / PayTR bu sürümde kapalı — sadece kapıda ödeme.
     if (_paymentMethod == PaymentMethod.onlineCard) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(LocaleKeys.checkoutPaymentCash.tr())),
-        );
+      final paytrEnabled = ref.read(paytrEnabledProvider);
+      if (!paytrEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(LocaleKeys.paymentPaytrInitFailed.tr())),
+          );
+        }
+        return;
       }
-      return;
+
+      final email = auth.email?.isNotEmpty == true
+          ? auth.email!
+          : '${auth.phone}@tostusahane.com';
+      final paymentResult = await context.push<PaymentResult>(
+        RoutePaths.customerPaytrPayment,
+        extra: PaytrCheckoutArgs(
+          amount: total,
+          email: email,
+          customerName: auth.user.name.tr(),
+          phone: auth.phone,
+          address: selectedAddress.fullAddress,
+          basketSummary: buildPaytrBasketSummary(cart),
+          items: cart,
+        ),
+      );
+      if (paymentResult == null || !mounted) return;
+      paymentTransactionId = paymentResult.transactionId;
     }
 
     var orderNote = _noteController.text.trim();
@@ -384,6 +406,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     final freeDeliveryMinOrder = ref.watch(effectiveFreeDeliveryMinOrderProvider);
     final deliveryFee = ref.watch(deliveryFeeProvider);
     final etaMinutes = ref.watch(checkoutEtaMinutesProvider);
+    final paytrEnabled = ref.watch(paytrEnabledProvider);
     final paytrSettings = ref.watch(paytrSettingsProvider).valueOrNull;
     final addressesAsync = ref.watch(addressProvider);
     final selectedAddress = ref.watch(selectedCheckoutAddressProvider);
@@ -593,6 +616,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   LocaleKeys.checkoutPaymentMethod.tr(),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
+                if (paytrEnabled)
+                  RadioListTile<PaymentMethod>(
+                    title: Text(LocaleKeys.checkoutPaymentCard.tr()),
+                    value: PaymentMethod.onlineCard,
+                    groupValue: _paymentMethod,
+                    onChanged: (v) => setState(() => _paymentMethod = v!),
+                  ),
                 RadioListTile<PaymentMethod>(
                   title: Text(LocaleKeys.checkoutPaymentCash.tr()),
                   value: PaymentMethod.cashOnDelivery,
@@ -605,6 +635,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   groupValue: _paymentMethod,
                   onChanged: (v) => setState(() => _paymentMethod = v!),
                 ),
+                if (_paymentMethod == PaymentMethod.onlineCard && paytrEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.md),
+                    child: Text(
+                      LocaleKeys.checkoutPaytrNote.tr(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   LocaleKeys.checkoutCouponTitle.tr(),

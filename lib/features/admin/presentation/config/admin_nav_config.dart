@@ -103,7 +103,7 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.payments_outlined,
       filledIcon: Icons.payments,
       mobileToolsMenu: true,
-      desktopRail: false,
+      desktopRail: true,
       badge: AdminNavBadge.remittances,
     ),
     AdminNavItem(

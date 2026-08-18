@@ -175,6 +175,8 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
     final extrasAsync = ref.watch(adminCatalogExtrasProvider);
 
     return extrasAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
       data: (extras) {

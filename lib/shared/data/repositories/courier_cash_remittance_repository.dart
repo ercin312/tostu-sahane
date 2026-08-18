@@ -16,10 +16,19 @@ class CourierCashRemittanceRepository {
   final CourierCashRemittanceLocalDataSource _local;
   final _localEvents = StreamController<void>.broadcast();
 
-  Stream<void> get _changes => _localEvents.stream;
+  bool get _useRemote => AppConfig.useFirestoreBackend;
+
+  Stream<List<CourierCashRemittance>> _localWatch(
+    Future<List<CourierCashRemittance>> Function() load,
+  ) async* {
+    yield await load();
+    await for (final _ in _localEvents.stream) {
+      yield await load();
+    }
+  }
 
   Future<List<CourierCashRemittance>> getForCourier(String courierId) async {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.getCashRemittances(courierId: courierId);
     }
     final all = await _local.loadAll();
@@ -28,7 +37,7 @@ class CourierCashRemittanceRepository {
   }
 
   Future<List<CourierCashRemittance>> getForBranch(String branchId) async {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.getCashRemittances(branchId: branchId);
     }
     final all = await _local.loadAll();
@@ -37,7 +46,7 @@ class CourierCashRemittanceRepository {
   }
 
   Future<List<CourierCashRemittance>> getAll() async {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.getCashRemittances();
     }
     final all = await _local.loadAll();
@@ -45,24 +54,24 @@ class CourierCashRemittanceRepository {
   }
 
   Stream<List<CourierCashRemittance>> watchForCourier(String courierId) {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.watchCashRemittances(courierId: courierId);
     }
-    return _changes.asyncMap((_) => getForCourier(courierId));
+    return _localWatch(() => getForCourier(courierId));
   }
 
   Stream<List<CourierCashRemittance>> watchForBranch(String branchId) {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.watchCashRemittances(branchId: branchId);
     }
-    return _changes.asyncMap((_) => getForBranch(branchId));
+    return _localWatch(() => getForBranch(branchId));
   }
 
   Stream<List<CourierCashRemittance>> watchAll() {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.watchCashRemittances();
     }
-    return _changes.asyncMap((_) => getAll());
+    return _localWatch(getAll);
   }
 
   Future<CourierCashRemittance> requestRemittance({
@@ -88,7 +97,7 @@ class CourierCashRemittanceRepository {
       courierNote: courierNote,
     );
 
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.createCashRemittance(remittance);
     }
 
@@ -133,7 +142,7 @@ class CourierCashRemittanceRepository {
     required String reviewerName,
     String? rejectionReason,
   }) async {
-    if (AppConfig.useFirestore) {
+    if (_useRemote) {
       return _firestore.reviewCashRemittance(
         remittanceId: remittanceId,
         status: status,

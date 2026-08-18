@@ -24,6 +24,7 @@ const {
 const {
   handleWooCommerceOrderWebhook,
 } = require('./woocommerce_order');
+const { handlePaytrCallback } = require('./paytr_callback');
 const { loadDotEnvOnce } = require('./elevenlabs_config');
 
 loadDotEnvOnce();
@@ -250,6 +251,11 @@ exports.syncPhoneAiAgent = functions.https.onRequest((req, res) =>
 /** WooCommerce web sipariş → Firestore (Windows şube ekranı) */
 exports.woocommerceOrderWebhook = functions.https.onRequest((req, res) =>
   handleWooCommerceOrderWebhook(req, res),
+);
+
+/** PayTR iFrame API STEP 2 — mağaza paneli Bildirim URL */
+exports.paytrCallback = functions.https.onRequest((req, res) =>
+  handlePaytrCallback(req, res),
 );
 
 /** QR menüden: garson çağır / hesap iste */

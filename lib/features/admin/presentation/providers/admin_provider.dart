@@ -68,11 +68,10 @@ final adminBranchesProvider =
 );
 
 void _invalidateCatalogCaches(Ref ref) {
-  invalidateProductCatalogCaches(ref);
+  // Canlı stream zaten günceller; admin listesini invalidate etmek
+  // Windows'ta düzenleme sırasında loading flash / scroll sıfırlar.
   Future.microtask(() {
     ref.invalidate(waiterModeSettingsProvider);
-    ref.invalidate(adminProductsProvider);
-    ref.invalidate(adminCatalogExtrasProvider);
   });
 }
 

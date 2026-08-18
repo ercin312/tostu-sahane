@@ -1787,6 +1787,7 @@ class FirestoreDataSource {
   Future<CourierCashRemittance> createCashRemittance(
     CourierCashRemittance remittance,
   ) async {
+    if (_rest != null) return _rest!.createCashRemittance(remittance);
     await _remittancesCol.doc(remittance.id).set(remittance.toJson());
     return remittance;
   }
@@ -1796,6 +1797,14 @@ class FirestoreDataSource {
     String? branchId,
     CourierCashRemittanceStatus? status,
   }) async {
+    if (_rest != null) {
+      final items = await _rest!.getCashRemittances(
+        courierId: courierId,
+        branchId: branchId,
+      );
+      if (status == null) return items;
+      return items.where((r) => r.status == status).toList();
+    }
     Query<Map<String, dynamic>> query = _remittancesCol;
     if (courierId != null) {
       query = query.where('courier_id', isEqualTo: courierId);
@@ -1816,6 +1825,12 @@ class FirestoreDataSource {
     String? courierId,
     String? branchId,
   }) {
+    if (_rest != null) {
+      return _rest!.watchCashRemittances(
+        courierId: courierId,
+        branchId: branchId,
+      );
+    }
     Query<Map<String, dynamic>> query = _remittancesCol;
     if (courierId != null) {
       query = query.where('courier_id', isEqualTo: courierId);
@@ -1839,6 +1854,15 @@ class FirestoreDataSource {
     required String reviewerName,
     String? rejectionReason,
   }) async {
+    if (_rest != null) {
+      return _rest!.reviewCashRemittance(
+        remittanceId: remittanceId,
+        status: status,
+        reviewerId: reviewerId,
+        reviewerName: reviewerName,
+        rejectionReason: rejectionReason,
+      );
+    }
     final patch = <String, dynamic>{
       'status': status.name,
       'reviewed_at': DateTime.now().toIso8601String(),

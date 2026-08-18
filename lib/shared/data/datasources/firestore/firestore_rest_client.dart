@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/orders/order_item_edits.dart';
 import '../../../../core/utils/phone_digits.dart';
 import '../../../../firebase_options.dart';
+import '../../../domain/entities/courier_cash_remittance.dart';
 import '../../../domain/entities/branch.dart';
 import '../../../domain/entities/order.dart';
 import '../../../domain/entities/product.dart';
@@ -507,12 +508,22 @@ class FirestoreRestClient {
   }
 
   Stream<List<Product>> watchProducts() async* {
+    List<Product>? lastGood;
     while (true) {
       try {
-        yield await getProducts();
+        final next = await getProducts();
+        // Hata/boş okumada menüyü silme — Windows düzenleme sırasında F5 etkisi yaratıyordu.
+        if (next.isNotEmpty || lastGood == null) {
+          lastGood = next;
+          yield next;
+        } else {
+          yield lastGood;
+        }
       } catch (e) {
         debugPrint('Firestore REST products poll failed: $e');
-        yield const [];
+        if (lastGood != null) {
+          yield lastGood;
+        }
       }
       await Future<void>.delayed(_catalogPollInterval);
     }
@@ -636,12 +647,21 @@ class FirestoreRestClient {
   }
 
   Stream<List<ProductExtra>> watchCatalogExtras() async* {
+    List<ProductExtra>? lastGood;
     while (true) {
       try {
-        yield await getCatalogExtras();
+        final next = await getCatalogExtras();
+        if (next.isNotEmpty || lastGood == null) {
+          lastGood = next;
+          yield next;
+        } else {
+          yield lastGood;
+        }
       } catch (e) {
         debugPrint('Firestore REST catalog_extras poll failed: $e');
-        yield const [];
+        if (lastGood != null) {
+          yield lastGood;
+        }
       }
       await Future<void>.delayed(_catalogPollInterval);
     }
@@ -668,6 +688,134 @@ class FirestoreRestClient {
     final json = FirestoreRestValueCodec.documentToJson(fields);
     json['id'] = id;
     return EntityMappers.toProductExtra(ProductExtraModel.fromJson(json));
+  }
+
+  // ── Courier cash remittances (Windows ops) ────────────────────────────────
+
+  Future<List<CourierCashRemittance>> getCashRemittances({
+    String? courierId,
+    String? branchId,
+  }) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/courier_cash_remittances',
+        queryParameters: {
+          'key': _options.apiKey,
+          'pageSize': 300,
+        },
+      );
+      var items = _parseRemittancesResponse(response.data);
+      if (courierId != null) {
+        items = items.where((r) => r.courierId == courierId).toList();
+      }
+      if (branchId != null) {
+        items = items.where((r) => r.branchId == branchId).toList();
+      }
+      items.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+      return items;
+    } catch (e) {
+      debugPrint('Firestore REST remittances read failed: $e');
+      return const [];
+    }
+  }
+
+  Stream<List<CourierCashRemittance>> watchCashRemittances({
+    String? courierId,
+    String? branchId,
+  }) async* {
+    List<CourierCashRemittance>? lastGood;
+    while (true) {
+      try {
+        final next = await getCashRemittances(
+          courierId: courierId,
+          branchId: branchId,
+        );
+        lastGood = next;
+        yield next;
+      } catch (e) {
+        debugPrint('Firestore REST remittances poll failed: $e');
+        if (lastGood != null) yield lastGood;
+      }
+      await Future<void>.delayed(_pollInterval);
+    }
+  }
+
+  List<CourierCashRemittance> _parseRemittancesResponse(
+    Map<String, dynamic>? data,
+  ) {
+    final docs = data?['documents'] as List<dynamic>? ?? const [];
+    final items = <CourierCashRemittance>[];
+    for (final raw in docs) {
+      if (raw is! Map<String, dynamic>) continue;
+      try {
+        items.add(_documentToRemittance(raw));
+      } catch (e) {
+        debugPrint('Firestore REST remittance parse skip: $e');
+      }
+    }
+    return items;
+  }
+
+  CourierCashRemittance _documentToRemittance(Map<String, dynamic> doc) {
+    final name = doc['name'] as String? ?? '';
+    final id = name.split('/').last;
+    final fields = doc['fields'] as Map<String, dynamic>? ?? {};
+    final json = FirestoreRestValueCodec.documentToJson(fields);
+    json['id'] = id;
+    return CourierCashRemittance.fromJson(json);
+  }
+
+  Future<CourierCashRemittance> createCashRemittance(
+    CourierCashRemittance remittance,
+  ) async {
+    final json = Map<String, dynamic>.from(remittance.toJson())..remove('id');
+    final body = {
+      'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
+    };
+    await _dio.post<Map<String, dynamic>>(
+      '$_documentsRoot/courier_cash_remittances',
+      queryParameters: {
+        'key': _options.apiKey,
+        'documentId': remittance.id,
+      },
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
+    return remittance;
+  }
+
+  Future<CourierCashRemittance> reviewCashRemittance({
+    required String remittanceId,
+    required CourierCashRemittanceStatus status,
+    required String reviewerId,
+    required String reviewerName,
+    String? rejectionReason,
+  }) async {
+    final patch = <String, dynamic>{
+      'status': status.name,
+      'reviewed_at': DateTime.now().toIso8601String(),
+      'reviewed_by_id': reviewerId,
+      'reviewed_by_name': reviewerName,
+      if (rejectionReason != null) 'rejection_reason': rejectionReason,
+    };
+    await patchDocument('courier_cash_remittances/$remittanceId', patch);
+    final all = await getCashRemittances();
+    return all.firstWhere(
+      (r) => r.id == remittanceId,
+      orElse: () => CourierCashRemittance(
+        id: remittanceId,
+        courierId: '',
+        courierName: '',
+        branchId: '',
+        amount: 0,
+        status: status,
+        requestedAt: DateTime.now(),
+        reviewedAt: DateTime.now(),
+        reviewedById: reviewerId,
+        reviewedByName: reviewerName,
+        rejectionReason: rejectionReason,
+      ),
+    );
   }
 
   Future<PaytrSettings> getPaytrSettings() async {

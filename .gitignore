@@ -64,6 +64,7 @@ functions/.env.*
 
 # WordPress secrets (FTP only)
 wordpress/mu-plugins/tostu-ops-config.php
+wordpress/mu-plugins/tostu-paytr-config.php
 
 # Local checkout debug artifacts
 scripts/node_modules/
