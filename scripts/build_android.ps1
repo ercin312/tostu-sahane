@@ -48,6 +48,31 @@ $defines = @(
     '--dart-define=USE_MOCK_API=false'
 )
 
+$verLine = (Select-String -Path 'pubspec.yaml' -Pattern '^version:\s*(.+)
+if ($Format -eq 'appbundle') {
+    flutter build appbundle --release @defines
+}
+else {
+    flutter build apk --release @defines
+}
+
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host ""
+if ($Format -eq 'appbundle') {
+    $out = Resolve-Path 'build\app\outputs\bundle\release\app-release.aab'
+}
+else {
+    $out = Resolve-Path 'build\app\outputs\flutter-apk\app-release.apk'
+}
+Write-Host "Hazir:" $out
+
+if (-not $SkipSigningCheck) {
+    Write-Host ""
+    Write-Host "Yuklemeden once SHA1 tekrar dogrulandi. Play Console'a bu AAB'yi yukleyebilirsiniz."
+}
+).Matches[0].Groups[1].Value.Trim()
+Write-Host "Surum: $verLine"
 Write-Host "Android release derlemesi basliyor ($Format)..."
 if ($Format -eq 'appbundle') {
     flutter build appbundle --release @defines
