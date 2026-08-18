@@ -1,5 +1,16 @@
 Sahane123! 
 
+=== Release build (1.1.6+16) ===
+# Android (Play / cihaz) — PowerShell, bu PC:
+cd "C:\Users\excalibur\Desktop\Tostu Sahane"
+.\scripts\build_android.ps1
+# APK istersen:
+.\scripts\build_android.ps1 -Format apk
+# Cikti: build\app\outputs\bundle\release\app-release.aab
+
+# iOS TestFlight — GitHub Actions:
+# Actions → iOS TestFlight → Run workflow (main)
+
 Windows ops (restoran PC)
 cd "C:\Users\excalibur\Desktop\Tostu Sahane"
 .\scripts\pack_windows_desktop.ps1
@@ -12,22 +23,22 @@ Hata: msvcp140.dll -> once pack script ile yeniden paketleyin veya 1_VC_Runtime_
 
 Demo garson (mock): garson1 / Sahane123!
 
-Giriş ekranında Mutfak rolünü seçin.
-Kullanıcı adı / şifre ile giriş yapın.
+Giris ekraninda Mutfak rolunu secin.
+Kullanici adi / sifre ile giris yapin.
 Demo hesap (mock mod):
 
-Kullanıcı: mutfak1
-Şifre: Sahane123!
+Kullanici: mutfak1
+Sifre: Sahane123!
 
 
-Mod	Kullanıcı adı	Şifre
-Sistem yöneticisi
+Mod	Kullanici adi	Sifre
+Sistem yoneticisi
 admin
 Sahane123!
-Şube yöneticisi
+Sube yoneticisi
 sube1
 Sahane123!
-Şube personeli
+Sube personeli
 personel1
 Sahane123!
 Garson
