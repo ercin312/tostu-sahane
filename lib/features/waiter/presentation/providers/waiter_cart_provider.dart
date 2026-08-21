@@ -107,7 +107,8 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
       final updated = [...state];
       final current = updated[index];
       updated[index] = WaiterCartItem(
-        product: current.product,
+        // Güncel katalog fiyatı / adı kalsın.
+        product: product,
         catalogExtra: current.catalogExtra,
         quantity: current.quantity + 1,
         selectedExtraIds: current.selectedExtraIds,

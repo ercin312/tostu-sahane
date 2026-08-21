@@ -7,9 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/localized_text.dart';
 import '../../../../shared/domain/entities/product.dart';
+import '../../../customer/home/presentation/providers/branch_provider.dart';
 import '../../domain/waiter_pos_catalog.dart';
 import '../providers/waiter_cart_provider.dart';
+import '../providers/waiter_products_provider.dart';
 
 class _GridFit {
   const _GridFit({
@@ -27,7 +30,8 @@ class _GridFit {
   final bool fits;
 }
 
-/// POS: sağ kategori + orta ızgara; klasöre tıklayınca alt seviye (KAPAT ile geri).
+/// POS: sağ kategori + orta ızgara.
+/// Ürün / fiyat kaynağı: kasa-admin ile aynı canlı katalog (Firestore).
 class WaiterPosMenuPanel extends ConsumerStatefulWidget {
   const WaiterPosMenuPanel({
     super.key,
@@ -48,67 +52,22 @@ class WaiterPosMenuPanel extends ConsumerStatefulWidget {
 }
 
 class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
-  /// Açık klasör yolu (boş = kök ızgara).
-  final List<WaiterPosNode> _path = [];
-
-  @override
-  void didUpdateWidget(covariant WaiterPosMenuPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.section != widget.section) {
-      _path.clear();
-    }
-  }
-
-  List<WaiterPosNode> get _visibleNodes {
-    if (_path.isEmpty) return WaiterPosCatalog.rootsFor(widget.section);
-    return _path.last.children;
-  }
-
-  String? get _headerTitle => _path.isEmpty ? null : _path.last.label;
-
-  void _openFolder(WaiterPosNode node) {
-    setState(() => _path.add(node));
-  }
-
-  void _closeLevel() {
-    if (_path.isEmpty) return;
-    setState(() => _path.removeLast());
-  }
-
   void _selectSection(WaiterPosSection section) {
-    _path.clear();
     widget.onSectionChanged(section);
   }
 
-  void _onNodeTap(WaiterPosNode node) {
-    if (node.isFolder) {
-      _openFolder(node);
-      return;
-    }
-    if (!node.isLeaf) return;
-    final category = WaiterPosCatalog.categoryFor(widget.section);
-    final labelParts = [
-      for (final p in _path) p.label,
-      node.label,
-    ];
-    final displayLabel = labelParts.join(' · ');
-    final product = Product(
-      id: node.id,
-      nameKey: displayLabel,
-      descriptionKey: displayLabel,
-      price: node.price!,
-      category: category,
-    );
+  void _onProductTap(Product product) {
     ref.read(waiterCartProvider.notifier).addProduct(product);
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(waiterCartProvider);
+    final catalogAsync = ref.watch(opsBranchProductsProvider);
+    final products = ref.watch(waiterPosSectionProductsProvider(widget.section));
     // Mobil ve Windows aynı POS yoğunluğu (Windows referans).
     final screenW = MediaQuery.sizeOf(context).width;
     final sidebarWidth = screenW < 360 ? 88.0 : 108.0;
-    final nodes = _visibleNodes;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -116,93 +75,62 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
         Expanded(
           child: ColoredBox(
             color: const Color(0xFFF7F8FA),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_headerTitle != null)
-                  Container(
-                    color: WaiterPosMenuPanel.headerBlue,
-                    padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: _closeLevel,
-                          tooltip: LocaleKeys.waiterPosClose.tr(),
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.15),
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _headerTitle!.toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        // Balance the back button so the title stays centered.
-                        const SizedBox(width: 48),
-                      ],
-                    ),
+            child: catalogAsync.when(
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(LocaleKeys.commonError.tr()),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () {
+                          ref.invalidate(productsCatalogStreamProvider);
+                          ref.invalidate(catalogExtrasStreamProvider);
+                          ref.invalidate(productsProvider);
+                          ref.invalidate(catalogExtrasProvider);
+                        },
+                        child: Text(LocaleKeys.commonRetry.tr()),
+                      ),
+                    ],
                   ),
-                Expanded(
-                  child: nodes.isEmpty
-                      ? Center(child: Text(LocaleKeys.waiterAddonsEmpty.tr()))
-                      : _buildItemGrid(
-                          count: nodes.length,
-                          builder: (index, fit) {
-                            final node = nodes[index];
-                            final qty = !node.isLeaf
-                                ? 0
-                                : cart
-                                    .where(
-                                      (item) => item.product?.id == node.id,
-                                    )
-                                    .fold<int>(
-                                      0,
-                                      (sum, item) => sum + item.quantity,
-                                    );
-                            return WaiterPosProductTile(
-                              title: node.label,
-                              price: node.price,
-                              quantity: qty,
-                              isFolder: node.isFolder,
-                              cellWidth: fit.cellWidth,
-                              dense: true,
-                              onTap: () => _onNodeTap(node),
-                              onIncrement: !node.isLeaf
-                                  ? () {}
-                                  : () => _onNodeTap(node),
-                              onDecrement: !node.isLeaf
-                                  ? () {}
-                                  : () {
-                                      final matching = cart
-                                          .where(
-                                            (item) =>
-                                                item.product?.id == node.id,
-                                          )
-                                          .toList();
-                                      if (matching.isEmpty) return;
-                                      final line = matching.last;
-                                      ref
-                                          .read(waiterCartProvider.notifier)
-                                          .setQuantity(
-                                            line.lineKey,
-                                            line.quantity - 1,
-                                          );
-                                    },
-                            );
-                          },
-                        ),
                 ),
-              ],
+              ),
+              data: (_) {
+                if (products.isEmpty) {
+                  return Center(
+                    child: Text(LocaleKeys.waiterAddonsEmpty.tr()),
+                  );
+                }
+                return _buildItemGrid(
+                  count: products.length,
+                  builder: (index, fit) {
+                    final product = products[index];
+                    final qty = cart
+                        .where((item) => item.product?.id == product.id)
+                        .fold<int>(0, (sum, item) => sum + item.quantity);
+                    return WaiterPosProductTile(
+                      title: localizedOrRaw(product.nameKey),
+                      price: product.price,
+                      quantity: qty,
+                      isFolder: false,
+                      cellWidth: fit.cellWidth,
+                      dense: true,
+                      onTap: () => _onProductTap(product),
+                      onIncrement: () => _onProductTap(product),
+                      onDecrement: () {
+                        ref
+                            .read(waiterCartProvider.notifier)
+                            .decrementProduct(product);
+                      },
+                    );
+                  },
+                );
+              },
             ),
           ),
         ),

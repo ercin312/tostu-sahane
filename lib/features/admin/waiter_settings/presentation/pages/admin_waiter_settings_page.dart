@@ -110,8 +110,17 @@ class _AdminWaiterSettingsPageState extends ConsumerState<AdminWaiterSettingsPag
           posSalePath: _posSalePathController.text.trim().isEmpty
               ? '/Payment/CardPayment'
               : _posSalePathController.text.trim(),
-          productPrices: const {},
-          catalogExtraPrices: const {},
+          // Fiyat override'larını silme — kasa/katalog fiyatlarıyla uyum bozulmasın.
+          productPrices: ref
+                  .read(waiterModeSettingsProvider)
+                  .valueOrNull
+                  ?.productPrices ??
+              const {},
+          catalogExtraPrices: ref
+                  .read(waiterModeSettingsProvider)
+                  .valueOrNull
+                  ?.catalogExtraPrices ??
+              const {},
           preparationOptions: _preparationOptions,
           productDisplayOrder: _productDisplayOrder,
           catalogExtraDisplayOrder: _catalogExtraDisplayOrder,
