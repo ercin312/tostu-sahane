@@ -1,58 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/data/datasources/local/campaign_local_datasource.dart';
 import '../../../../shared/domain/entities/campaign_banner.dart';
+import '../../../../shared/presentation/providers/repository_providers.dart';
 
-class CampaignBannersNotifier extends AsyncNotifier<List<CampaignBanner>> {
-  final _local = CampaignLocalDataSource();
-
-  @override
-  Future<List<CampaignBanner>> build() => _local.load();
-
-  Future<void> _persist(List<CampaignBanner> banners) async {
-    await _local.save(banners);
-    state = AsyncData(banners);
-  }
-
-  Future<void> createBanner({
-    String title = '',
-    String? imageUrl,
-  }) async {
-    final current = state.value ?? [];
-    final banner = CampaignBanner(
-      id: 'camp_${DateTime.now().millisecondsSinceEpoch}',
-      title: title,
-      imageUrl: imageUrl,
-      sortOrder: current.length,
-    );
-    await _persist([...current, banner]);
-  }
-
-  Future<void> updateBanner(CampaignBanner banner) async {
-    final current = state.value ?? [];
-    await _persist([
-      for (final b in current) if (b.id == banner.id) banner else b,
-    ]);
-  }
-
-  Future<void> deleteBanner(String id) async {
-    final current = state.value ?? [];
-    await _persist(current.where((b) => b.id != id).toList());
-  }
-
-  Future<void> toggleActive(String id, bool active) async {
-    final current = state.value ?? [];
-    await _persist([
-      for (final b in current)
-        if (b.id == id) b.copyWith(isActive: active) else b,
-    ]);
-  }
-}
-
-final campaignBannersProvider =
-    AsyncNotifierProvider<CampaignBannersNotifier, List<CampaignBanner>>(
-  CampaignBannersNotifier.new,
-);
+final campaignBannersProvider = StreamProvider<List<CampaignBanner>>((ref) {
+  return ref.watch(adminRepositoryProvider).watchCampaignBanners();
+});
 
 /// Müşteri ana sayfasında gösterilecek aktif kampanyalar.
 final activeCampaignBannersProvider = Provider<List<CampaignBanner>>((ref) {
@@ -60,3 +13,52 @@ final activeCampaignBannersProvider = Provider<List<CampaignBanner>>((ref) {
   return banners.where((b) => b.isActive).toList()
     ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 });
+
+Future<void> _persistCampaignBanners(
+  WidgetRef ref,
+  List<CampaignBanner> banners,
+) async {
+  await ref.read(adminRepositoryProvider).updateCampaignBanners(banners);
+}
+
+Future<void> createCampaignBanner(
+  WidgetRef ref, {
+  String title = '',
+  String? imageUrl,
+}) async {
+  final current = ref.read(campaignBannersProvider).value ?? [];
+  final banner = CampaignBanner(
+    id: 'camp_${DateTime.now().millisecondsSinceEpoch}',
+    title: title,
+    imageUrl: imageUrl,
+    sortOrder: current.length,
+  );
+  await _persistCampaignBanners(ref, [...current, banner]);
+}
+
+Future<void> updateCampaignBanner(WidgetRef ref, CampaignBanner banner) async {
+  final current = ref.read(campaignBannersProvider).value ?? [];
+  await _persistCampaignBanners(ref, [
+    for (final b in current) if (b.id == banner.id) banner else b,
+  ]);
+}
+
+Future<void> deleteCampaignBanner(WidgetRef ref, String id) async {
+  final current = ref.read(campaignBannersProvider).value ?? [];
+  await _persistCampaignBanners(
+    ref,
+    current.where((b) => b.id != id).toList(),
+  );
+}
+
+Future<void> toggleCampaignBannerActive(
+  WidgetRef ref,
+  String id,
+  bool active,
+) async {
+  final current = ref.read(campaignBannersProvider).value ?? [];
+  await _persistCampaignBanners(ref, [
+    for (final b in current)
+      if (b.id == id) b.copyWith(isActive: active) else b,
+  ]);
+}

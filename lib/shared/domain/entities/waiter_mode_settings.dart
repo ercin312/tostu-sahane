@@ -1,3 +1,4 @@
+import '../../../features/waiter/domain/waiter_pos_catalog.dart';
 import 'waiter_preparation_option.dart';
 
 class WaiterModeSettings {
@@ -15,6 +16,7 @@ class WaiterModeSettings {
     this.preparationOptions = defaultPreparationOptions,
     this.productDisplayOrder = const [],
     this.catalogExtraDisplayOrder = const [],
+    this.posCatalog = const {},
   });
 
   static const defaultPreparationOptions = [
@@ -69,6 +71,8 @@ class WaiterModeSettings {
   final List<WaiterPreparationOption> preparationOptions;
   final List<String> productDisplayOrder;
   final List<String> catalogExtraDisplayOrder;
+  /// Garson POS hiyerarşisi (section.name → düğümler). Boşsa varsayılan ağaç.
+  final Map<String, List<WaiterPosNode>> posCatalog;
 
   static const defaults = WaiterModeSettings();
 
@@ -99,6 +103,7 @@ class WaiterModeSettings {
     List<WaiterPreparationOption>? preparationOptions,
     List<String>? productDisplayOrder,
     List<String>? catalogExtraDisplayOrder,
+    Map<String, List<WaiterPosNode>>? posCatalog,
   }) {
     return WaiterModeSettings(
       tableCount: tableCount ?? this.tableCount,
@@ -117,6 +122,7 @@ class WaiterModeSettings {
       productDisplayOrder: productDisplayOrder ?? this.productDisplayOrder,
       catalogExtraDisplayOrder:
           catalogExtraDisplayOrder ?? this.catalogExtraDisplayOrder,
+      posCatalog: posCatalog ?? this.posCatalog,
     );
   }
 
@@ -136,6 +142,10 @@ class WaiterModeSettings {
             preparationOptions.map((e) => e.toJson()).toList(),
         'product_display_order': productDisplayOrder,
         'catalog_extra_display_order': catalogExtraDisplayOrder,
+        'pos_catalog': {
+          for (final e in posCatalog.entries)
+            e.key: e.value.map((n) => n.toJson()).toList(),
+        },
       };
 
   static Map<String, double> _readPriceMap(dynamic raw) {
@@ -162,6 +172,21 @@ class WaiterModeSettings {
         .toList();
   }
 
+  static Map<String, List<WaiterPosNode>> _readPosCatalog(dynamic raw) {
+    if (raw is! Map || raw.isEmpty) return const {};
+    final out = <String, List<WaiterPosNode>>{};
+    for (final entry in raw.entries) {
+      final list = entry.value;
+      if (list is! List) continue;
+      out[entry.key.toString()] = [
+        for (final item in list)
+          if (item is Map)
+            WaiterPosNode.fromJson(Map<String, dynamic>.from(item)),
+      ];
+    }
+    return out;
+  }
+
   factory WaiterModeSettings.fromJson(Map<String, dynamic> json) {
     return WaiterModeSettings(
       tableCount: (json['table_count'] as num?)?.toInt() ?? 24,
@@ -180,6 +205,7 @@ class WaiterModeSettings {
       productDisplayOrder: _readStringList(json['product_display_order']),
       catalogExtraDisplayOrder:
           _readStringList(json['catalog_extra_display_order']),
+      posCatalog: _readPosCatalog(json['pos_catalog']),
     );
   }
 }

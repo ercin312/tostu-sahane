@@ -178,7 +178,7 @@ class AuthNotifier extends Notifier<AuthState?> {
       final session = await ref.read(loginWithEmailPasswordUseCaseProvider).call(
             LoginWithEmailPasswordParams(
               email: username.trim().toLowerCase(),
-              password: password,
+              password: password.trim(),
               role: UserRole.waiter,
             ),
           );

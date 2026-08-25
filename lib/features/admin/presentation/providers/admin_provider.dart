@@ -84,7 +84,7 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
     return ref.read(productRepositoryProvider).getProducts();
   }
 
-  Future<void> createProduct({
+  Future<Product> createProduct({
     required String name,
     required String description,
     required double price,
@@ -113,6 +113,7 @@ class AdminProductsNotifier extends AsyncNotifier<List<Product>> {
         await ref.read(productRepositoryProvider).createProduct(product);
     state = AsyncData([...(state.value ?? []), created]);
     _invalidateCatalogCaches(ref);
+    return created;
   }
 
   Future<void> updateProduct(Product product) async {

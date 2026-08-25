@@ -6,115 +6,598 @@ import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/format_utils.dart';
-import '../../../../../core/utils/localized_text.dart';
+import '../../../../../core/utils/waiter_pos_catalog_utils.dart';
 import '../../../../../shared/domain/entities/product.dart';
+import '../../../../../shared/domain/entities/waiter_mode_settings.dart';
+import '../../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
+import '../../../../waiter/domain/waiter_pos_catalog.dart';
 import '../../../menu/presentation/widgets/admin_catalog_extras_tab.dart';
-import '../../../menu/presentation/widgets/admin_product_editor_sheet.dart';
 import '../../../presentation/providers/admin_provider.dart';
-import '../../../presentation/widgets/admin_form_dialogs.dart';
 
-class AdminWaiterMenuTab extends ConsumerWidget {
+class AdminWaiterMenuTab extends ConsumerStatefulWidget {
   const AdminWaiterMenuTab({super.key});
 
-  static String _categoryLabel(Product product) {
-    if (product.isCombo || product.category == ProductCategory.combo) {
-      return LocaleKeys.customerCategoryCombo.tr();
+  @override
+  ConsumerState<AdminWaiterMenuTab> createState() => _AdminWaiterMenuTabState();
+}
+
+class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
+  WaiterPosSection _section = WaiterPosSection.tostlar;
+  final List<WaiterPosNode> _path = [];
+  var _busy = false;
+
+  List<WaiterPosNode> _roots(WaiterModeSettings settings) =>
+      effectivePosRoots(_section, settings);
+
+  List<WaiterPosNode> _resolvedPath(List<WaiterPosNode> roots) {
+    final resolved = <WaiterPosNode>[];
+    var level = roots;
+    for (final step in _path) {
+      WaiterPosNode? match;
+      for (final n in level) {
+        if (n.id == step.id) {
+          match = n;
+          break;
+        }
+      }
+      if (match == null) break;
+      resolved.add(match);
+      level = match.children;
     }
-    return switch (product.category) {
-      ProductCategory.tost => LocaleKeys.customerCategoryTost.tr(),
-      ProductCategory.sahanda => LocaleKeys.customerCategorySahanda.tr(),
-      ProductCategory.drink => LocaleKeys.customerCategoryDrink.tr(),
-      ProductCategory.snack => LocaleKeys.waiterPosSides.tr(),
-      ProductCategory.combo => LocaleKeys.customerCategoryCombo.tr(),
-      ProductCategory.all => product.category.name,
-    };
+    return resolved;
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(adminProductsProvider);
+  List<WaiterPosNode> _visible(WaiterModeSettings settings) {
+    final roots = _roots(settings);
+    final path = _resolvedPath(roots);
+    if (path.isNotEmpty) return path.last.children;
+    return roots;
+  }
 
-    return productsAsync.when(
-      skipLoadingOnReload: true,
-      skipLoadingOnRefresh: true,
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
-      data: (products) {
-        final waiterProducts = products
-            .where(
-              (p) =>
-                  p.category == ProductCategory.tost ||
-                  p.category == ProductCategory.sahanda ||
-                  p.category == ProductCategory.drink ||
-                  p.category == ProductCategory.snack ||
-                  p.isCombo ||
-                  p.category == ProductCategory.combo,
-            )
-            .toList()
-          ..sort(
-            (a, b) =>
-                localizedOrRaw(a.nameKey).compareTo(localizedOrRaw(b.nameKey)),
+  Future<void> _persistCatalog(
+    WaiterModeSettings current,
+    Map<String, List<WaiterPosNode>> catalog,
+  ) async {
+    setState(() => _busy = true);
+    try {
+      await saveWaiterModeSettings(
+        ref,
+        current.copyWith(posCatalog: catalog),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.adminWaiterPosSaved.tr())),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.commonError.tr())),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Map<String, List<WaiterPosNode>> _workingCatalog(WaiterModeSettings s) {
+    if (s.posCatalog.isNotEmpty) {
+      return {
+        for (final e in s.posCatalog.entries) e.key: List.of(e.value),
+      };
+    }
+    return seedWaiterPosCatalog();
+  }
+
+  Future<void> _addFolder(WaiterModeSettings settings) async {
+    final name = await _promptText(
+      title: LocaleKeys.adminWaiterPosAddFolder.tr(),
+      label: LocaleKeys.adminWaiterPosFolderName.tr(),
+    );
+    if (name == null || name.trim().isEmpty) return;
+    final catalog = _workingCatalog(settings);
+    final folderIds = _resolvedPath(_roots(settings)).map((e) => e.id).toList();
+    final node = WaiterPosNode(
+      id: newPosNodeId('wf'),
+      label: name.trim().toUpperCase(),
+    );
+    catalog[_section.name] = insertPosChild(
+      roots: catalog[_section.name] ?? _roots(settings),
+      folderIds: folderIds,
+      child: node,
+    );
+    await _persistCatalog(settings, catalog);
+  }
+
+  Future<void> _addProduct(WaiterModeSettings settings) async {
+    final data = await _promptProduct();
+    if (data == null) return;
+    setState(() => _busy = true);
+    try {
+      final category = WaiterPosCatalog.categoryFor(_section);
+      final created = await ref.read(adminProductsProvider.notifier).createProduct(
+            name: data.name,
+            description: data.name,
+            price: data.price,
+            category: category,
           );
+      final catalog = _workingCatalog(settings);
+      final folderIds =
+          _resolvedPath(_roots(settings)).map((e) => e.id).toList();
+      final node = WaiterPosNode(
+        id: newPosNodeId('wp'),
+        label: data.name.toUpperCase(),
+        price: data.price,
+        productId: created.id,
+      );
+      catalog[_section.name] = insertPosChild(
+        roots: catalog[_section.name] ?? _roots(settings),
+        folderIds: folderIds,
+        child: node,
+      );
+      await saveWaiterModeSettings(
+        ref,
+        settings.copyWith(posCatalog: catalog),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.adminWaiterPosSaved.tr())),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.commonError.tr())),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
+  Future<void> _editLeaf(
+    WaiterModeSettings settings,
+    WaiterPosNode node,
+  ) async {
+    final data = await _promptProduct(
+      initialName: node.label,
+      initialPrice: node.price ?? 0,
+    );
+    if (data == null) return;
+    setState(() => _busy = true);
+    try {
+      final products = ref.read(adminProductsProvider).value ?? [];
+      final linked = node.productId;
+      if (linked != null && linked.isNotEmpty) {
+        Product? existing;
+        for (final p in products) {
+          if (p.id == linked) {
+            existing = p;
+            break;
+          }
+        }
+        if (existing != null) {
+          await ref.read(adminProductsProvider.notifier).updateProduct(
+                existing.copyWith(
+                  nameKey: data.name,
+                  descriptionKey: data.name,
+                  price: data.price,
+                ),
+              );
+        }
+      }
+      final catalog = _workingCatalog(settings);
+      catalog[_section.name] = updatePosNode(
+        roots: catalog[_section.name] ?? _roots(settings),
+        nodeId: node.id,
+        update: (current) => current.copyWith(
+          label: data.name.toUpperCase(),
+          price: data.price,
+        ),
+      );
+      await saveWaiterModeSettings(
+        ref,
+        settings.copyWith(posCatalog: catalog),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.adminWaiterPosSaved.tr())),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(LocaleKeys.commonError.tr())),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteNode(
+    WaiterModeSettings settings,
+    WaiterPosNode node,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(LocaleKeys.adminWaiterPosDeleteNode.tr()),
+        content: Text(LocaleKeys.adminWaiterPosDeleteNodeConfirm.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(LocaleKeys.commonCancel.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(LocaleKeys.commonRemove.tr()),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final catalog = _workingCatalog(settings);
+    catalog[_section.name] = removePosNode(
+      roots: catalog[_section.name] ?? _roots(settings),
+      nodeId: node.id,
+    );
+    if (_path.any((p) => p.id == node.id)) {
+      setState(() => _path.clear());
+    }
+    await _persistCatalog(settings, catalog);
+  }
+
+  Future<String?> _promptText({
+    required String title,
+    required String label,
+    String initial = '',
+  }) async {
+    final controller = TextEditingController(text: initial);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: InputDecoration(labelText: label),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(LocaleKeys.commonCancel.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: Text(LocaleKeys.commonSave.tr()),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<({String name, double price})?> _promptProduct({
+    String initialName = '',
+    double initialPrice = 0,
+  }) async {
+    final nameCtrl = TextEditingController(text: initialName);
+    final priceCtrl = TextEditingController(
+      text: initialPrice > 0 ? initialPrice.toStringAsFixed(0) : '',
+    );
+    final result = await showDialog<({String name, double price})>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(LocaleKeys.adminWaiterPosAddProduct.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              LocaleKeys.adminWaiterMenuTabHint.tr(),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => showAdminProductEditor(context, ref),
-                icon: const Icon(Icons.add),
-                label: Text(LocaleKeys.adminAddProduct.tr()),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                labelText: LocaleKeys.adminWaiterPosProductName.tr(),
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            ...waiterProducts.map(
-              (product) => Card(
-                child: ListTile(
-                  title: Text(localizedOrRaw(product.nameKey)),
-                  subtitle: Text(
-                    '${_categoryLabel(product)} · ${FormatUtils.currency(product.price)}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: LocaleKeys.commonEdit.tr(),
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => showAdminProductEditor(
-                          context,
-                          ref,
-                          product: product,
-                        ),
+            TextField(
+              controller: priceCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: LocaleKeys.adminProductPrice.tr(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(LocaleKeys.commonCancel.tr()),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = nameCtrl.text.trim();
+              final price = double.tryParse(
+                    priceCtrl.text.trim().replaceAll(',', '.'),
+                  ) ??
+                  0;
+              if (name.isEmpty || price < 0) return;
+              Navigator.pop(ctx, (name: name, price: price));
+            },
+            child: Text(LocaleKeys.commonSave.tr()),
+          ),
+        ],
+      ),
+    );
+    nameCtrl.dispose();
+    priceCtrl.dispose();
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(waiterModeSettingsProvider);
+    final productsAsync = ref.watch(adminProductsProvider);
+
+    return settingsAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => Center(child: Text(LocaleKeys.commonError.tr())),
+      data: (settings) {
+        final products = productsAsync.value ?? [];
+        final roots = _roots(settings);
+        final path = _resolvedPath(roots);
+        final nodes = _visible(settings);
+        final header = path.isEmpty ? null : path.last.label;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: Text(
+                LocaleKeys.adminWaiterMenuTabHint.tr(),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ColoredBox(
+                      color: const Color(0xFFF7F8FA),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (header != null)
+                            Container(
+                              color: const Color(0xFF1E5FA8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: Text(
+                                header.toUpperCase(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: ListView.separated(
+                              padding: const EdgeInsets.all(AppSpacing.sm),
+                              itemCount: nodes.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 6),
+                              itemBuilder: (context, index) {
+                                final node = nodes[index];
+                                final livePrice = node.productId == null
+                                    ? node.price
+                                    : () {
+                                        for (final p in products) {
+                                          if (p.id == node.productId) {
+                                            return p.price;
+                                          }
+                                        }
+                                        return node.price;
+                                      }();
+                                return Material(
+                                  color: node.isFolder
+                                      ? const Color(0xFFE8F1F8)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: ListTile(
+                                    title: Text(
+                                      node.label.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    subtitle: node.isFolder
+                                        ? null
+                                        : Text(
+                                            livePrice == null
+                                                ? '—'
+                                                : FormatUtils.currency(
+                                                    livePrice,
+                                                  ),
+                                            style: const TextStyle(
+                                              color: Color(0xFFD32F2F),
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                    leading: Icon(
+                                      node.isFolder
+                                          ? Icons.folder_open
+                                          : Icons.restaurant_menu,
+                                      color: AppColors.primary,
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (node.isLeaf)
+                                          IconButton(
+                                            tooltip: LocaleKeys.commonEdit.tr(),
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                            ),
+                                            onPressed: _busy
+                                                ? null
+                                                : () => _editLeaf(
+                                                      settings,
+                                                      node,
+                                                    ),
+                                          ),
+                                        IconButton(
+                                          tooltip: LocaleKeys
+                                              .adminWaiterPosDeleteNode
+                                              .tr(),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                          ),
+                                          color: AppColors.error,
+                                          onPressed: _busy
+                                              ? null
+                                              : () => _deleteNode(
+                                                    settings,
+                                                    node,
+                                                  ),
+                                        ),
+                                        if (node.isFolder)
+                                          const Icon(Icons.chevron_right),
+                                      ],
+                                    ),
+                                    onTap: () {
+                                      if (node.isFolder) {
+                                        setState(() => _path.add(node));
+                                      } else {
+                                        _editLeaf(settings, node);
+                                      }
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                            child: Row(
+                              children: [
+                                if (path.isNotEmpty)
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => setState(
+                                                () => _path.removeLast(),
+                                              ),
+                                      child: Text(
+                                        LocaleKeys.waiterPosClose
+                                            .tr()
+                                            .toUpperCase(),
+                                      ),
+                                    ),
+                                  ),
+                                if (path.isNotEmpty)
+                                  const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _addFolder(settings),
+                                    icon: const Icon(Icons.create_new_folder),
+                                    label: Text(
+                                      LocaleKeys.adminWaiterPosAddFolder.tr(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _addProduct(settings),
+                                    icon: _busy
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.add),
+                                    label: Text(
+                                      LocaleKeys.adminWaiterPosAddProduct.tr(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        tooltip: LocaleKeys.commonRemove.tr(),
-                        icon: const Icon(Icons.delete_outline),
-                        color: AppColors.error,
-                        onPressed: () async {
-                          final confirm =
-                              await showAdminDeleteConfirm(context);
-                          if (confirm != true) return;
-                          await ref
-                              .read(adminProductsProvider.notifier)
-                              .deleteProduct(product.id);
-                        },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 108,
+                    child: ColoredBox(
+                      color: const Color(0xFFE9EEF3),
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+                        children: [
+                          for (final section in WaiterPosSection.values)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 5),
+                              child: Material(
+                                color: _section == section
+                                    ? AppColors.success
+                                    : const Color(0xFFD0D7E0),
+                                borderRadius: BorderRadius.circular(8),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () => setState(() {
+                                    _section = section;
+                                    _path.clear();
+                                  }),
+                                  child: Container(
+                                    constraints:
+                                        const BoxConstraints(minHeight: 52),
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 6,
+                                    ),
+                                    child: Text(
+                                      _sectionLabel(section).toUpperCase(),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 3,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12,
+                                        color: _section == section
+                                            ? Colors.white
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                  onTap: () => showAdminProductEditor(
-                    context,
-                    ref,
-                    product: product,
-                  ),
-                ),
+                ],
               ),
             ),
           ],
@@ -122,6 +605,13 @@ class AdminWaiterMenuTab extends ConsumerWidget {
       },
     );
   }
+
+  String _sectionLabel(WaiterPosSection section) => switch (section) {
+        WaiterPosSection.tostlar => LocaleKeys.waiterPosTostlar.tr(),
+        WaiterPosSection.sahan => LocaleKeys.waiterPosSahan.tr(),
+        WaiterPosSection.icecekler => LocaleKeys.waiterPosIcecekler.tr(),
+        WaiterPosSection.yanUrunler => LocaleKeys.waiterPosYanUrunler.tr(),
+      };
 }
 
 class AdminWaiterExtrasTab extends ConsumerWidget {
@@ -185,7 +675,11 @@ class AdminWaiterSortTab extends ConsumerWidget {
         )
         .toList();
 
-    List<T> sortIds<T>(List<T> items, String Function(T) idFor, List<String> order) {
+    List<T> sortIds<T>(
+      List<T> items,
+      String Function(T) idFor,
+      List<String> order,
+    ) {
       if (order.isEmpty) return items;
       final indexOf = {for (var i = 0; i < order.length; i++) order[i]: i};
       return [...items]
@@ -202,7 +696,7 @@ class AdminWaiterSortTab extends ConsumerWidget {
     final sortedProducts = sortIds(waiterProducts, (p) => p.id, productOrder);
     final sortedExtras = sortIds(extras, (e) => e.id, extraOrder);
 
-  final productIds = sortedProducts.map((p) => p.id).toList();
+    final productIds = sortedProducts.map((p) => p.id).toList();
     final extraIds = sortedExtras.map((e) => e.id).toList();
 
     return ListView(
@@ -235,7 +729,7 @@ class AdminWaiterSortTab extends ConsumerWidget {
             return ListTile(
               key: ValueKey(product.id),
               leading: const Icon(Icons.drag_handle),
-              title: Text(localizedOrRaw(product.nameKey)),
+              title: Text(product.nameKey),
             );
           },
         ),
@@ -260,7 +754,7 @@ class AdminWaiterSortTab extends ConsumerWidget {
             return ListTile(
               key: ValueKey(extra.id),
               leading: const Icon(Icons.drag_handle),
-              title: Text(localizedOrRaw(extra.name)),
+              title: Text(extra.name),
             );
           },
         ),

@@ -588,7 +588,7 @@ class MockApiDataSource {
     for (final user in _adminUsers) {
       if (user.isActive &&
           user.username?.toLowerCase() == normalized &&
-          user.password == password) {
+          user.password == password.trim()) {
         match = user;
         break;
       }

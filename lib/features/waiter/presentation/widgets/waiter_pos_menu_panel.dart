@@ -7,9 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/localization/locale_keys.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format_utils.dart';
-import '../../../../core/utils/localized_text.dart';
+import '../../../../core/utils/waiter_pos_catalog_utils.dart';
 import '../../../../shared/domain/entities/product.dart';
-import '../../../customer/home/presentation/providers/branch_provider.dart';
+import '../../../../shared/domain/entities/waiter_mode_settings.dart';
+import '../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 import '../../domain/waiter_pos_catalog.dart';
 import '../providers/waiter_cart_provider.dart';
 import '../providers/waiter_products_provider.dart';
@@ -30,8 +31,8 @@ class _GridFit {
   final bool fits;
 }
 
-/// POS: sağ kategori + orta ızgara.
-/// Ürün / fiyat kaynağı: kasa-admin ile aynı canlı katalog (Firestore).
+/// POS: sağ kategori + orta ızgara; klasöre tıklayınca alt seviye (KAPAT ile geri).
+/// Yapı VEGA görsellerindeki gibi; fiyat/id mümkünse canlı katalogdan.
 class WaiterPosMenuPanel extends ConsumerStatefulWidget {
   const WaiterPosMenuPanel({
     super.key,
@@ -46,94 +47,252 @@ class WaiterPosMenuPanel extends ConsumerStatefulWidget {
   static const tileSelected = Color(0xFFFFF3B0);
   static const sidebarIdle = Color(0xFFD0D7E0);
   static const headerBlue = Color(0xFF1E5FA8);
+  static const priceRed = Color(0xFFD32F2F);
+  static const closeBar = Color(0xFF3A3F46);
 
   @override
   ConsumerState<WaiterPosMenuPanel> createState() => _WaiterPosMenuPanelState();
 }
 
 class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
+  /// Açık klasör yolu (boş = kök ızgara).
+  final List<WaiterPosNode> _path = [];
+
+  @override
+  void didUpdateWidget(covariant WaiterPosMenuPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.section != widget.section) {
+      _path.clear();
+    }
+  }
+
+  List<WaiterPosNode> _resolvedPath(List<WaiterPosNode> roots) {
+    final resolved = <WaiterPosNode>[];
+    var level = roots;
+    for (final step in _path) {
+      WaiterPosNode? match;
+      for (final n in level) {
+        if (n.id == step.id) {
+          match = n;
+          break;
+        }
+      }
+      if (match == null) break;
+      resolved.add(match);
+      level = match.children;
+    }
+    return resolved;
+  }
+
+  List<WaiterPosNode> _visibleNodes(
+    List<Product> liveProducts,
+    WaiterModeSettings? settings,
+  ) {
+    final roots = effectivePosRoots(widget.section, settings);
+    final path = _resolvedPath(roots);
+    if (path.length != _path.length && _path.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _path
+            ..clear()
+            ..addAll(path);
+        });
+      });
+    }
+    if (path.isNotEmpty) return path.last.children;
+    final extras = unmatchedLiveProductNodes(
+      liveProducts: liveProducts,
+      section: widget.section,
+      settings: settings,
+    );
+    if (extras.isEmpty) return roots;
+    return [...roots, ...extras];
+  }
+
+  String? _headerTitle(WaiterModeSettings? settings) {
+    final roots = effectivePosRoots(widget.section, settings);
+    final path = _resolvedPath(roots);
+    return path.isEmpty ? null : path.last.label;
+  }
+
+  List<WaiterPosNode> _currentPath(WaiterModeSettings? settings) {
+    return _resolvedPath(effectivePosRoots(widget.section, settings));
+  }
+
+  void _openFolder(WaiterPosNode node) {
+    setState(() => _path.add(node));
+  }
+
+  void _closeLevel() {
+    if (_path.isEmpty) return;
+    setState(() => _path.removeLast());
+  }
+
   void _selectSection(WaiterPosSection section) {
+    _path.clear();
     widget.onSectionChanged(section);
   }
 
-  void _onProductTap(Product product) {
+  Product _productForLeaf(
+    WaiterPosNode node,
+    List<Product> liveProducts,
+    WaiterModeSettings? settings,
+  ) {
+    return resolveWaiterPosLeafProduct(
+      node: node,
+      path: _currentPath(settings),
+      liveProducts: liveProducts,
+      category: WaiterPosCatalog.categoryFor(widget.section),
+    );
+  }
+
+  void _onNodeTap(
+    WaiterPosNode node,
+    List<Product> liveProducts,
+    WaiterModeSettings? settings,
+  ) {
+    if (node.isFolder) {
+      _openFolder(node);
+      return;
+    }
+    if (!node.isLeaf) return;
+    final product = _productForLeaf(node, liveProducts, settings);
     ref.read(waiterCartProvider.notifier).addProduct(product);
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(waiterCartProvider);
-    final catalogAsync = ref.watch(opsBranchProductsProvider);
-    final products = ref.watch(waiterPosSectionProductsProvider(widget.section));
-    // Mobil ve Windows aynı POS yoğunluğu (Windows referans).
+    final liveProducts = ref.watch(waiterBranchProductsProvider);
+    final settings = ref.watch(waiterModeSettingsProvider).valueOrNull;
     final screenW = MediaQuery.sizeOf(context).width;
-    final sidebarWidth = screenW < 360 ? 88.0 : 108.0;
+    final compactPhone = screenW < 520;
+    final sidebarWidth = compactPhone ? 0.0 : (screenW < 360 ? 88.0 : 108.0);
+    final nodes = _visibleNodes(liveProducts, settings);
+    final headerTitle = _headerTitle(settings);
+
+    final gridArea = ColoredBox(
+      color: const Color(0xFFF7F8FA),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (headerTitle != null)
+            Container(
+              color: WaiterPosMenuPanel.headerBlue,
+              padding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: compactPhone ? 8 : 10,
+              ),
+              child: Text(
+                headerTitle.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: compactPhone ? 16 : 18,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          Expanded(
+            child: nodes.isEmpty
+                ? Center(child: Text(LocaleKeys.waiterAddonsEmpty.tr()))
+                : _buildItemGrid(
+                    count: nodes.length,
+                    builder: (index, fit) {
+                      final node = nodes[index];
+                      final product = node.isLeaf
+                          ? _productForLeaf(
+                              node,
+                              liveProducts,
+                              settings,
+                            )
+                          : null;
+                      final qty = product == null
+                          ? 0
+                          : cart
+                              .where(
+                                (item) => item.product?.id == product.id,
+                              )
+                              .fold<int>(
+                                0,
+                                (sum, item) => sum + item.quantity,
+                              );
+                      return WaiterPosProductTile(
+                        title: node.label,
+                        price: product?.price ?? node.price,
+                        quantity: qty,
+                        isFolder: node.isFolder,
+                        cellWidth: fit.cellWidth,
+                        dense: true,
+                        onTap: () => _onNodeTap(node, liveProducts, settings),
+                        onIncrement: product == null
+                            ? () {}
+                            : () => ref
+                                .read(waiterCartProvider.notifier)
+                                .addProduct(product),
+                        onDecrement: product == null
+                            ? () {}
+                            : () => ref
+                                .read(waiterCartProvider.notifier)
+                                .decrementProduct(product),
+                      );
+                    },
+                  ),
+          ),
+          if (_path.isNotEmpty)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: SizedBox(
+                  height: compactPhone ? 48 : 52,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _closeLevel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: WaiterPosMenuPanel.closeBar,
+                      foregroundColor: Colors.white,
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: Text(
+                      LocaleKeys.waiterPosClose.tr().toUpperCase(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: compactPhone ? 14 : 16,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (compactPhone) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: gridArea),
+          _MobileCategoryBar(
+            section: widget.section,
+            onSectionChanged: _selectSection,
+            sectionLabel: _sectionLabel,
+          ),
+        ],
+      );
+    }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: ColoredBox(
-            color: const Color(0xFFF7F8FA),
-            child: catalogAsync.when(
-              skipLoadingOnReload: true,
-              skipLoadingOnRefresh: true,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(LocaleKeys.commonError.tr()),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () {
-                          ref.invalidate(productsCatalogStreamProvider);
-                          ref.invalidate(catalogExtrasStreamProvider);
-                          ref.invalidate(productsProvider);
-                          ref.invalidate(catalogExtrasProvider);
-                        },
-                        child: Text(LocaleKeys.commonRetry.tr()),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              data: (_) {
-                if (products.isEmpty) {
-                  return Center(
-                    child: Text(LocaleKeys.waiterAddonsEmpty.tr()),
-                  );
-                }
-                return _buildItemGrid(
-                  count: products.length,
-                  builder: (index, fit) {
-                    final product = products[index];
-                    final qty = cart
-                        .where((item) => item.product?.id == product.id)
-                        .fold<int>(0, (sum, item) => sum + item.quantity);
-                    return WaiterPosProductTile(
-                      title: localizedOrRaw(product.nameKey),
-                      price: product.price,
-                      quantity: qty,
-                      isFolder: false,
-                      cellWidth: fit.cellWidth,
-                      dense: true,
-                      onTap: () => _onProductTap(product),
-                      onIncrement: () => _onProductTap(product),
-                      onDecrement: () {
-                        ref
-                            .read(waiterCartProvider.notifier)
-                            .decrementProduct(product);
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
+        Expanded(child: gridArea),
         SizedBox(
           width: sidebarWidth,
           child: ColoredBox(
@@ -232,7 +391,6 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
           width: constraints.maxWidth,
           height: constraints.maxHeight,
         );
-        // Windows ile aynı: sığınca kaydırma yok; sığmazsa kaydır.
         final physics = fit.fits
             ? const NeverScrollableScrollPhysics()
             : const AlwaysScrollableScrollPhysics(
@@ -252,6 +410,75 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
           itemBuilder: (context, index) => builder(index, fit),
         );
       },
+    );
+  }
+}
+
+class _MobileCategoryBar extends StatelessWidget {
+  const _MobileCategoryBar({
+    required this.section,
+    required this.onSectionChanged,
+    required this.sectionLabel,
+  });
+
+  final WaiterPosSection section;
+  final ValueChanged<WaiterPosSection> onSectionChanged;
+  final String Function(WaiterPosSection) sectionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: ColoredBox(
+        color: const Color(0xFFE9EEF3),
+        child: SizedBox(
+          height: 56,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            itemCount: WaiterPosSection.values.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (context, index) {
+              final item = WaiterPosSection.values[index];
+              final selected = section == item;
+              return Material(
+                color: selected ? AppColors.success : WaiterPosMenuPanel.sidebarIdle,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: () => onSectionChanged(item),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 72),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: selected
+                            ? const Color(0xFF1B8A4A)
+                            : const Color(0xFF8E9AAB),
+                        width: selected ? 2 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      sectionLabel(item).toUpperCase(),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                        height: 1.05,
+                        color: selected ? Colors.white : AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }
@@ -279,7 +506,7 @@ class _SidebarButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 56),
+            constraints: const BoxConstraints(minHeight: 52),
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             decoration: BoxDecoration(
@@ -432,7 +659,7 @@ class WaiterPosProductTile extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.right,
                               style: TextStyle(
-                                color: AppColors.primary,
+                                color: WaiterPosMenuPanel.priceRed,
                                 fontWeight: FontWeight.w900,
                                 fontSize: priceSize,
                                 height: 1,

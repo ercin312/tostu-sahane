@@ -769,11 +769,11 @@ class _CampaignCard extends ConsumerWidget {
 
                   value: banner.isActive,
 
-                  onChanged: (v) => ref
-
-                      .read(campaignBannersProvider.notifier)
-
-                      .toggleActive(banner.id, v),
+                  onChanged: (v) => toggleCampaignBannerActive(
+                    ref,
+                    banner.id,
+                    v,
+                  ),
 
                 ),
 
@@ -801,11 +801,7 @@ class _CampaignCard extends ConsumerWidget {
 
                     if (confirm == true) {
 
-                      await ref
-
-                          .read(campaignBannersProvider.notifier)
-
-                          .deleteBanner(banner.id);
+                      await deleteCampaignBanner(ref, banner.id);
 
                     }
 

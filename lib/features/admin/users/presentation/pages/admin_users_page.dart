@@ -57,13 +57,30 @@ class AdminUsersPage extends ConsumerWidget {
                                 style:
                                     Theme.of(context).textTheme.titleMedium,
                               ),
-                              Text(
-                                user.phone,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: AppColors.textSecondary),
-                              ),
+                              if (user.username != null &&
+                                  user.username!.trim().isNotEmpty)
+                                Text(
+                                  LocaleKeys.adminUserLoginAs.tr(
+                                    namedArgs: {
+                                      'username': user.username!.trim(),
+                                    },
+                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              if (user.phone.trim().isNotEmpty)
+                                Text(
+                                  user.phone,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(color: AppColors.textSecondary),
+                                ),
                               if (user.branchId != null)
                                 Text(
                                   user.branchId!,

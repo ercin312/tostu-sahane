@@ -437,14 +437,29 @@ Future<void> showUserFormDialog(
                   final phone = phoneController.text.trim();
                   final username = usernameController.text.trim().toLowerCase();
                   final password = passwordController.text.trim();
-                  if (usesUsernameLogin &&
-                      (username.isEmpty ||
-                          (user == null && password.length < 6))) {
+                  void showFormError(String message) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(message)),
+                    );
+                  }
+
+                  if (name.isEmpty) {
+                    showFormError(LocaleKeys.authInvalidName.tr());
                     return;
                   }
-                  if (!usesUsernameLogin && phone.isEmpty) return;
-                  // Username login: phone optional
-                  if (name.isEmpty) return;
+                  if (usesUsernameLogin) {
+                    if (username.isEmpty) {
+                      showFormError(LocaleKeys.authInvalidUsername.tr());
+                      return;
+                    }
+                    if (user == null && password.length < 6) {
+                      showFormError(LocaleKeys.authInvalidPassword.tr());
+                      return;
+                    }
+                  } else if (phone.isEmpty) {
+                    showFormError(LocaleKeys.authInvalidPhone.tr());
+                    return;
+                  }
                   final resolvedBranchId = needsBranch
                       ? (branchId ??
                           (branches.isNotEmpty ? branches.first.id : null))
@@ -478,10 +493,11 @@ Future<void> showUserFormDialog(
                     if (context.mounted) Navigator.pop(context);
                   } catch (e) {
                     if (!context.mounted) return;
+                    final message = e.toString().contains('username_taken')
+                        ? LocaleKeys.adminUserUsernameTaken.tr()
+                        : '${LocaleKeys.commonError.tr()}: $e';
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${LocaleKeys.commonError.tr()}: $e'),
-                      ),
+                      SnackBar(content: Text(message)),
                     );
                   }
                 },

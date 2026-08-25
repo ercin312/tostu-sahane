@@ -92,17 +92,29 @@ Future<void> showAdminCampaignEditor(
 
     if (banner == null) {
 
-      await ref.read(campaignBannersProvider.notifier).createBanner(
+      await createCampaignBanner(
 
-            title: data.title,
+        ref,
 
-            imageUrl: data.imageUrl,
+        title: data.title,
 
-          );
+        imageUrl: data.imageUrl,
+
+      );
 
     } else {
 
-      await ref.read(campaignBannersProvider.notifier).updateBanner(data);
+      await updateCampaignBanner(ref, data);
+
+    }
+
+    if (context.mounted) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+
+        SnackBar(content: Text(LocaleKeys.adminCampaignSaved.tr())),
+
+      );
 
     }
 

@@ -843,6 +843,8 @@ abstract final class LocaleKeys {
   static const adminUserName = 'admin_user_name';
   static const adminUserUsername = 'admin_user_username';
   static const adminUserUsernameHint = 'admin_user_username_hint';
+  static const adminUserUsernameTaken = 'admin_user_username_taken';
+  static const adminUserLoginAs = 'admin_user_login_as';
   static const adminUserPassword = 'admin_user_password';
   static const adminUserPhone = 'admin_user_phone';
   static const adminUserRole = 'admin_user_role';
@@ -867,6 +869,7 @@ abstract final class LocaleKeys {
   static const adminCampaignActive = 'admin_campaign_active';
   static const adminCampaignInactive = 'admin_campaign_inactive';
   static const adminCampaignPreview = 'admin_campaign_preview';
+  static const adminCampaignSaved = 'admin_campaign_saved';
   static const adminProductImageUrl = 'admin_product_image_url';
   static const adminProductImagePresets = 'admin_product_image_presets';
   static const adminProductExtras = 'admin_product_extras';
@@ -1000,6 +1003,14 @@ abstract final class LocaleKeys {
   static const adminWaiterTabPrep = 'admin_waiter_tab_prep';
   static const adminWaiterTabSort = 'admin_waiter_tab_sort';
   static const adminWaiterMenuTabHint = 'admin_waiter_menu_tab_hint';
+  static const adminWaiterPosAddFolder = 'admin_waiter_pos_add_folder';
+  static const adminWaiterPosAddProduct = 'admin_waiter_pos_add_product';
+  static const adminWaiterPosFolderName = 'admin_waiter_pos_folder_name';
+  static const adminWaiterPosProductName = 'admin_waiter_pos_product_name';
+  static const adminWaiterPosDeleteNode = 'admin_waiter_pos_delete_node';
+  static const adminWaiterPosDeleteNodeConfirm =
+      'admin_waiter_pos_delete_node_confirm';
+  static const adminWaiterPosSaved = 'admin_waiter_pos_saved';
   static const adminWaiterExtrasTabHint = 'admin_waiter_extras_tab_hint';
   static const adminWaiterPrepTabHint = 'admin_waiter_prep_tab_hint';
   static const adminWaiterSortTabHint = 'admin_waiter_sort_tab_hint';

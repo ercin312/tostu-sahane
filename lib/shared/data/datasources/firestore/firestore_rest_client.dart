@@ -13,10 +13,12 @@ import '../../../domain/entities/product.dart';
 import '../../../domain/entities/product_extra.dart';
 import '../../../domain/entities/paytr_settings.dart';
 import '../../../domain/entities/print_routing_settings.dart';
+import '../../../domain/entities/campaign_banner.dart';
 import '../../../domain/entities/delivery_settings.dart';
 import '../../../domain/entities/promotion_campaign.dart';
 import '../../../domain/entities/waiter_mode_settings.dart';
 import '../../../domain/entities/qr_menu_settings.dart';
+import '../../datasources/local/campaign_local_datasource.dart';
 import '../../mappers/entity_mappers.dart';
 import '../../models/api_models.dart';
 import 'firestore_datasource.dart';
@@ -358,14 +360,46 @@ class FirestoreRestClient {
     return users;
   }
 
-  Future<AdminUserModel?> findOpsUserByUsername(String username) async {
+  Future<AdminUserModel?> findOpsUserByUsername(
+    String username, {
+    String? password,
+  }) async {
     final users = await getOpsUsers();
     final needle = username.trim().toLowerCase();
+    final passwordTrimmed = password?.trim();
+    final matches = <AdminUserModel>[];
     for (final user in users) {
       final candidate = user.username?.trim().toLowerCase();
-      if (candidate != null && candidate == needle) return user;
+      if (candidate != null && candidate == needle) {
+        matches.add(user);
+      }
     }
-    return null;
+    if (matches.isEmpty) return null;
+    if (passwordTrimmed != null && passwordTrimmed.isNotEmpty) {
+      for (final user in matches) {
+        if ((user.password?.trim() ?? '') == passwordTrimmed) {
+          return user;
+        }
+      }
+      // Kullanıcı adı var ama şifre hiçbiriyle uyuşmuyor.
+      return null;
+    }
+    return matches.first;
+  }
+
+  Future<bool> isOpsUsernameTaken(
+    String username, {
+    String? excludingUserId,
+  }) async {
+    final users = await getOpsUsers();
+    final needle = username.trim().toLowerCase();
+    if (needle.isEmpty) return false;
+    for (final user in users) {
+      if (excludingUserId != null && user.id == excludingUserId) continue;
+      final candidate = user.username?.trim().toLowerCase();
+      if (candidate != null && candidate == needle) return true;
+    }
+    return false;
   }
 
   Future<AdminUserModel> createOpsUser(AdminUserModel user) async {
@@ -931,6 +965,50 @@ class FirestoreRestClient {
       }
       await Future<void>.delayed(_pollInterval);
     }
+  }
+
+  List<CampaignBanner> _parseCampaignBanners(Map<String, dynamic>? fields) {
+    if (fields == null) return CampaignLocalDataSource.defaults;
+    final json = FirestoreRestValueCodec.documentToJson(fields);
+    final raw = json['banners'];
+    if (raw is! List || raw.isEmpty) {
+      return CampaignLocalDataSource.defaults;
+    }
+    return [
+      for (final item in raw)
+        if (item is Map)
+          CampaignBanner.fromJson(Map<String, dynamic>.from(item)),
+    ]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  Future<List<CampaignBanner>> getCampaignBanners() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/meta/campaign_banners',
+        queryParameters: {'key': _options.apiKey},
+      );
+      final fields = response.data?['fields'] as Map<String, dynamic>?;
+      return _parseCampaignBanners(fields);
+    } catch (e) {
+      debugPrint('Firestore REST campaign banners read failed: $e');
+      return CampaignLocalDataSource.defaults;
+    }
+  }
+
+  Stream<List<CampaignBanner>> watchCampaignBanners() async* {
+    while (true) {
+      try {
+        yield await getCampaignBanners();
+      } catch (e) {
+        debugPrint('Firestore REST campaign banners poll failed: $e');
+        yield CampaignLocalDataSource.defaults;
+      }
+      await Future<void>.delayed(_pollInterval);
+    }
+  }
+
+  Future<void> updateCampaignBanners(Map<String, dynamic> payload) async {
+    await patchDocument('meta/campaign_banners', payload);
   }
 
   Future<List<PromotionCampaign>> getPromotionCampaigns() async {

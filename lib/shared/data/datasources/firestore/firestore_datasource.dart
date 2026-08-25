@@ -18,8 +18,10 @@ import '../../../domain/entities/waiter_mode_settings.dart';
 import '../../../domain/entities/qr_menu_settings.dart';
 import '../../../domain/entities/paytr_settings.dart';
 import '../../../domain/entities/print_routing_settings.dart';
+import '../../../domain/entities/campaign_banner.dart';
 import '../../../domain/entities/delivery_settings.dart';
 import '../../../domain/entities/promotion_campaign.dart';
+import '../../datasources/local/campaign_local_datasource.dart';
 import '../../mappers/entity_mappers.dart';
 import '../../mock/mock_data.dart';
 import '../../models/api_models.dart';
@@ -62,6 +64,7 @@ class FirestoreDataSource {
   static const _paytrSettings = 'paytr_settings';
   static const _printRoutingSettings = 'print_routing_settings';
   static const _deliverySettings = 'delivery_settings';
+  static const _campaignBanners = 'campaign_banners';
   static const _promotions = 'promotions';
   static const _productReviews = 'product_reviews';
   static const _catalogExtras = 'catalog_extras';
@@ -379,6 +382,62 @@ class FirestoreDataSource {
         .doc(_deliverySettings)
         .set(normalized.toJson(), SetOptions(merge: true));
     return normalized;
+  }
+
+  // ── Campaign banners (ana sayfa slider) ────────────────────────────────────
+
+  static List<CampaignBanner> _readCampaignBanners(Map<String, dynamic>? json) {
+    if (json == null) return CampaignLocalDataSource.defaults;
+    final raw = json['banners'];
+    if (raw is! List || raw.isEmpty) {
+      return CampaignLocalDataSource.defaults;
+    }
+    return [
+      for (final item in raw)
+        if (item is Map)
+          CampaignBanner.fromJson(Map<String, dynamic>.from(item)),
+    ]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  Future<List<CampaignBanner>> getCampaignBanners() async {
+    if (_rest != null) return _rest!.getCampaignBanners();
+    await ensureSeeded();
+    final doc = await _activeDb.collection(_meta).doc(_campaignBanners).get(
+          const GetOptions(source: Source.server),
+        );
+    if (!doc.exists || doc.data() == null) {
+      return CampaignLocalDataSource.defaults;
+    }
+    return _readCampaignBanners(doc.data());
+  }
+
+  Stream<List<CampaignBanner>> watchCampaignBanners() {
+    if (_rest != null) return _rest!.watchCampaignBanners();
+    return _activeDb.collection(_meta).doc(_campaignBanners).snapshots().map(
+      (doc) {
+        if (!doc.exists || doc.data() == null) {
+          return CampaignLocalDataSource.defaults;
+        }
+        return _readCampaignBanners(doc.data());
+      },
+    );
+  }
+
+  Future<List<CampaignBanner>> updateCampaignBanners(
+    List<CampaignBanner> banners,
+  ) async {
+    final payload = {
+      'banners': banners.map((b) => b.toJson()).toList(),
+    };
+    if (_rest != null) {
+      await _rest!.updateCampaignBanners(payload);
+      return banners;
+    }
+    await _activeDb
+        .collection(_meta)
+        .doc(_campaignBanners)
+        .set(payload, SetOptions(merge: true));
+    return banners;
   }
 
   // ── Promotion campaigns ────────────────────────────────────────────────────
@@ -1452,10 +1511,11 @@ class FirestoreDataSource {
     }
 
     if (_rest != null) {
-      final user = await _rest!.findOpsUserByUsername(normalized);
-      if (user == null ||
-          user.isActive != true ||
-          (user.password?.trim() ?? '') != passwordTrimmed) {
+      final user = await _rest!.findOpsUserByUsername(
+        normalized,
+        password: passwordTrimmed,
+      );
+      if (user == null || user.isActive != true) {
         throw const AuthCredentialsException('auth_invalid_credentials');
       }
       return AuthUserModel(
@@ -1470,21 +1530,30 @@ class FirestoreDataSource {
       );
     }
 
+    // Aynı kullanıcı adıyla birden fazla kayıt olabilir (eski veri).
+    // Şifre eşleşen aktif kaydı seç.
     final snap = await _activeDb
         .collection(_opsUsers)
         .where('username', isEqualTo: normalized)
-        .limit(1)
         .get();
     if (snap.docs.isEmpty) {
       throw const AuthCredentialsException('auth_invalid_credentials');
     }
-    final data = snap.docs.first.data();
-    if (data['is_active'] != true ||
-        (data['password'] as String? ?? '').trim() != passwordTrimmed) {
+    QueryDocumentSnapshot<Map<String, dynamic>>? matched;
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      if (data['is_active'] != true) continue;
+      if ((data['password'] as String? ?? '').trim() == passwordTrimmed) {
+        matched = doc;
+        break;
+      }
+    }
+    if (matched == null) {
       throw const AuthCredentialsException('auth_invalid_credentials');
     }
+    final data = matched.data();
     return AuthUserModel(
-      id: snap.docs.first.id,
+      id: matched.id,
       name: data['name'] as String,
       role: data['role'] as String,
       phone: data['phone'] as String? ?? '',
@@ -1643,6 +1712,13 @@ class FirestoreDataSource {
       id: id,
       username: user.username?.trim().toLowerCase(),
     );
+    final username = prepared.username?.trim() ?? '';
+    if (username.isNotEmpty) {
+      final taken = await isOpsUsernameTaken(username);
+      if (taken) {
+        throw StateError('username_taken');
+      }
+    }
     if (_rest != null) {
       return _rest!.createOpsUser(prepared);
     }
@@ -1654,6 +1730,16 @@ class FirestoreDataSource {
     final prepared = user.copyWith(
       username: user.username?.trim().toLowerCase(),
     );
+    final username = prepared.username?.trim() ?? '';
+    if (username.isNotEmpty) {
+      final taken = await isOpsUsernameTaken(
+        username,
+        excludingUserId: prepared.id,
+      );
+      if (taken) {
+        throw StateError('username_taken');
+      }
+    }
     if (_rest != null) {
       return _rest!.updateOpsUser(prepared);
     }
@@ -1662,6 +1748,29 @@ class FirestoreDataSource {
           SetOptions(merge: true),
         );
     return prepared;
+  }
+
+  Future<bool> isOpsUsernameTaken(
+    String username, {
+    String? excludingUserId,
+  }) async {
+    final normalized = username.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    if (_rest != null) {
+      return _rest!.isOpsUsernameTaken(
+        normalized,
+        excludingUserId: excludingUserId,
+      );
+    }
+    final snap = await _activeDb
+        .collection(_opsUsers)
+        .where('username', isEqualTo: normalized)
+        .get();
+    for (final doc in snap.docs) {
+      if (excludingUserId != null && doc.id == excludingUserId) continue;
+      return true;
+    }
+    return false;
   }
 
   Future<void> deleteAdminUser(String userId) async {

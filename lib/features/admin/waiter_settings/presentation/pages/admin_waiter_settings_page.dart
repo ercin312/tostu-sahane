@@ -110,7 +110,7 @@ class _AdminWaiterSettingsPageState extends ConsumerState<AdminWaiterSettingsPag
           posSalePath: _posSalePathController.text.trim().isEmpty
               ? '/Payment/CardPayment'
               : _posSalePathController.text.trim(),
-          // Fiyat override'larını silme — kasa/katalog fiyatlarıyla uyum bozulmasın.
+          // Fiyat override'larını ve POS ağacını silme.
           productPrices: ref
                   .read(waiterModeSettingsProvider)
                   .valueOrNull
@@ -124,6 +124,11 @@ class _AdminWaiterSettingsPageState extends ConsumerState<AdminWaiterSettingsPag
           preparationOptions: _preparationOptions,
           productDisplayOrder: _productDisplayOrder,
           catalogExtraDisplayOrder: _catalogExtraDisplayOrder,
+          posCatalog: ref
+                  .read(waiterModeSettingsProvider)
+                  .valueOrNull
+                  ?.posCatalog ??
+              const {},
         ),
       );
       await savePrintRoutingSettings(ref, _printRouting);

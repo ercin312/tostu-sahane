@@ -18,8 +18,10 @@ import '../../domain/entities/waiter_mode_settings.dart';
 import '../../domain/entities/qr_menu_settings.dart';
 import '../../domain/entities/paytr_settings.dart';
 import '../../domain/entities/print_routing_settings.dart';
+import '../../domain/entities/campaign_banner.dart';
 import '../../domain/entities/delivery_settings.dart';
 import '../../domain/entities/promotion_campaign.dart';
+import '../datasources/local/campaign_local_datasource.dart';
 import '../datasources/firestore/firestore_datasource.dart';
 import '../datasources/mock_api_datasource.dart';
 import '../datasources/remote/remote_datasources.dart';
@@ -1254,12 +1256,7 @@ class AdminRepository {
   Future<AdminUserModel> createUser(AdminUserModel user) async {
     if (AppConfig.useMockApi) return _mock.createAdminUser(user);
     if (AppConfig.useFirestoreBackend) {
-      try {
-        return await _firestore.createAdminUser(user);
-      } catch (_) {
-        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
-        return _mock.createAdminUser(user);
-      }
+      return _firestore.createAdminUser(user);
     }
     try {
       return await _remote.createUser(user);
@@ -1271,12 +1268,7 @@ class AdminRepository {
   Future<AdminUserModel> updateUser(AdminUserModel user) async {
     if (AppConfig.useMockApi) return _mock.updateAdminUser(user);
     if (AppConfig.useFirestoreBackend) {
-      try {
-        return await _firestore.updateAdminUser(user);
-      } catch (_) {
-        if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
-        return _mock.updateAdminUser(user);
-      }
+      return _firestore.updateAdminUser(user);
     }
     try {
       return await _remote.updateUser(user);
@@ -1495,6 +1487,48 @@ class AdminRepository {
     }
     return Stream.value(DeliverySettings.defaults);
   }
+
+  Future<List<CampaignBanner>> getCampaignBanners() async {
+    if (AppConfig.useMockApi) {
+      return CampaignLocalDataSource().load();
+    }
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.getCampaignBanners();
+      } catch (_) {
+        return CampaignLocalDataSource.defaults;
+      }
+    }
+    return CampaignLocalDataSource.defaults;
+  }
+
+  Future<List<CampaignBanner>> updateCampaignBanners(
+    List<CampaignBanner> banners,
+  ) async {
+    if (AppConfig.useMockApi) {
+      await CampaignLocalDataSource().save(banners);
+      return banners;
+    }
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.updateCampaignBanners(banners);
+    }
+    await CampaignLocalDataSource().save(banners);
+    return banners;
+  }
+
+  Stream<List<CampaignBanner>> watchCampaignBanners() {
+    if (AppConfig.useMockApi) {
+      return Stream.fromFuture(CampaignLocalDataSource().load());
+    }
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return _firestore.watchCampaignBanners();
+      } catch (_) {
+        return Stream.value(CampaignLocalDataSource.defaults);
+      }
+    }
+    return Stream.value(CampaignLocalDataSource.defaults);
+  }
 }
 
 class PromotionRepository {
@@ -1509,7 +1543,7 @@ class PromotionRepository {
 
   Future<List<PromotionCampaign>> getPromotionCampaigns() async {
     if (AppConfig.useMockApi) return _mock.getPromotionCampaigns();
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore.getPromotionCampaigns();
       } catch (_) {}
@@ -1521,7 +1555,7 @@ class PromotionRepository {
     if (AppConfig.useMockApi) {
       return _mock.watchPromotionCampaigns();
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return _firestore.watchPromotionCampaigns();
       } catch (_) {
@@ -1533,7 +1567,7 @@ class PromotionRepository {
 
   Future<PromotionCampaign?> getPromotionByCode(String code) async {
     if (AppConfig.useMockApi) return _mock.getPromotionByCode(code);
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       try {
         return await _firestore.getPromotionByCode(code);
       } catch (_) {}
@@ -1547,7 +1581,7 @@ class PromotionRepository {
     if (AppConfig.useMockApi) {
       return _mock.createPromotionCampaign(campaign);
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       return _firestore.createPromotionCampaign(campaign);
     }
     return _mock.createPromotionCampaign(campaign);
@@ -1559,7 +1593,7 @@ class PromotionRepository {
     if (AppConfig.useMockApi) {
       return _mock.updatePromotionCampaign(campaign);
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       return _firestore.updatePromotionCampaign(campaign);
     }
     return _mock.updatePromotionCampaign(campaign);
@@ -1570,7 +1604,7 @@ class PromotionRepository {
       await _mock.deletePromotionCampaign(id);
       return;
     }
-    if (AppConfig.useFirestore) {
+    if (AppConfig.useFirestoreBackend) {
       await _firestore.deletePromotionCampaign(id);
       return;
     }
