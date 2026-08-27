@@ -182,8 +182,9 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           const hPad = AppSpacing.sm;
-          const gridSpacing = 6.0;
+          const gridSpacing = 5.0;
           final width = constraints.maxWidth - hPad * 2;
+          final isPhone = constraints.maxWidth < 520;
           final crossAxisCount = width >= 720
               ? 8
               : width >= 540
@@ -193,13 +194,15 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                       : 4;
           // Mobil/Windows aynı: ekrana sığdır (Windows masa haritası mantığı).
           final rowCount = (tableCount + crossAxisCount - 1) ~/ crossAxisCount;
-          final headerBlock = branch != null ? 52.0 : 36.0;
-          final pickupBlock = 44.0 + AppSpacing.xs;
+          final headerBlock = isPhone
+              ? (branch != null ? 36.0 : 22.0)
+              : (branch != null ? 52.0 : 36.0);
+          final pickupBlock = (isPhone ? 38.0 : 44.0) + AppSpacing.xs;
           final aspectRatio = () {
             final gridHeight = (constraints.maxHeight -
                     headerBlock -
                     pickupBlock -
-                    AppSpacing.xs * 3 -
+                    (isPhone ? AppSpacing.xs : AppSpacing.xs * 3) -
                     gridSpacing * (rowCount - 1))
                 .clamp(80.0, double.infinity);
             final cellWidth =
@@ -209,7 +212,12 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
           }();
 
           return Padding(
-            padding: const EdgeInsets.fromLTRB(hPad, AppSpacing.xs, hPad, hPad),
+            padding: EdgeInsets.fromLTRB(
+              hPad,
+              isPhone ? 2 : AppSpacing.xs,
+              hPad,
+              isPhone ? 4 : hPad,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -220,23 +228,29 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600,
+                          fontSize: isPhone ? 12 : null,
                         ),
                   ),
                 Text(
                   LocaleKeys.waiterSelectTable.tr(),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
+                        fontSize: isPhone ? 14 : null,
+                        height: 1.1,
                       ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                SizedBox(height: isPhone ? 4 : AppSpacing.xs),
                 SizedBox(
-                  height: 44,
+                  height: isPhone ? 38 : 44,
                   child: ElevatedButton.icon(
                     onPressed: _openPickup,
-                    icon: const Icon(Icons.shopping_bag_outlined, size: 20),
+                    icon: Icon(
+                      Icons.shopping_bag_outlined,
+                      size: isPhone ? 18 : 20,
+                    ),
                     label: Text(
                       LocaleKeys.waiterPickup.tr(),
                       style: const TextStyle(fontWeight: FontWeight.w700),
@@ -244,10 +258,13 @@ class _WaiterTablePageState extends ConsumerState<WaiterTablePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isPhone ? 10 : 16,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                SizedBox(height: isPhone ? 4 : AppSpacing.xs),
                 Expanded(
                   child: GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
@@ -459,21 +476,17 @@ class _WaiterOrderPageState extends ConsumerState<WaiterOrderPage> {
               : LocaleKeys.waiterTableOrderTitle.tr(
                   namedArgs: {'table': '${widget.tableNumber}'},
                 ),
-          style: const TextStyle(fontSize: 17),
+          style: const TextStyle(fontSize: 16),
         ),
-        toolbarHeight: 48,
+        toolbarHeight: 44,
         actions: [
           if (!widget.isPickup && widget.tableNumber != null)
-            TextButton.icon(
+            IconButton(
+              tooltip: LocaleKeys.waiterViewBill.tr(),
               onPressed: () => context.push(
                 RoutePaths.branchWaiterBill(widget.tableNumber!),
               ),
-              icon: const Icon(Icons.receipt_long, size: 18),
-              label: Text(LocaleKeys.waiterViewBill.tr()),
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
+              icon: const Icon(Icons.receipt_long, size: 22),
             ),
         ],
       ),
@@ -563,36 +576,21 @@ class _WaiterOrderActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final itemCount =
         cart.fold<int>(0, (sum, item) => sum + item.quantity);
+    final screenW = MediaQuery.sizeOf(context).width;
     final screenH = MediaQuery.sizeOf(context).height;
-    // Keep create-order button on-screen even when notes/tags expand.
-    final maxExtrasH = (screenH * 0.28).clamp(96.0, 220.0);
+    final compactPhone = screenW < 520;
+    final maxExtrasH = compactPhone
+        ? (screenH * 0.16).clamp(48.0, 96.0)
+        : (screenH * 0.28).clamp(96.0, 220.0);
     final canSubmit = !submitting && cart.isNotEmpty;
 
-    final extras = <Widget>[
-      Row(
-        children: [
-          _FooterIconButton(
-            icon: Icons.sticky_note_2_outlined,
-            label: hasNote
-                ? LocaleKeys.waiterOrderNote.tr()
-                : LocaleKeys.waiterOrderNoteOptional.tr(),
-            active: hasNote,
-            onTap: onEditNote,
-          ),
-          const SizedBox(width: 6),
-          _FooterIconButton(
-            icon: Icons.tune,
-            label: LocaleKeys.waiterPrepSheetTitle.tr(),
-            active: preparationTagCount > 0,
-            badge: preparationTagCount > 0 ? '$preparationTagCount' : null,
-            onTap: onPreparationTags,
-          ),
-        ],
-      ),
-      if (preparationTags.isNotEmpty || hasNote) ...[
-        const SizedBox(height: 6),
+    final detailExtras = <Widget>[
+      if (preparationTags.isNotEmpty || hasNote)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compactPhone ? 8 : 10,
+            vertical: compactPhone ? 4 : 8,
+          ),
           decoration: BoxDecoration(
             color: AppColors.primary.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(8),
@@ -616,7 +614,7 @@ class _WaiterOrderActionBar extends StatelessWidget {
                   ),
                 ),
               if (hasNote) ...[
-                if (preparationTags.isNotEmpty) const SizedBox(height: 6),
+                if (preparationTags.isNotEmpty) const SizedBox(height: 4),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -636,7 +634,7 @@ class _WaiterOrderActionBar extends StatelessWidget {
                           Expanded(
                             child: Text(
                               orderNote,
-                              maxLines: 2,
+                              maxLines: compactPhone ? 1 : 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 11,
@@ -654,8 +652,7 @@ class _WaiterOrderActionBar extends StatelessWidget {
             ],
           ),
         ),
-      ],
-      if (cart.isNotEmpty) ...[
+      if (!compactPhone && cart.isNotEmpty) ...[
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -682,6 +679,80 @@ class _WaiterOrderActionBar extends StatelessWidget {
       ],
     ];
 
+    final submitButton = SizedBox(
+      height: compactPhone ? 44 : 52,
+      child: FilledButton(
+        onPressed: canSubmit ? onSubmit : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: canSubmit
+              ? AppColors.primary
+              : AppColors.primary.withValues(alpha: 0.38),
+          disabledBackgroundColor:
+              AppColors.primary.withValues(alpha: 0.38),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.92),
+          padding: EdgeInsets.symmetric(horizontal: compactPhone ? 10 : 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(compactPhone ? 8 : 10),
+          ),
+        ),
+        child: submitting
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                children: [
+                  if (!compactPhone) ...[
+                    const Icon(Icons.check_circle_outline, size: 20),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      cart.isEmpty
+                          ? LocaleKeys.waiterCartEmpty.tr()
+                          : LocaleKeys.waiterCreateOrder.tr(),
+                      style: TextStyle(
+                        fontSize: compactPhone ? 14 : 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (itemCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$itemCount',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 6),
+                  Text(
+                    FormatUtils.currency(total),
+                    style: TextStyle(
+                      fontSize: compactPhone ? 14 : 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+
     return Material(
       elevation: 8,
       shadowColor: Colors.black26,
@@ -689,98 +760,79 @@ class _WaiterOrderActionBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppSpacing.sm,
-            AppSpacing.xs,
+            compactPhone ? 4 : AppSpacing.xs,
             AppSpacing.sm,
-            AppSpacing.sm,
+            compactPhone ? 4 : AppSpacing.sm,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxExtrasH),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: extras,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 52,
-                child: FilledButton(
-                  onPressed: canSubmit ? onSubmit : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: canSubmit
-                        ? AppColors.primary
-                        : AppColors.primary.withValues(alpha: 0.38),
-                    disabledBackgroundColor:
-                        AppColors.primary.withValues(alpha: 0.38),
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor:
-                        Colors.white.withValues(alpha: 0.92),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              if (detailExtras.isNotEmpty) ...[
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxExtrasH),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: detailExtras,
                     ),
                   ),
-                  child: submitting
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                cart.isEmpty
-                                    ? LocaleKeys.waiterCartEmpty.tr()
-                                    : LocaleKeys.waiterCreateOrder.tr(),
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            if (itemCount > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.22),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '$itemCount',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(width: 8),
-                            Text(
-                              FormatUtils.currency(total),
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
-              ),
+                SizedBox(height: compactPhone ? 4 : 8),
+              ],
+              if (compactPhone)
+                Row(
+                  children: [
+                    _FooterIconButton(
+                      icon: Icons.sticky_note_2_outlined,
+                      label: LocaleKeys.waiterOrderNote.tr(),
+                      active: hasNote,
+                      compact: true,
+                      onTap: onEditNote,
+                    ),
+                    const SizedBox(width: 4),
+                    _FooterIconButton(
+                      icon: Icons.tune,
+                      label: LocaleKeys.waiterPrepSheetTitle.tr(),
+                      active: preparationTagCount > 0,
+                      badge:
+                          preparationTagCount > 0 ? '$preparationTagCount' : null,
+                      compact: true,
+                      onTap: onPreparationTags,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(child: submitButton),
+                  ],
+                )
+              else ...[
+                Row(
+                  children: [
+                    _FooterIconButton(
+                      icon: Icons.sticky_note_2_outlined,
+                      label: hasNote
+                          ? LocaleKeys.waiterOrderNote.tr()
+                          : LocaleKeys.waiterOrderNoteOptional.tr(),
+                      active: hasNote,
+                      onTap: onEditNote,
+                    ),
+                    const SizedBox(width: 6),
+                    _FooterIconButton(
+                      icon: Icons.tune,
+                      label: LocaleKeys.waiterPrepSheetTitle.tr(),
+                      active: preparationTagCount > 0,
+                      badge: preparationTagCount > 0
+                          ? '$preparationTagCount'
+                          : null,
+                      onTap: onPreparationTags,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                submitButton,
+              ],
             ],
           ),
         ),
@@ -796,6 +848,7 @@ class _FooterIconButton extends StatelessWidget {
     required this.onTap,
     this.active = false,
     this.badge,
+    this.compact = false,
   });
 
   final IconData icon;
@@ -803,34 +856,37 @@ class _FooterIconButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool active;
   final String? badge;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: active
-            ? AppColors.primary.withValues(alpha: 0.1)
-            : const Color(0xFFF3F4F6),
+    final button = Material(
+      color: active
+          ? AppColors.primary.withValues(alpha: 0.1)
+          : const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(compact ? 8 : 8),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-            child: Column(
-              children: [
-                Stack(
+        child: Padding(
+          padding: compact
+              ? const EdgeInsets.all(10)
+              : const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+          child: compact
+              ? Stack(
                   clipBehavior: Clip.none,
                   children: [
                     Icon(
                       icon,
-                      size: 18,
-                      color: active ? AppColors.primary : AppColors.textSecondary,
+                      size: 20,
+                      color: active
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     if (badge != null)
                       Positioned(
                         top: -6,
-                        right: -10,
+                        right: -8,
                         child: Container(
                           padding: const EdgeInsets.all(3),
                           decoration: const BoxDecoration(
@@ -853,24 +909,67 @@ class _FooterIconButton extends StatelessWidget {
                         ),
                       ),
                   ],
+                )
+              : Column(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          icon,
+                          size: 18,
+                          color: active
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                        if (badge != null)
+                          Positioned(
+                            top: -6,
+                            right: -10,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 14,
+                                minHeight: 14,
+                              ),
+                              child: Text(
+                                badge!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight:
+                            active ? FontWeight.w600 : FontWeight.w500,
+                        color: active
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                    color:
-                        active ? AppColors.primary : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
+
+    if (compact) return button;
+    return Expanded(child: button);
   }
 }

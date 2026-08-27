@@ -172,27 +172,58 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
     final nodes = _visibleNodes(liveProducts, settings);
     final headerTitle = _headerTitle(settings);
 
+    final inFolder = _path.isNotEmpty;
+    final showFolderChrome = headerTitle != null || (compactPhone && inFolder);
+
     final gridArea = ColoredBox(
       color: const Color(0xFFF7F8FA),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (headerTitle != null)
+          if (showFolderChrome)
             Container(
               color: WaiterPosMenuPanel.headerBlue,
-              padding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: compactPhone ? 8 : 10,
+              padding: EdgeInsets.fromLTRB(
+                compactPhone && inFolder ? 4 : 12,
+                compactPhone ? 4 : 10,
+                12,
+                compactPhone ? 4 : 10,
               ),
-              child: Text(
-                headerTitle.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: compactPhone ? 16 : 18,
-                  letterSpacing: 0.5,
-                ),
+              child: Row(
+                children: [
+                  if (compactPhone && inFolder)
+                    IconButton(
+                      onPressed: _closeLevel,
+                      tooltip: LocaleKeys.waiterPosClose.tr(),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      (headerTitle ?? '').toUpperCase(),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: compactPhone ? 14 : 18,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                  if (compactPhone && inFolder)
+                    const SizedBox(width: 36),
+                ],
               ),
             ),
           Expanded(
@@ -243,31 +274,29 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
                     },
                   ),
           ),
-          if (_path.isNotEmpty)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                child: SizedBox(
-                  height: compactPhone ? 48 : 52,
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _closeLevel,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: WaiterPosMenuPanel.closeBar,
-                      foregroundColor: Colors.white,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+          // Masaüstü/tablet: KAPAT bar (VEGA). Telefonda geri ok üst başlıkta.
+          if (!compactPhone && inFolder)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: SizedBox(
+                height: 52,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _closeLevel,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: WaiterPosMenuPanel.closeBar,
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
-                      LocaleKeys.waiterPosClose.tr().toUpperCase(),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: compactPhone ? 14 : 16,
-                        letterSpacing: 1,
-                      ),
+                  ),
+                  child: Text(
+                    LocaleKeys.waiterPosClose.tr().toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      letterSpacing: 1,
                     ),
                   ),
                 ),
@@ -329,29 +358,34 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
     required double height,
     bool compactPhone = false,
   }) {
-    const pad = 6.0;
-    final spacing = compactPhone ? 8.0 : 3.0;
-    final minTap = compactPhone ? 96.0 : 42.0;
+    final pad = compactPhone ? 4.0 : 6.0;
+    final spacing = compactPhone ? 5.0 : 3.0;
+    final minTap = compactPhone ? 70.0 : 42.0;
     final w = math.max(80.0, width - pad * 2);
     final h = math.max(80.0, height - pad * 2);
     if (count <= 0) {
       return _GridFit(
-        cols: compactPhone ? 2 : 3,
-        aspect: compactPhone ? 1.05 : 1.2,
+        cols: compactPhone ? 3 : 3,
+        aspect: compactPhone ? 1.15 : 1.2,
         spacing: spacing,
         cellWidth: 100,
         fits: !compactPhone,
       );
     }
 
-    // Telefonda her şeyi sığdırmaya çalışma — 2 sütun + kaydırma, okunaklı isimler.
+    // Telefon: 3 sütun (dar ekranda 2), daha kısa kutular + kaydırma.
     if (compactPhone) {
-      final cols = count == 1 ? 1 : 2;
+      final cols = count == 1
+          ? 1
+          : (w >= 340 && count >= 3)
+              ? 3
+              : 2;
       final cellW = (w - spacing * (cols - 1)) / cols;
-      final targetH = math.max(minTap, cellW * 0.92);
+      // Geniş > yüksek → daha çok satır sığar, isimler hâlâ okunur.
+      final targetH = math.max(minTap, cellW * 0.78);
       return _GridFit(
         cols: cols,
-        aspect: (cellW / targetH).clamp(0.85, 1.35),
+        aspect: (cellW / targetH).clamp(1.0, 1.45),
         spacing: spacing,
         cellWidth: cellW,
         fits: false,
@@ -418,7 +452,7 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
 
         return GridView.builder(
           physics: physics,
-          padding: const EdgeInsets.all(6),
+          padding: EdgeInsets.all(compactPhone ? 4 : 6),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: fit.cols,
             mainAxisSpacing: fit.spacing,
@@ -446,56 +480,56 @@ class _MobileCategoryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: ColoredBox(
-        color: const Color(0xFFE9EEF3),
-        child: SizedBox(
-          height: 56,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            itemCount: WaiterPosSection.values.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 6),
-            itemBuilder: (context, index) {
-              final item = WaiterPosSection.values[index];
-              final selected = section == item;
-              return Material(
-                color: selected ? AppColors.success : WaiterPosMenuPanel.sidebarIdle,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () => onSectionChanged(item),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    constraints: const BoxConstraints(minWidth: 72),
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: selected
-                            ? const Color(0xFF1B8A4A)
-                            : const Color(0xFF8E9AAB),
-                        width: selected ? 2 : 1,
-                      ),
+    // SafeArea yok: alt sipariş çubuğu zaten inset alıyor; çift boşluk oluşmasın.
+    return ColoredBox(
+      color: const Color(0xFFE9EEF3),
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          itemCount: WaiterPosSection.values.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 4),
+          itemBuilder: (context, index) {
+            final item = WaiterPosSection.values[index];
+            final selected = section == item;
+            return Material(
+              color: selected
+                  ? AppColors.success
+                  : WaiterPosMenuPanel.sidebarIdle,
+              borderRadius: BorderRadius.circular(6),
+              child: InkWell(
+                onTap: () => onSectionChanged(item),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 64),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF1B8A4A)
+                          : const Color(0xFF8E9AAB),
+                      width: selected ? 2 : 1,
                     ),
-                    child: Text(
-                      sectionLabel(item).toUpperCase(),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                        height: 1.05,
-                        color: selected ? Colors.white : AppColors.textPrimary,
-                      ),
+                  ),
+                  child: Text(
+                    sectionLabel(item).toUpperCase(),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      height: 1.0,
+                      color: selected ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -587,13 +621,13 @@ class WaiterPosProductTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = !isFolder && quantity > 0;
     final nameSize = readable
-        ? (cellWidth * 0.155).clamp(14.0, 20.0)
+        ? (cellWidth * 0.14).clamp(12.0, 15.5)
         : (cellWidth * (dense ? 0.125 : 0.14)).clamp(10.5, 18.0);
     final priceSize = readable
-        ? (nameSize * 0.95).clamp(13.0, 18.0)
+        ? (nameSize * 0.9).clamp(11.0, 14.0)
         : (nameSize * 0.92).clamp(10.0, 16.0);
-    final pad = readable ? 10.0 : (dense ? 5.0 : 8.0);
-    final radius = BorderRadius.circular(8);
+    final pad = readable ? 6.0 : (dense ? 5.0 : 8.0);
+    final radius = BorderRadius.circular(readable ? 6 : 8);
 
     return Material(
       color: selected
@@ -630,16 +664,18 @@ class WaiterPosProductTile extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Align(
-                        alignment: Alignment.center,
+                        alignment: readable
+                            ? Alignment.topCenter
+                            : Alignment.center,
                         child: Text(
                           title.toUpperCase(),
                           textAlign: TextAlign.center,
-                          maxLines: readable ? 5 : 4,
+                          maxLines: readable ? 3 : 4,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: nameSize,
-                            height: readable ? 1.12 : 1.05,
+                            height: readable ? 1.1 : 1.05,
                             color: AppColors.textPrimary,
                           ),
                         ),
