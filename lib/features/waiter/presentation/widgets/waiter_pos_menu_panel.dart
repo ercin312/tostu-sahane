@@ -200,6 +200,7 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
                 ? Center(child: Text(LocaleKeys.waiterAddonsEmpty.tr()))
                 : _buildItemGrid(
                     count: nodes.length,
+                    compactPhone: compactPhone,
                     builder: (index, fit) {
                       final node = nodes[index];
                       final product = node.isLeaf
@@ -225,7 +226,8 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
                         quantity: qty,
                         isFolder: node.isFolder,
                         cellWidth: fit.cellWidth,
-                        dense: true,
+                        dense: !compactPhone,
+                        readable: compactPhone,
                         onTap: () => _onNodeTap(node, liveProducts, settings),
                         onIncrement: product == null
                             ? () {}
@@ -325,19 +327,34 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
     required int count,
     required double width,
     required double height,
+    bool compactPhone = false,
   }) {
     const pad = 6.0;
-    const spacing = 3.0;
-    const minTap = 42.0;
+    final spacing = compactPhone ? 8.0 : 3.0;
+    final minTap = compactPhone ? 96.0 : 42.0;
     final w = math.max(80.0, width - pad * 2);
     final h = math.max(80.0, height - pad * 2);
     if (count <= 0) {
-      return const _GridFit(
-        cols: 3,
-        aspect: 1.2,
+      return _GridFit(
+        cols: compactPhone ? 2 : 3,
+        aspect: compactPhone ? 1.05 : 1.2,
         spacing: spacing,
         cellWidth: 100,
-        fits: true,
+        fits: !compactPhone,
+      );
+    }
+
+    // Telefonda her şeyi sığdırmaya çalışma — 2 sütun + kaydırma, okunaklı isimler.
+    if (compactPhone) {
+      final cols = count == 1 ? 1 : 2;
+      final cellW = (w - spacing * (cols - 1)) / cols;
+      final targetH = math.max(minTap, cellW * 0.92);
+      return _GridFit(
+        cols: cols,
+        aspect: (cellW / targetH).clamp(0.85, 1.35),
+        spacing: spacing,
+        cellWidth: cellW,
+        fits: false,
       );
     }
 
@@ -383,6 +400,7 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
   Widget _buildItemGrid({
     required int count,
     required Widget Function(int index, _GridFit fit) builder,
+    bool compactPhone = false,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -390,6 +408,7 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
           count: count,
           width: constraints.maxWidth,
           height: constraints.maxHeight,
+          compactPhone: compactPhone,
         );
         final physics = fit.fits
             ? const NeverScrollableScrollPhysics()
@@ -549,6 +568,7 @@ class WaiterPosProductTile extends StatelessWidget {
     this.price,
     this.isFolder = false,
     this.dense = false,
+    this.readable = false,
   });
 
   final String title;
@@ -560,13 +580,19 @@ class WaiterPosProductTile extends StatelessWidget {
   final VoidCallback onDecrement;
   final double cellWidth;
   final bool dense;
+  /// Mobil: daha büyük yazı / padding (sıkışık dense grid yerine).
+  final bool readable;
 
   @override
   Widget build(BuildContext context) {
     final selected = !isFolder && quantity > 0;
-    final nameSize = (cellWidth * (dense ? 0.125 : 0.14)).clamp(10.5, 18.0);
-    final priceSize = (nameSize * 0.92).clamp(10.0, 16.0);
-    final pad = dense ? 5.0 : 8.0;
+    final nameSize = readable
+        ? (cellWidth * 0.155).clamp(14.0, 20.0)
+        : (cellWidth * (dense ? 0.125 : 0.14)).clamp(10.5, 18.0);
+    final priceSize = readable
+        ? (nameSize * 0.95).clamp(13.0, 18.0)
+        : (nameSize * 0.92).clamp(10.0, 16.0);
+    final pad = readable ? 10.0 : (dense ? 5.0 : 8.0);
     final radius = BorderRadius.circular(8);
 
     return Material(
@@ -608,12 +634,12 @@ class WaiterPosProductTile extends StatelessWidget {
                         child: Text(
                           title.toUpperCase(),
                           textAlign: TextAlign.center,
-                          maxLines: 4,
+                          maxLines: readable ? 5 : 4,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: nameSize,
-                            height: 1.05,
+                            height: readable ? 1.12 : 1.05,
                             color: AppColors.textPrimary,
                           ),
                         ),

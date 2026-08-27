@@ -969,6 +969,19 @@ class FirestoreDataSource {
               } catch (_) {}
             }
           } catch (_) {}
+          // Windows REST eski yazımlarda created_at string olabiliyor;
+          // orderBy(Timestamp) onları dışarıda bırakır — masa oturumları için çek.
+          try {
+            final dineInSnap = await _ordersCol
+                .where('order_type', isEqualTo: 'dineIn')
+                .limit(150)
+                .get();
+            for (final doc in dineInSnap.docs) {
+              try {
+                byId[doc.id] = _docToOrder(doc);
+              } catch (_) {}
+            }
+          } catch (_) {}
           return byId.values.toList()
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });

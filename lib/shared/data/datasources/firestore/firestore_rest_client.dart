@@ -232,7 +232,7 @@ class FirestoreRestClient {
     }
     final nested = FirestoreRestValueCodec.flatPatchToNested(flatPatch);
     final body = {
-      'fields': FirestoreRestValueCodec.encodeDocumentFields(nested),
+      'fields': FirestoreRestValueCodec.encodeOrderDocumentFields(nested),
     };
     await _dio.patch<Map<String, dynamic>>(
       '$_documentsRoot/orders/${Uri.encodeComponent(orderId)}?$query',
@@ -303,7 +303,7 @@ class FirestoreRestClient {
       FirestoreDataSource.normalizeOrderJson(model.toJson()),
     );
     final body = {
-      'fields': FirestoreRestValueCodec.encodeDocumentFields(json),
+      'fields': FirestoreRestValueCodec.encodeOrderDocumentFields(json),
     };
     try {
       await _dio.post<Map<String, dynamic>>(
@@ -1449,8 +1449,46 @@ abstract final class FirestoreRestValueCodec {
     return fields;
   }
 
+  /// Sipariş yazımında ISO tarihleri Firestore `timestampValue` yapar.
+  /// (Native SDK Timestamp ile aynı tip — mobil `orderBy(created_at)` görsün.)
+  static Map<String, dynamic> encodeOrderDocumentFields(
+    Map<String, dynamic> json,
+  ) {
+    final prepared = _promoteOrderTimestamps(Map<String, dynamic>.from(json));
+    return encodeDocumentFields(prepared);
+  }
+
+  static Map<String, dynamic> _promoteOrderTimestamps(
+    Map<String, dynamic> json,
+  ) {
+    for (final key in const ['created_at', 'scheduled_at']) {
+      final stamped = _asTimestampMarker(json[key]);
+      if (stamped != null) json[key] = stamped;
+    }
+    final stamps = json['status_timestamps'];
+    if (stamps is Map) {
+      final out = <String, dynamic>{};
+      stamps.forEach((k, v) {
+        out[k.toString()] = _asTimestampMarker(v) ?? v;
+      });
+      json['status_timestamps'] = out;
+    }
+    return json;
+  }
+
+  static _RestTimestamp? _asTimestampMarker(dynamic value) {
+    if (value is _RestTimestamp) return value;
+    if (value is! String) return null;
+    final parsed = DateTime.tryParse(value.trim());
+    if (parsed == null) return null;
+    return _RestTimestamp(parsed.toUtc().toIso8601String());
+  }
+
   static Map<String, dynamic> encodeValue(dynamic value) {
     if (value == null) return {'nullValue': null};
+    if (value is _RestTimestamp) {
+      return {'timestampValue': value.isoUtc};
+    }
     if (value is String) return {'stringValue': value};
     if (value is bool) return {'booleanValue': value};
     if (value is int) return {'integerValue': value.toString()};
@@ -1473,4 +1511,10 @@ abstract final class FirestoreRestValueCodec {
     }
     return {'stringValue': value.toString()};
   }
+}
+
+/// Firestore REST yazımı için timestamp sarmalayıcı.
+class _RestTimestamp {
+  const _RestTimestamp(this.isoUtc);
+  final String isoUtc;
 }

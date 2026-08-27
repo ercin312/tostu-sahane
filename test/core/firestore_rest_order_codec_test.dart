@@ -42,7 +42,13 @@ void main() {
     final json = FirestoreDataSource.stripNullFields(
       FirestoreDataSource.normalizeOrderJson(model.toJson()),
     );
-    final encoded = FirestoreRestValueCodec.encodeDocumentFields(json);
+    final encoded = FirestoreRestValueCodec.encodeOrderDocumentFields(json);
+    expect(encoded['created_at']?['timestampValue'], isA<String>());
+    expect(
+      encoded['status_timestamps']?['mapValue']?['fields']?['preparing']
+          ?['timestampValue'],
+      isA<String>(),
+    );
     final decoded = FirestoreRestValueCodec.documentToJson(encoded);
     decoded['id'] = order.id;
 
