@@ -1,5 +1,13 @@
 Sahane123! 
 
+=== Meta App Events ===
+App ID: 1033924819431528
+Client Token: Meta Developers → Settings → Advanced → Client Token
+  android/.../res/values/strings.xml → facebook_client_token
+  ios/Runner/Info.plist → FacebookClientToken
+Detay: docs/META_APP_EVENTS.md
+Test: flutter run --dart-define=USE_MOCK_API=false --dart-define=META_TEST_EVENTS=true
+
 === Release build (1.1.6+16) ===
 # Android (Play / cihaz) — PowerShell, bu PC:
 cd "C:\Users\excalibur\Desktop\Tostu Sahane"

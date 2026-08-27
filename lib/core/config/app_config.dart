@@ -116,6 +116,19 @@ abstract final class AppConfig {
     defaultValue: false,
   );
 
+  /// Meta Events Manager "Test Events" / debug ölçümü.
+  /// Release dışı build'lerde olay göndermek için: `--dart-define=META_TEST_EVENTS=true`
+  static const metaTestEvents = bool.fromEnvironment(
+    'META_TEST_EVENTS',
+    defaultValue: false,
+  );
+
+  /// Meta App ID (public). App Secret asla uygulamaya konmaz.
+  static const metaAppId = String.fromEnvironment(
+    'META_APP_ID',
+    defaultValue: '1033924819431528',
+  );
+
   /// Sadece mock modda demo kart formu.
   static bool get useDemoCardPayment => useMockApi && !usePaytr;
 }

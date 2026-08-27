@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/analytics/meta_analytics.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/media/app_image.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -67,8 +68,11 @@ class CustomerHomePage extends ConsumerWidget {
         onSelectCategory: (c) =>
             ref.read(selectedCategoryProvider.notifier).state = c,
         searchQuery: ref.watch(productSearchQueryProvider),
-        onSearchChanged: (q) =>
-            ref.read(productSearchQueryProvider.notifier).state = q,
+        onSearchChanged: (q) {
+          ref.read(productSearchQueryProvider.notifier).state = q;
+          final results = ref.read(filteredProductsProvider);
+          MetaAnalytics.logSearchDebounced(q, resultCount: results.length);
+        },
         onUseNearestBranch: () async {
           final nearest = await ref
               .read(branchProvider.notifier)

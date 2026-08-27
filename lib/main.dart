@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'core/analytics/meta_analytics.dart';
 import 'core/config/app_config.dart';
 import 'core/localization/localization_service.dart';
 import 'core/notifications/notification_service.dart';
@@ -98,6 +99,14 @@ Future<void> main() async {
 
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await BootLog.write('boot: first frame ok');
+        if (_isMobilePlatform) {
+          try {
+            await MetaAnalytics.initialize();
+            await BootLog.write('boot: meta analytics ok');
+          } catch (e) {
+            await BootLog.write('boot: meta analytics FAIL $e');
+          }
+        }
       });
     },
     (error, stack) async {

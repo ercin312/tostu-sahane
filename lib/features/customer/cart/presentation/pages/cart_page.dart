@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/analytics/meta_analytics.dart';
 import '../../../../../core/auth/guest_access.dart';
 import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/localization/locale_keys.dart';
@@ -147,6 +148,20 @@ class CartPage extends ConsumerWidget {
                                   );
                                   return;
                                 }
+                                final cart = ref.read(cartProvider);
+                                final total = ref.read(cartTotalProvider);
+                                final numItems = cart.fold<int>(
+                                  0,
+                                  (s, i) => s + i.quantity,
+                                );
+                                MetaAnalytics.logInitiatedCheckout(
+                                  totalPrice: total,
+                                  numItems: numItems,
+                                  productIds: cart
+                                      .map((e) => e.productId)
+                                      .toSet()
+                                      .toList(),
+                                );
                                 context.push(RoutePaths.customerCheckout);
                               }
                             : null,

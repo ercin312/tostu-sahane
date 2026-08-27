@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tostu Sahane</string>
+    <!-- Meta App Events (public ids). App Secret asla buraya konmaz. -->
+    <string name="facebook_app_id">1033924819431528</string>
+    <!-- Meta Developers → App → Settings → Advanced → Client Token -->
+    <string name="facebook_client_token">REPLACE_WITH_META_CLIENT_TOKEN</string>
+    <string name="fb_login_protocol_scheme">fb1033924819431528</string>
+</resources>

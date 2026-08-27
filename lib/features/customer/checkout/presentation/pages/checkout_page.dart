@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/analytics/meta_analytics.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
@@ -357,6 +358,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             deliveryFeeAmount: deliveryFee,
             estimatedDeliveryMinutes: etaMinutes,
           );
+
+      await MetaAnalytics.logPurchase(order);
 
       ref.read(cartProvider.notifier).clear();
       ref.read(couponNotifierProvider).clear();

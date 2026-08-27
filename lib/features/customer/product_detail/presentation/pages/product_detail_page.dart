@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../app/router/route_paths.dart';
+import '../../../../../core/analytics/meta_analytics.dart';
 import '../../../../../core/auth/guest_access.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -36,6 +37,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   String _portionKey = LocaleKeys.portionNormal;
   final _selectedExtraIds = <String>{};
   final _noteController = TextEditingController();
+  var _loggedViewContent = false;
 
   @override
   void dispose() {
@@ -77,14 +79,15 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   void _addToCart(Product product) {
     final branch = ref.read(branchProvider).value;
     if (branch == null) return;
+    final unitPrice = product.isCombo
+        ? product.price + _extrasTotal(product)
+        : _unitPrice(product);
     ref.read(cartProvider.notifier).addItem(
           CartItem(
             id: generateCartItemId(),
             productId: product.id,
             productNameKey: product.nameKey,
-            unitPrice: product.isCombo
-                ? product.price + _extrasTotal(product)
-                : _unitPrice(product),
+            unitPrice: unitPrice,
             quantity: _quantity,
             selectedOptions: _selectedOptionLabels(product),
             portionKey: product.isCombo ? null : _portionKey,
@@ -92,6 +95,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           ),
           branchId: branch.id,
         );
+    MetaAnalytics.logAddToCart(
+      productId: product.id,
+      productName: localizedOrRaw(product.nameKey),
+      price: unitPrice,
+      quantity: _quantity,
+    );
     context.pop();
   }
 
@@ -113,6 +122,18 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           return Scaffold(
             body: Center(child: Text(LocaleKeys.commonError.tr())),
           );
+        }
+
+        if (!_loggedViewContent) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _loggedViewContent) return;
+            _loggedViewContent = true;
+            MetaAnalytics.logViewContent(
+              productId: product.id,
+              productName: localizedOrRaw(product.nameKey),
+              price: product.price,
+            );
+          });
         }
 
         final unitPrice = product.isCombo

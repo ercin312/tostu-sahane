@@ -72,8 +72,31 @@
 	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Teslimat adresi seçimi ve size en yakın şubeyi göstermek için konum kullanılır. Uygulama arka planda sürekli konum takibi yapmaz.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Reklam performansını ölçmek ve size daha ilgili kampanyalar sunmak için cihaz reklam kimliği kullanılabilir. İzin vermeseniz de uygulama çalışmaya devam eder; izin verilen toplu ölçüm yöntemleri kullanılabilir.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>FacebookAppID</key>
+	<string>1033924819431528</string>
+	<key>FacebookClientToken</key>
+	<string>REPLACE_WITH_META_CLIENT_TOKEN</string>
+	<key>FacebookDisplayName</key>
+	<string>Tostu Sahane</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<true/>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -82,6 +105,14 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.512275443807-8e8orffpvgvkffc6vi19tnv98di7jkao</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb1033924819431528</string>
 			</array>
 		</dict>
 	</array>
