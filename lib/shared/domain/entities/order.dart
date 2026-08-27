@@ -43,6 +43,7 @@ class CartItem extends Equatable {
     this.selectedOptions = const [],
     this.portionKey,
     this.note,
+    this.productCategory,
   });
 
   final String id;
@@ -53,10 +54,12 @@ class CartItem extends Equatable {
   final List<String> selectedOptions;
   final String? portionKey;
   final String? note;
+  /// `ProductCategory.name` — mutfak filtresi için (drink hariç).
+  final String? productCategory;
 
   double get totalPrice => unitPrice * quantity;
 
-  CartItem copyWith({int? quantity}) {
+  CartItem copyWith({int? quantity, String? productCategory}) {
     return CartItem(
       id: id,
       productId: productId,
@@ -66,12 +69,20 @@ class CartItem extends Equatable {
       selectedOptions: selectedOptions,
       portionKey: portionKey,
       note: note,
+      productCategory: productCategory ?? this.productCategory,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [id, productId, productNameKey, unitPrice, quantity, selectedOptions];
+  List<Object?> get props => [
+        id,
+        productId,
+        productNameKey,
+        unitPrice,
+        quantity,
+        selectedOptions,
+        productCategory,
+      ];
 }
 
 class Order extends Equatable {
@@ -189,9 +200,14 @@ class Order extends Equatable {
   bool get isPhoneOrder => orderSource == OrderSource.phone;
   bool get isWebOrder => orderSource == OrderSource.web;
 
-  /// Mutfakta hazırlanması gereken kalem var mı (içecek/aparatif hariç).
+  /// Mutfakta hazırlanması gereken kalem var mı (içecek / katalog ekstra hariç).
   bool get hasKitchenItems =>
-      items.any((item) => !item.productId.startsWith('extra_'));
+      items.any((item) {
+        if (item.productId.startsWith('extra_')) return false;
+        final cat = item.productCategory?.trim().toLowerCase();
+        if (cat == 'drink') return false;
+        return true;
+      });
 
   bool get isActive =>
       status != OrderStatus.delivered && status != OrderStatus.cancelled;

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tostu_sahane/core/utils/order_kitchen_utils.dart';
 import 'package:tostu_sahane/shared/domain/entities/order.dart';
+import 'package:tostu_sahane/shared/domain/entities/product.dart';
 
 Order _orderWithItems(List<CartItem> items, {bool isTableAddon = false}) {
   return Order(
@@ -30,6 +32,25 @@ void main() {
           productNameKey: 'Ayran',
           unitPrice: 5,
           quantity: 2,
+          productCategory: 'drink',
+        ),
+      ],
+      isTableAddon: true,
+    );
+    expect(order.hasKitchenItems, isFalse);
+    expect(orderHasKitchenItems(order), isFalse);
+  });
+
+  test('hasKitchenItems is false for POS drink products', () {
+    final order = _orderWithItems(
+      const [
+        CartItem(
+          id: '1',
+          productId: 'ts_ayran',
+          productNameKey: 'Ayran',
+          unitPrice: 40,
+          quantity: 1,
+          productCategory: 'drink',
         ),
       ],
       isTableAddon: true,
@@ -46,6 +67,7 @@ void main() {
           productNameKey: 'Ayran',
           unitPrice: 5,
           quantity: 1,
+          productCategory: 'drink',
         ),
         CartItem(
           id: '2',
@@ -53,10 +75,37 @@ void main() {
           productNameKey: 'Tost',
           unitPrice: 50,
           quantity: 1,
+          productCategory: 'tost',
         ),
       ],
       isTableAddon: true,
     );
     expect(order.hasKitchenItems, isTrue);
+    expect(kitchenCartItems(order).single.productId, 'ts_1');
+  });
+
+  test('catalog lookup excludes drink without productCategory', () {
+    const catalog = [
+      Product(
+        id: 'p_ayran',
+        nameKey: 'Ayran',
+        descriptionKey: '',
+        price: 40,
+        category: ProductCategory.drink,
+      ),
+    ];
+    final order = _orderWithItems(
+      const [
+        CartItem(
+          id: '1',
+          productId: 'p_ayran',
+          productNameKey: 'Ayran',
+          unitPrice: 40,
+          quantity: 1,
+        ),
+      ],
+      isTableAddon: true,
+    );
+    expect(orderHasKitchenItems(order, catalog: catalog), isFalse);
   });
 }

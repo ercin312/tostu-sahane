@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import '../../shared/data/mock/mock_data.dart';
 import '../../shared/domain/entities/order.dart';
 import '../utils/cart_item_display_utils.dart';
+import '../utils/order_kitchen_utils.dart';
 import '../utils/order_modifiers_utils.dart';
 import '../utils/waiter_order_notes.dart';
 import '../utils/waiter_utils.dart';
@@ -84,12 +85,14 @@ abstract final class KitchenReceiptPdfBuilder {
         _header(logo, font, fontBold),
         pw.SizedBox(height: 6),
         _section(
-          title: 'İÇ SİPARİŞ',
+          title: order.isTableAddon ? 'EKSTRA SİPARİŞ' : 'İÇ SİPARİŞ',
           font: font,
           fontBold: fontBold,
           children: [
             pw.Text(
-              'MASA ${order.tableNumber ?? '-'}',
+              order.isTableAddon
+                  ? 'MASA ${order.tableNumber ?? '-'} — EKSTRA'
+                  : 'MASA ${order.tableNumber ?? '-'}',
               style: pw.TextStyle(font: fontBold, fontSize: 16, color: _ink),
             ),
             pw.SizedBox(height: 4),
@@ -509,7 +512,14 @@ abstract final class KitchenReceiptPdfBuilder {
     );
   }
 
+  static List<CartItem> _receiptItems(Order order) {
+    if (!order.isDineIn) return order.items;
+    final kitchen = kitchenCartItems(order);
+    return kitchen.isNotEmpty ? kitchen : order.items;
+  }
+
   static pw.Widget _itemsTable(Order order, pw.Font font, pw.Font fontBold) {
+    final items = _receiptItems(order);
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: _ink, width: 1.2),
@@ -531,7 +541,7 @@ abstract final class KitchenReceiptPdfBuilder {
               _tableCell('TUTAR', fontBold, align: pw.TextAlign.right, fontSize: 9),
             ],
           ),
-          ...order.items.map(
+          ...items.map(
             (item) => pw.TableRow(
               children: [
                 _tableCell(

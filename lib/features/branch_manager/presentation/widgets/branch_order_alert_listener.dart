@@ -282,7 +282,9 @@ class _BranchOrderAlertListenerState
         return o.status == OrderStatus.received;
       }
       if (o.isDineIn) {
-        if (o.isTableAddon) return false;
+        // Masa ekstra: yalnızca yiyecek (mutfak kalemi) varsa bas.
+        // İçecek-only ekstra → mutfağa gitmez.
+        if (o.isTableAddon && !o.hasKitchenItems) return false;
         return o.status == OrderStatus.received ||
             o.status == OrderStatus.preparing;
       }

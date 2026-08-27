@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/cart_item_display_utils.dart';
 import '../../../../core/utils/localized_text.dart';
+import '../../../../core/utils/order_kitchen_utils.dart';
 import '../../../../core/utils/waiter_preparation_tags.dart';
 import '../../../../core/widgets/role_logout_action.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
@@ -432,6 +433,8 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
         OrderWorkflow.canPerform(auth.user, order, OrderWorkflowAction.markReady);
     final catalog =
         ref.watch(catalogExtrasProvider).value ?? MockData.catalogExtras;
+    final products = ref.watch(opsBranchProductsProvider).value ?? const [];
+    final kitchenItems = kitchenCartItems(order, catalog: products);
     final isPreparing = order.status == OrderStatus.preparing;
     final metrics = widget.metrics;
     final portrait = KitchenDisplayLayout.isPortraitKitchenDisplay(widget.viewSize);
@@ -522,6 +525,33 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                                           height: 1.1,
                                         ),
                                       ),
+                                      if (order.isTableAddon) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.warning
+                                                .withValues(alpha: 0.25),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: AppColors.warning
+                                                  .withValues(alpha: 0.7),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'EKSTRA',
+                                            style: TextStyle(
+                                              color: AppColors.warning,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: metrics.meta,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                       if (isPreparing) ...[
                                         const SizedBox(width: 8),
                                         Icon(
@@ -621,7 +651,9 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
                         const Divider(height: 1, color: Color(0x22FFFFFF)),
                         const SizedBox(height: 10),
                         _KitchenItemLines(
-                          items: order.items,
+                          items: kitchenItems.isNotEmpty
+                              ? kitchenItems
+                              : order.items,
                           catalog: catalog,
                           metrics: metrics,
                         ),
@@ -643,6 +675,9 @@ class _KitchenTimelineTicketState extends ConsumerState<_KitchenTimelineTicket> 
         namedArgs: {'minutes': '$elapsed'},
       ),
     ];
+    if (order.isTableAddon) {
+      parts.add('EKSTRA');
+    }
     final waiter = order.waiterCode ?? order.waiterName;
     if (waiter != null && waiter.isNotEmpty) {
       parts.add(

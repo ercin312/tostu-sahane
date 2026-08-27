@@ -163,6 +163,7 @@ abstract final class EntityMappers {
         selectedOptions: model.selectedOptions,
         portionKey: model.portionKey,
         note: model.note,
+        productCategory: model.productCategory,
       );
 
   static OrderModel fromOrder(Order order) {
@@ -240,6 +241,7 @@ abstract final class EntityMappers {
         selectedOptions: item.selectedOptions,
         portionKey: item.portionKey,
         note: item.note,
+        productCategory: item.productCategory,
       );
 
   static BranchModel fromBranch(Branch branch) => BranchModel(

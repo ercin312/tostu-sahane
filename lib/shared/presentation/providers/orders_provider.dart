@@ -12,6 +12,7 @@ import '../../../core/services/location_service.dart';
 import '../../../core/utils/customer_order_matching.dart';
 import '../../../core/utils/delivery_eta_utils.dart';
 import '../../../core/utils/localized_text.dart';
+import '../../../core/utils/order_kitchen_utils.dart';
 import '../../../core/utils/order_status_utils.dart';
 import '../../../core/utils/turkey_time.dart';
 import '../../../shared/domain/entities/user.dart';
@@ -772,10 +773,12 @@ final branchDineInOrdersProvider = Provider<List<Order>>((ref) {
 });
 
 /// Mutfak ekranı: garson iç siparişleri (yeni + hazırlanıyor).
+/// Masa ekstra siparişler yalnızca yiyecek kalemi varsa görünür (içecek-only yok).
 final kitchenQueueOrdersProvider = Provider<List<Order>>((ref) {
   final branch = ref.watch(managedBranchProvider).value;
   if (branch == null) return [];
   final orders = ref.watch(ordersProvider).value ?? [];
+  final products = ref.watch(opsBranchProductsProvider).value ?? const [];
   return orders
       .where(
         (o) =>
@@ -783,7 +786,8 @@ final kitchenQueueOrdersProvider = Provider<List<Order>>((ref) {
             o.isDineIn &&
             (o.status == OrderStatus.received ||
                 o.status == OrderStatus.preparing) &&
-            (!o.isTableAddon || o.hasKitchenItems),
+            (!o.isTableAddon ||
+                orderHasKitchenItems(o, catalog: products)),
       )
       .toList()
     ..sort((a, b) => a.createdAt.compareTo(b.createdAt));

@@ -246,6 +246,7 @@ class CartItemModel {
     this.selectedOptions = const [],
     this.portionKey,
     this.note,
+    this.productCategory,
   });
 
   factory CartItemModel.fromJson(Map<String, dynamic> json) => CartItemModel(
@@ -260,6 +261,7 @@ class CartItemModel {
             [],
         portionKey: json['portion_key'] as String?,
         note: json['note'] as String?,
+        productCategory: json['product_category'] as String?,
       );
 
   final String id;
@@ -270,6 +272,7 @@ class CartItemModel {
   final List<String> selectedOptions;
   final String? portionKey;
   final String? note;
+  final String? productCategory;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -280,6 +283,7 @@ class CartItemModel {
         'selected_options': selectedOptions,
         'portion_key': portionKey,
         'note': note,
+        if (productCategory != null) 'product_category': productCategory,
       };
 }
 

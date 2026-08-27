@@ -68,6 +68,7 @@ class WaiterCartItem {
         unitPrice: extra.price,
         quantity: quantity,
         note: note,
+        productCategory: ProductCategory.drink.name,
       );
     }
     final resolved = productWithExtras ?? product!;
@@ -79,6 +80,7 @@ class WaiterCartItem {
       quantity: quantity,
       selectedOptions: List.of(selectedExtraIds),
       note: note,
+      productCategory: product!.category.name,
     );
   }
 }
