@@ -108,14 +108,15 @@ class CartNotifier extends Notifier<List<CartItem>> {
     _persist();
   }
 
-  void updateQuantity(String itemId, int quantity) {
-    if (quantity <= 0) {
+  void updateQuantity(String itemId, num quantity) {
+    final next = quantity.toDouble();
+    if (next <= 0) {
       removeItem(itemId);
       return;
     }
     state = [
       for (final item in state)
-        if (item.id == itemId) item.copyWith(quantity: quantity) else item,
+        if (item.id == itemId) item.copyWith(quantity: next) else item,
     ];
     _persist();
   }
@@ -171,7 +172,7 @@ final cartSubtotalProvider = Provider<double>((ref) {
 
 final cartItemCountProvider = Provider<int>((ref) {
   final cart = ref.watch(cartProvider);
-  return cart.fold(0, (sum, item) => sum + item.quantity);
+  return cart.fold<double>(0, (sum, item) => sum + item.quantity).round();
 });
 
 final cartMeetsMinimumProvider = Provider<bool>((ref) {

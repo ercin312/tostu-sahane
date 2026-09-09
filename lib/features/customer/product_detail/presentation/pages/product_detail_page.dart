@@ -88,7 +88,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             productId: product.id,
             productNameKey: product.nameKey,
             unitPrice: unitPrice,
-            quantity: _quantity,
+            quantity: _quantity.toDouble(),
             selectedOptions: _selectedOptionLabels(extras),
             portionKey: product.isCombo ? null : _portionKey,
             note: _noteController.text.isEmpty ? null : _noteController.text,
