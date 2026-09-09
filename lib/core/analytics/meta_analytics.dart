@@ -223,7 +223,7 @@ abstract final class MetaAnalytics {
           },
       ];
       final numItems =
-          order.items.fold<int>(0, (s, i) => s + i.quantity);
+          order.items.fold<double>(0, (s, i) => s + i.quantity).round();
 
       await _fb.logPurchase(
         amount: order.totalAmount,

@@ -48,6 +48,12 @@ $defines = @(
     '--dart-define=USE_MOCK_API=false'
 )
 
+$localDefines = Join-Path (Get-Location) 'dart_defines.local.json'
+if (Test-Path $localDefines) {
+    $defines += "--dart-define-from-file=$localDefines"
+    Write-Host "Yerel defines kullaniliyor: dart_defines.local.json"
+}
+
 $verLine = (Select-String -Path 'pubspec.yaml' -Pattern '^version:\s*(.+)$').Matches[0].Groups[1].Value.Trim()
 Write-Host "Surum: $verLine"
 Write-Host "Android release derlemesi basliyor ($Format)..."

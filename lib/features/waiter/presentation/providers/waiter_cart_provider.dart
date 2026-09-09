@@ -1,8 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/format_utils.dart';
 import '../../../../shared/domain/entities/order.dart';
 import '../../../../shared/domain/entities/product.dart';
 import '../../../../shared/domain/entities/product_extra.dart';
+
+String formatWaiterQuantity(double quantity) =>
+    FormatUtils.quantity(quantity);
 
 class WaiterCartItem {
   const WaiterCartItem({
@@ -15,7 +19,7 @@ class WaiterCartItem {
 
   final Product? product;
   final ProductExtra? catalogExtra;
-  final int quantity;
+  final double quantity;
   final List<String> selectedExtraIds;
   final String? note;
 
@@ -96,7 +100,7 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
         state.where((item) => item.product?.id == product.id).toList();
     if (matching.isEmpty) return;
     final line = matching.last;
-    setQuantity(line.lineKey, line.quantity - 1);
+    setQuantity(line.lineKey, _previousQuantity(product, line.quantity));
   }
 
   void addProduct(
@@ -112,7 +116,7 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
         // Güncel katalog fiyatı / adı kalsın.
         product: product,
         catalogExtra: current.catalogExtra,
-        quantity: current.quantity + 1,
+        quantity: _nextQuantity(product, current.quantity),
         selectedExtraIds: current.selectedExtraIds,
         note: current.note,
       );
@@ -149,7 +153,7 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     ];
   }
 
-  void setQuantity(String lineKey, int quantity) {
+  void setQuantity(String lineKey, double quantity) {
     if (quantity <= 0) {
       state = state.where((item) => item.lineKey != lineKey).toList();
       return;
@@ -199,6 +203,22 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
       );
       return item.toCartItem(product);
     }).toList();
+  }
+
+  /// Tost: 1 → 1.5 → 2 → 3… Diğer ürünler tam adet artar.
+  double _nextQuantity(Product product, double current) {
+    if (product.category != ProductCategory.tost) return current + 1;
+    if ((current - 1).abs() < 0.001) return 1.5;
+    if ((current - 1.5).abs() < 0.001) return 2;
+    return current + 1;
+  }
+
+  double _previousQuantity(Product product, double current) {
+    if (product.category != ProductCategory.tost) return current - 1;
+    if (current <= 1) return 0;
+    if ((current - 1.5).abs() < 0.001) return 1;
+    if ((current - 2).abs() < 0.001) return 1.5;
+    return current - 1;
   }
 
   ProductExtra? _resolveExtra(List<ProductExtra> extras, String id) {

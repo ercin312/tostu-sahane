@@ -25,6 +25,7 @@ abstract final class OrderWorkflow {
         order.isDineIn && sameBranch(user, order) && _kitchenCan(action, order),
       UserRole.waiter => false,
       UserRole.customer => false,
+      UserRole.designer => false,
     };
   }
 

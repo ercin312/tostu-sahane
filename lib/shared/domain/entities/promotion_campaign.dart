@@ -19,6 +19,8 @@ class PromotionCampaign extends Equatable {
     this.autoApply = false,
     this.isActive = true,
     this.sortOrder = 0,
+    this.expiresAt,
+    this.remainingUses,
   });
 
   final String id;
@@ -32,10 +34,21 @@ class PromotionCampaign extends Equatable {
   final bool autoApply;
   final bool isActive;
   final int sortOrder;
+  final DateTime? expiresAt;
+  /// null = sınırsız. 0 = hakkı kalmadı.
+  final int? remainingUses;
 
   String get normalizedCode => code.trim().toUpperCase();
 
   bool get hasCode => normalizedCode.isNotEmpty;
+
+  bool get isExpired {
+    final expiry = expiresAt;
+    if (expiry == null) return false;
+    return DateTime.now().isAfter(expiry);
+  }
+
+  bool get hasUsesLeft => remainingUses == null || remainingUses! > 0;
 
   PromotionCampaign copyWith({
     String? id,
@@ -47,6 +60,10 @@ class PromotionCampaign extends Equatable {
     bool? autoApply,
     bool? isActive,
     int? sortOrder,
+    DateTime? expiresAt,
+    int? remainingUses,
+    bool clearExpiresAt = false,
+    bool clearRemainingUses = false,
   }) {
     return PromotionCampaign(
       id: id ?? this.id,
@@ -58,6 +75,9 @@ class PromotionCampaign extends Equatable {
       autoApply: autoApply ?? this.autoApply,
       isActive: isActive ?? this.isActive,
       sortOrder: sortOrder ?? this.sortOrder,
+      expiresAt: clearExpiresAt ? null : (expiresAt ?? this.expiresAt),
+      remainingUses:
+          clearRemainingUses ? null : (remainingUses ?? this.remainingUses),
     );
   }
 
@@ -71,7 +91,19 @@ class PromotionCampaign extends Equatable {
         'auto_apply': autoApply,
         'is_active': isActive,
         'sort_order': sortOrder,
+        if (expiresAt != null) 'expires_at': expiresAt!.toUtc().toIso8601String(),
+        if (remainingUses != null) 'remaining_uses': remainingUses,
       };
+
+  static DateTime? _readDate(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    if (raw is String && raw.isNotEmpty) return DateTime.tryParse(raw);
+    if (raw is num) {
+      return DateTime.fromMillisecondsSinceEpoch(raw.toInt(), isUtc: true);
+    }
+    return null;
+  }
 
   factory PromotionCampaign.fromJson(Map<String, dynamic> json) {
     return PromotionCampaign(
@@ -84,6 +116,8 @@ class PromotionCampaign extends Equatable {
       autoApply: json['auto_apply'] as bool? ?? false,
       isActive: json['is_active'] as bool? ?? true,
       sortOrder: json['sort_order'] as int? ?? 0,
+      expiresAt: _readDate(json['expires_at']),
+      remainingUses: (json['remaining_uses'] as num?)?.toInt(),
     );
   }
 
@@ -98,6 +132,8 @@ class PromotionCampaign extends Equatable {
         autoApply,
         isActive,
         sortOrder,
+        expiresAt,
+        remainingUses,
       ];
 }
 

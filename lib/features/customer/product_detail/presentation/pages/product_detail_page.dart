@@ -45,22 +45,22 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     super.dispose();
   }
 
-  double _extrasTotal(Product product) {
-    return product.extras
+  double _extrasTotal(List<ProductExtra> extras) {
+    return extras
         .where((e) => _selectedExtraIds.contains(e.id))
         .fold<double>(0, (sum, e) => sum + e.price);
   }
 
-  double _unitPrice(Product product) {
-    var price = product.price + _extrasTotal(product);
+  double _unitPrice(Product product, List<ProductExtra> extras) {
+    var price = product.price + _extrasTotal(extras);
     if (_portionKey == LocaleKeys.portionLarge) {
       price += MockData.largePortionExtra;
     }
     return price;
   }
 
-  List<String> _selectedOptionLabels(Product product) {
-    return product.extras
+  List<String> _selectedOptionLabels(List<ProductExtra> extras) {
+    return extras
         .where((e) => _selectedExtraIds.contains(e.id))
         .map((e) => e.id)
         .toList();
@@ -76,12 +76,12 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     });
   }
 
-  void _addToCart(Product product) {
+  void _addToCart(Product product, List<ProductExtra> extras) {
     final branch = ref.read(branchProvider).value;
     if (branch == null) return;
     final unitPrice = product.isCombo
-        ? product.price + _extrasTotal(product)
-        : _unitPrice(product);
+        ? product.price + _extrasTotal(extras)
+        : _unitPrice(product, extras);
     ref.read(cartProvider.notifier).addItem(
           CartItem(
             id: generateCartItemId(),
@@ -89,7 +89,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             productNameKey: product.nameKey,
             unitPrice: unitPrice,
             quantity: _quantity,
-            selectedOptions: _selectedOptionLabels(product),
+            selectedOptions: _selectedOptionLabels(extras),
             portionKey: product.isCombo ? null : _portionKey,
             note: _noteController.text.isEmpty ? null : _noteController.text,
           ),
@@ -107,6 +107,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
   @override
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(productsProvider);
+    final catalogExtras = ref.watch(catalogExtrasProvider).value ?? const [];
 
     return productsAsync.when(
       loading: () => const Scaffold(
@@ -136,11 +137,21 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           });
         }
 
+        final toastIngredients = product.category == ProductCategory.tost ||
+                product.category == ProductCategory.combo
+            ? catalogExtras.where((extra) => extra.isToastIngredient).toList()
+            : const <ProductExtra>[];
+        final companionExtras = product.extras
+            .where((extra) => !extra.isToastIngredient)
+            .toList();
+        final selectableExtras = [
+          ...toastIngredients,
+          ...companionExtras,
+        ];
         final unitPrice = product.isCombo
-            ? product.price + _extrasTotal(product)
-            : _unitPrice(product);
+            ? product.price + _extrasTotal(selectableExtras)
+            : _unitPrice(product, selectableExtras);
         final isFavorite = ref.watch(isFavoriteProvider(product.id));
-        final displayExtras = product.extras;
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -309,10 +320,24 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     AppSpacing.lg,
                     AppSpacing.lg,
                   ),
-                  child: ProductExtrasSection(
-                    extras: displayExtras,
-                    selectedIds: _selectedExtraIds,
-                    onToggle: _toggleExtra,
+                  child: Column(
+                    children: [
+                      ProductExtrasSection(
+                        extras: toastIngredients,
+                        selectedIds: _selectedExtraIds,
+                        onToggle: _toggleExtra,
+                        title: LocaleKeys.customerToastExtrasTitle.tr(),
+                        subtitle: LocaleKeys.customerToastExtrasSubtitle.tr(),
+                      ),
+                      if (toastIngredients.isNotEmpty &&
+                          companionExtras.isNotEmpty)
+                        const SizedBox(height: AppSpacing.lg),
+                      ProductExtrasSection(
+                        extras: companionExtras,
+                        selectedIds: _selectedExtraIds,
+                        onToggle: _toggleExtra,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -416,7 +441,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _addToCart(product),
+                        onPressed: () => _addToCart(product, selectableExtras),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.white,

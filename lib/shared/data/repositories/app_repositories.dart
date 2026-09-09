@@ -190,29 +190,6 @@ class ProductRepository {
     return extra.copyWith(imageUrl: imageUrl);
   }
 
-  Future<void> _clearWaiterCatalogPriceOverride(
-    String itemId, {
-    required bool isExtra,
-  }) async {
-    if (AppConfig.useMockApi || !AppConfig.useFirestoreBackend) return;
-    try {
-      final current = await _firestore.getWaiterModeSettings();
-      final productPrices = Map<String, double>.from(current.productPrices);
-      final catalogExtraPrices =
-          Map<String, double>.from(current.catalogExtraPrices);
-      final changed = isExtra
-          ? catalogExtraPrices.remove(itemId) != null
-          : productPrices.remove(itemId) != null;
-      if (!changed) return;
-      await _firestore.updateWaiterModeSettings(
-        current.copyWith(
-          productPrices: productPrices,
-          catalogExtraPrices: catalogExtraPrices,
-        ),
-      );
-    } catch (_) {}
-  }
-
   Future<List<ProductExtra>> getCatalogExtras() async {
     final extras = await _loadCatalogExtras();
     final normalized = <ProductExtra>[];
@@ -243,10 +220,9 @@ class ProductRepository {
     if (AppConfig.useMockApi) return _mock.updateCatalogExtra(extra);
     if (AppConfig.useFirestoreBackend) {
       try {
-        final updated = await _firestore
+        final         updated = await _firestore
             .updateCatalogExtra(extra)
             .timeout(AppConfig.apiTimeout);
-        await _clearWaiterCatalogPriceOverride(extra.id, isExtra: true);
         return updated;
       } catch (_) {
         if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
@@ -414,7 +390,6 @@ class ProductRepository {
         updated = await _firestore
             .updateProduct(product)
             .timeout(AppConfig.apiTimeout);
-        await _clearWaiterCatalogPriceOverride(product.id, isExtra: false);
       } catch (_) {
         if (AppConfig.useWindowsOpsFirestoreRest) rethrow;
         updated = await _mock.updateProduct(product);

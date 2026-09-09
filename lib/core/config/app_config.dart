@@ -129,6 +129,15 @@ abstract final class AppConfig {
     defaultValue: '1033924819431528',
   );
 
+  /// Gemini API key for designer studio. Never commit real keys.
+  /// Build with: `--dart-define=GEMINI_API_KEY=...`
+  static const geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
+
+  static bool get hasGeminiApiKey => geminiApiKey.trim().isNotEmpty;
+
   /// Sadece mock modda demo kart formu.
   static bool get useDemoCardPayment => useMockApi && !usePaytr;
 }

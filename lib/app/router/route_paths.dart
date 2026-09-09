@@ -67,6 +67,8 @@ abstract final class RoutePaths {
   static const adminPromotions = '/admin/promotions';
   static const adminTools = '/admin/tools';
 
+  static const designerStudio = '/designer/studio';
+
   static String homeForRole(String roleName) {
     return switch (roleName) {
       'customer' => customerHome,
@@ -76,6 +78,7 @@ abstract final class RoutePaths {
       'kitchenStaff' => branchKitchen,
       'courier' => courierTasks,
       'superAdmin' => adminDashboard,
+      'designer' => designerStudio,
       _ => authLogin,
     };
   }

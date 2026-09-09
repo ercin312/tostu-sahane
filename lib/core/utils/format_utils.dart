@@ -20,4 +20,12 @@ abstract final class FormatUtils {
   }
 
   static String timeTr(DateTime instant) => dateTimeTr(instant, pattern: 'HH:mm');
+
+  /// 1.5 → 1,5 ; tam sayılar ondalıksız.
+  static String quantity(double quantity) {
+    if ((quantity - quantity.round()).abs() < 0.001) {
+      return quantity.round().toString();
+    }
+    return quantity.toStringAsFixed(1).replaceAll('.', ',');
+  }
 }

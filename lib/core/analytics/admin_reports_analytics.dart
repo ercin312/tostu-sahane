@@ -460,7 +460,7 @@ abstract final class AdminReportsCalculator {
       for (final item in order.items) {
         final current = stats[item.productNameKey];
         stats[item.productNameKey] = (
-          qty: (current?.qty ?? 0) + item.quantity,
+          qty: (current?.qty ?? 0) + item.quantity.round(),
           revenue: (current?.revenue ?? 0) + item.totalPrice,
         );
       }

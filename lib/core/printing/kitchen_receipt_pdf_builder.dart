@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import '../../shared/data/mock/mock_data.dart';
 import '../../shared/domain/entities/order.dart';
 import '../utils/cart_item_display_utils.dart';
+import '../utils/format_utils.dart';
 import '../utils/order_kitchen_utils.dart';
 import '../utils/order_modifiers_utils.dart';
 import '../utils/waiter_order_notes.dart';
@@ -555,7 +556,7 @@ abstract final class KitchenReceiptPdfBuilder {
                   fontSize: 10,
                 ),
                 _tableCell(
-                  'x${item.quantity}',
+                  'x${FormatUtils.quantity(item.quantity)}',
                   fontBold,
                   align: pw.TextAlign.center,
                   fontSize: 12,

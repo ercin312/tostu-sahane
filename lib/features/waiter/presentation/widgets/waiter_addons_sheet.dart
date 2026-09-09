@@ -113,10 +113,11 @@ class _WaiterAddonsGridDialog extends ConsumerWidget {
                                               item.catalogExtra?.id ==
                                               extra.id,
                                         )
-                                        .fold<int>(
+                                        .fold<double>(
                                           0,
                                           (sum, item) => sum + item.quantity,
-                                        ),
+                                        )
+                                        .round(),
                                     onTap: () => ref
                                         .read(waiterCartProvider.notifier)
                                         .addCatalogExtra(extra),
@@ -129,7 +130,7 @@ class _WaiterAddonsGridDialog extends ConsumerWidget {
                                             item.catalogExtra?.id == extra.id,
                                         orElse: () => WaiterCartItem(
                                           catalogExtra: extra,
-                                          quantity: 0,
+                                          quantity: 0.0,
                                         ),
                                       );
                                       if (line.catalogExtra?.id == extra.id) {

@@ -9,6 +9,8 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/format_utils.dart';
 import '../../../../../core/utils/localized_text.dart';
 import '../../../../../shared/domain/entities/product_extra.dart';
+import '../../../../../shared/domain/entities/waiter_mode_settings.dart';
+import '../../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 import '../../../presentation/providers/admin_provider.dart';
 import '../../../presentation/widgets/admin_image_picker_field.dart';
 
@@ -16,19 +18,31 @@ Future<void> showAdminCatalogExtraEditor(
   BuildContext context,
   WidgetRef ref, {
   ProductExtra? extra,
+  bool separateWaiterPrice = false,
+  ProductExtraKind defaultKind = ProductExtraKind.ingredient,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (ctx) => _AdminCatalogExtraEditorSheet(extra: extra),
+    builder: (ctx) => _AdminCatalogExtraEditorSheet(
+      extra: extra,
+      separateWaiterPrice: separateWaiterPrice,
+      defaultKind: defaultKind,
+    ),
   );
 }
 
 class _AdminCatalogExtraEditorSheet extends ConsumerStatefulWidget {
-  const _AdminCatalogExtraEditorSheet({this.extra});
+  const _AdminCatalogExtraEditorSheet({
+    this.extra,
+    this.separateWaiterPrice = false,
+    this.defaultKind = ProductExtraKind.ingredient,
+  });
 
   final ProductExtra? extra;
+  final bool separateWaiterPrice;
+  final ProductExtraKind defaultKind;
 
   @override
   ConsumerState<_AdminCatalogExtraEditorSheet> createState() =>
@@ -39,7 +53,9 @@ class _AdminCatalogExtraEditorSheetState
     extends ConsumerState<_AdminCatalogExtraEditorSheet> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
+  late final TextEditingController _waiterPriceController;
   String? _imageSource;
+  late ProductExtraKind _kind;
   var _saving = false;
 
   @override
@@ -51,37 +67,68 @@ class _AdminCatalogExtraEditorSheetState
           ? widget.extra!.price.toString()
           : '',
     );
+    final settings = ref.read(waiterModeSettingsProvider).valueOrNull;
+    final waiterOverride = widget.extra == null
+        ? null
+        : settings?.catalogExtraPrices[widget.extra!.id];
+    _waiterPriceController = TextEditingController(
+      text: (waiterOverride ?? widget.extra?.price ?? 0) > 0
+          ? (waiterOverride ?? widget.extra?.price ?? 0).toString()
+          : '',
+    );
     _imageSource = widget.extra?.imageUrl;
+    _kind = widget.extra?.kind ?? widget.defaultKind;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _waiterPriceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveWaiterPrice(String extraId, double waiterPrice) async {
+    final current = ref.read(waiterModeSettingsProvider).valueOrNull ??
+        WaiterModeSettings.defaults;
+    final prices = Map<String, double>.from(current.catalogExtraPrices)
+      ..[extraId] = waiterPrice;
+    await saveWaiterModeSettings(
+      ref,
+      current.copyWith(catalogExtraPrices: prices),
+    );
   }
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final price = double.tryParse(_priceController.text.replaceAll(',', '.'));
-    if (name.isEmpty || price == null) return;
+    final waiterPrice = widget.separateWaiterPrice
+        ? double.tryParse(_waiterPriceController.text.replaceAll(',', '.'))
+        : price;
+    if (name.isEmpty || price == null || waiterPrice == null) return;
 
     setState(() => _saving = true);
     try {
+      ProductExtra saved;
       if (widget.extra == null) {
-        await ref.read(adminCatalogExtrasProvider.notifier).createExtra(
+        saved = await ref.read(adminCatalogExtrasProvider.notifier).createExtra(
               name: name,
               price: price,
               imageUrl: _imageSource,
+              kind: _kind,
             );
       } else {
-        await ref.read(adminCatalogExtrasProvider.notifier).updateExtra(
+        saved = await ref.read(adminCatalogExtrasProvider.notifier).updateExtra(
               widget.extra!.copyWith(
                 name: name,
                 price: price,
                 imageUrl: _imageSource,
+                kind: _kind,
               ),
             );
+      }
+      if (widget.separateWaiterPrice) {
+        await _saveWaiterPrice(saved.id, waiterPrice);
       }
       if (mounted) Navigator.pop(context);
     } catch (_) {
@@ -135,12 +182,53 @@ class _AdminCatalogExtraEditorSheetState
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<ProductExtraKind>(
+              // ignore: deprecated_member_use
+              value: _kind,
+              decoration: InputDecoration(
+                labelText: LocaleKeys.adminExtraKind.tr(),
+                helperText: LocaleKeys.adminExtraKindHint.tr(),
+                helperMaxLines: 3,
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: ProductExtraKind.ingredient,
+                  child: Text(LocaleKeys.adminExtraKindIngredient.tr()),
+                ),
+                DropdownMenuItem(
+                  value: ProductExtraKind.addon,
+                  child: Text(LocaleKeys.adminExtraKindAddon.tr()),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _kind = value);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (widget.separateWaiterPrice) ...[
+              TextField(
+                controller: _waiterPriceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: LocaleKeys.adminWaiterPrice.tr(),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             TextField(
               controller: _priceController,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: LocaleKeys.adminExtraPrice.tr(),
+                labelText: widget.separateWaiterPrice
+                    ? LocaleKeys.adminOnlinePrice.tr()
+                    : LocaleKeys.adminExtraPrice.tr(),
+                helperText: widget.separateWaiterPrice
+                    ? LocaleKeys.adminPriceChannelsHint.tr()
+                    : LocaleKeys.adminOnlinePriceHint.tr(),
+                helperMaxLines: 3,
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -165,10 +253,16 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
   const AdminCatalogExtrasTab({
     super.key,
     this.showInlineAddButton = false,
+    this.separateWaiterPrice = false,
+    this.kinds = const [],
+    this.defaultKind = ProductExtraKind.ingredient,
   });
 
   /// Menü sayfasında FAB varken false; Garson Ayarları sekmesinde true.
   final bool showInlineAddButton;
+  final bool separateWaiterPrice;
+  final List<ProductExtraKind> kinds;
+  final ProductExtraKind defaultKind;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -179,7 +273,10 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
       skipLoadingOnRefresh: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
-      data: (extras) {
+      data: (allExtras) {
+        final extras = kinds.isEmpty
+            ? allExtras
+            : allExtras.where((extra) => kinds.contains(extra.kind)).toList();
         if (extras.isEmpty) {
           return Center(
             child: Padding(
@@ -191,11 +288,25 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
                     LocaleKeys.adminNoCatalogExtras.tr(),
                     textAlign: TextAlign.center,
                   ),
+                  if (kinds.isEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      LocaleKeys.adminExtraKindHint.tr(),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ],
                   if (showInlineAddButton) ...[
                     const SizedBox(height: AppSpacing.md),
                     FilledButton.icon(
-                      onPressed: () =>
-                          showAdminCatalogExtraEditor(context, ref),
+                      onPressed: () => showAdminCatalogExtraEditor(
+                        context,
+                        ref,
+                        separateWaiterPrice: separateWaiterPrice,
+                        defaultKind: defaultKind,
+                      ),
                       icon: const Icon(Icons.add),
                       label: Text(LocaleKeys.adminAddExtra.tr()),
                     ),
@@ -208,26 +319,55 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
 
         return ListView.separated(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: extras.length + (showInlineAddButton ? 1 : 0),
+          itemCount: extras.length + (showInlineAddButton ? 1 : 0) +
+              (kinds.isEmpty ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
           itemBuilder: (context, index) {
-            if (showInlineAddButton && index == 0) {
+            var cursor = 0;
+            if (kinds.isEmpty) {
+              if (index == cursor) {
+                return Text(
+                  LocaleKeys.adminExtraKindHint.tr(),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                );
+              }
+              cursor++;
+            }
+            if (showInlineAddButton && index == cursor) {
               return Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
-                  onPressed: () =>
-                      showAdminCatalogExtraEditor(context, ref),
+                  onPressed: () => showAdminCatalogExtraEditor(
+                    context,
+                    ref,
+                    separateWaiterPrice: separateWaiterPrice,
+                    defaultKind: defaultKind,
+                  ),
                   icon: const Icon(Icons.add),
                   label: Text(LocaleKeys.adminAddExtra.tr()),
                 ),
               );
             }
-            final extraIndex = showInlineAddButton ? index - 1 : index;
+            final extraIndex = index - cursor - (showInlineAddButton ? 1 : 0);
             final extra = extras[extraIndex];
             return _CatalogExtraListTile(
               extra: extra,
-              onEdit: () =>
-                  showAdminCatalogExtraEditor(context, ref, extra: extra),
+              waiterPrice: separateWaiterPrice
+                  ? (ref
+                          .watch(waiterModeSettingsProvider)
+                          .valueOrNull
+                          ?.catalogExtraPrices[extra.id] ??
+                      extra.price)
+                  : null,
+              onEdit: () => showAdminCatalogExtraEditor(
+                context,
+                ref,
+                extra: extra,
+                separateWaiterPrice: separateWaiterPrice,
+                defaultKind: defaultKind,
+              ),
               onDelete: () async {
                 final confirmed = await showDialog<bool>(
                   context: context,
@@ -268,9 +408,11 @@ class _CatalogExtraListTile extends StatelessWidget {
     required this.extra,
     required this.onEdit,
     required this.onDelete,
+    this.waiterPrice,
   });
 
   final ProductExtra extra;
+  final double? waiterPrice;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -320,7 +462,11 @@ class _CatalogExtraListTile extends StatelessWidget {
                           ),
                     ),
                     Text(
-                      FormatUtils.currency(extra.price),
+                      waiterPrice == null
+                          ? '${extra.isToastIngredient ? LocaleKeys.adminExtraKindIngredient.tr() : LocaleKeys.adminExtraKindAddon.tr()} · ${FormatUtils.currency(extra.price)}'
+                          : '${extra.isToastIngredient ? LocaleKeys.adminExtraKindIngredient.tr() : LocaleKeys.adminExtraKindAddon.tr()}\n'
+                              '${LocaleKeys.adminWaiterPrice.tr()}: ${FormatUtils.currency(waiterPrice!)}\n'
+                              '${LocaleKeys.adminOnlinePrice.tr()}: ${FormatUtils.currency(extra.price)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
                           ),

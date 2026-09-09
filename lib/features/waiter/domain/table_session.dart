@@ -17,11 +17,12 @@ class TableSession {
 
   int get orderCount => openOrders.length;
 
-  int get itemCount => openOrders.fold(
+  int get itemCount => openOrders.fold<double>(
         0,
         (sum, order) =>
-            sum + order.items.fold(0, (s, item) => s + item.quantity),
-      );
+            sum +
+            order.items.fold<double>(0, (s, item) => s + item.quantity),
+      ).round();
 }
 
 bool isOpenDineInOrder(Order order) =>

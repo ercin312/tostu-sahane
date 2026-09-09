@@ -222,7 +222,9 @@ Future<void> showProductFormDialog(
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: LocaleKeys.adminProductPrice.tr(),
+                      labelText: LocaleKeys.adminOnlinePrice.tr(),
+                      helperText: LocaleKeys.adminOnlinePriceHint.tr(),
+                      helperMaxLines: 3,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -399,6 +401,10 @@ Future<void> showUserFormDialog(
                         child: Text(LocaleKeys.authRoleCourier.tr()),
                       ),
                       DropdownMenuItem(
+                        value: 'designer',
+                        child: Text(LocaleKeys.authRoleDesigner.tr()),
+                      ),
+                      DropdownMenuItem(
                         value: 'customer',
                         child: Text(LocaleKeys.authRoleCustomer.tr()),
                       ),
@@ -523,6 +529,7 @@ String adminRoleLabel(String role) {
     'waiter' => LocaleKeys.authRoleWaiter.tr(),
     'kitchenStaff' => LocaleKeys.authRoleKitchenStaff.tr(),
     'courier' => LocaleKeys.authRoleCourier.tr(),
+    'designer' => LocaleKeys.authRoleDesigner.tr(),
     'customer' => LocaleKeys.authRoleCustomer.tr(),
     'superAdmin' => LocaleKeys.authRoleAdmin.tr(),
     _ => role,

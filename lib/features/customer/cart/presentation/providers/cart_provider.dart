@@ -93,7 +93,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
         productId: json['product_id'] as String,
         productNameKey: json['product_name_key'] as String,
         unitPrice: (json['unit_price'] as num).toDouble(),
-        quantity: json['quantity'] as int,
+        quantity: (json['quantity'] as num).toDouble(),
         selectedOptions: (json['selected_options'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
@@ -156,7 +156,8 @@ class CartNotifier extends Notifier<List<CartItem>> {
 
   bool get meetsMinimumOrder => subtotal >= AppConstants.minimumOrderAmount;
 
-  int get itemCount => state.fold(0, (sum, item) => sum + item.quantity);
+  int get itemCount =>
+      state.fold<double>(0, (sum, item) => sum + item.quantity).round();
 }
 
 final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(

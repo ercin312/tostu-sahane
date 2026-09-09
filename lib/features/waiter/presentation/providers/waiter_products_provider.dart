@@ -31,7 +31,9 @@ final waiterPosSectionProductsProvider =
 final waiterCatalogExtrasProvider = Provider<List<ProductExtra>>((ref) {
   final extras = ref.watch(catalogExtrasProvider).value ?? [];
   final settings = ref.watch(waiterModeSettingsProvider).valueOrNull;
-  final priced = applyWaiterPricesToCatalogExtras(extras, settings);
+  final priced = applyWaiterPricesToCatalogExtras(extras, settings)
+      .where((extra) => !extra.isToastIngredient)
+      .toList();
   return sortByDisplayOrder(
     items: priced,
     displayOrder: settings?.catalogExtraDisplayOrder ?? const [],

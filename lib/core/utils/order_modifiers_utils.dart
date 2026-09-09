@@ -1,6 +1,7 @@
 import '../../shared/domain/entities/order.dart';
 import '../../shared/domain/entities/product_extra.dart';
 import 'cart_item_display_utils.dart';
+import 'format_utils.dart';
 import 'localized_text.dart';
 import '../utils/waiter_order_notes.dart';
 import 'waiter_preparation_tags.dart';
@@ -45,7 +46,7 @@ abstract final class OrderModifiersUtils {
     List<ProductExtra> catalog,
   ) {
     final title =
-        '${item.quantity}x ${CartItemDisplayUtils.productTitle(item)}';
+        '${FormatUtils.quantity(item.quantity)}x ${CartItemDisplayUtils.productTitle(item)}';
     final modifiers = itemModifierLines(item, catalog);
     if (modifiers.isEmpty) return title;
     return '$title · ${modifiers.join(' · ')}';
@@ -60,7 +61,7 @@ abstract final class OrderModifiersUtils {
       final modifiers = itemModifierLines(item, catalog);
       if (modifiers.isEmpty) continue;
       lines.add(
-        '${item.quantity}x ${CartItemDisplayUtils.productTitle(item)}: '
+        '${FormatUtils.quantity(item.quantity)}x ${CartItemDisplayUtils.productTitle(item)}: '
         '${modifiers.join(' · ')}',
       );
     }

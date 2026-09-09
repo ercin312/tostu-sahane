@@ -224,7 +224,9 @@ class _QrMenuProductEditorSheetState
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: LocaleKeys.adminProductPrice.tr(),
+                labelText: LocaleKeys.adminOnlinePrice.tr(),
+                helperText: LocaleKeys.adminOnlinePriceHint.tr(),
+                helperMaxLines: 3,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),

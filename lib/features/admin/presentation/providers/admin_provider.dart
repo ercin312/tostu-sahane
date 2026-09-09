@@ -158,24 +158,27 @@ class AdminCatalogExtrasNotifier extends AsyncNotifier<List<ProductExtra>> {
     return ref.read(productRepositoryProvider).getCatalogExtras();
   }
 
-  Future<void> createExtra({
+  Future<ProductExtra> createExtra({
     required String name,
     required double price,
     String? imageUrl,
+    ProductExtraKind kind = ProductExtraKind.ingredient,
   }) async {
     final extra = ProductExtra(
       id: 'ex_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
       price: price,
       imageUrl: imageUrl,
+      kind: kind,
     );
     final created =
         await ref.read(productRepositoryProvider).createCatalogExtra(extra);
     state = AsyncData([...(state.value ?? []), created]);
     _invalidateCatalogCaches(ref);
+    return created;
   }
 
-  Future<void> updateExtra(ProductExtra extra) async {
+  Future<ProductExtra> updateExtra(ProductExtra extra) async {
     final updated =
         await ref.read(productRepositoryProvider).updateCatalogExtra(extra);
     state = AsyncData([
@@ -183,6 +186,7 @@ class AdminCatalogExtrasNotifier extends AsyncNotifier<List<ProductExtra>> {
         if (item.id == updated.id) updated else item,
     ]);
     _invalidateCatalogCaches(ref);
+    return updated;
   }
 
   Future<void> deleteExtra(String extraId) async {

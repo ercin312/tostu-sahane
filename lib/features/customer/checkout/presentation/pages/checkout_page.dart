@@ -14,7 +14,9 @@ import '../../../../../shared/data/repositories/payment_repository.dart';
 import '../../../../../shared/domain/entities/delivery_address.dart';
 import '../../../../../shared/domain/entities/branch.dart';
 import '../../../../../shared/domain/entities/order.dart';
+import '../../../../../shared/domain/entities/promotion_campaign.dart';
 import '../../../../../shared/presentation/providers/orders_provider.dart';
+import '../../../../../shared/presentation/providers/promotion_providers.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../customer/cart/presentation/providers/cart_provider.dart';
 import '../../../../customer/home/presentation/providers/branch_provider.dart';
@@ -25,6 +27,7 @@ import '../../../../../shared/presentation/providers/delivery_settings_provider.
 import '../../../../../shared/presentation/providers/checkout_paytr_providers.dart';
 import '../../../../../shared/presentation/providers/paytr_settings_provider.dart';
 import '../models/paytr_checkout_args.dart';
+import '../../../cart/presentation/widgets/campaign_picker_sheet.dart';
 import '../providers/coupon_provider.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
@@ -39,14 +42,32 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool _deliveryNow = true;
   DateTime? _scheduledAt;
   final _noteController = TextEditingController();
-  final _couponController = TextEditingController();
   var _isPlacingOrder = false;
 
   @override
   void dispose() {
     _noteController.dispose();
-    _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _consumeCampaignUse() async {
+    final selected = ref.read(appliedCheckoutDiscountProvider);
+    final campaignId = selected?.campaignId;
+    if (campaignId == null) return;
+    final campaigns = ref.read(activePromotionCampaignsProvider);
+    PromotionCampaign? campaign;
+    for (final item in campaigns) {
+      if (item.id == campaignId) {
+        campaign = item;
+        break;
+      }
+    }
+    final remaining = campaign?.remainingUses;
+    if (campaign == null || remaining == null || remaining <= 0) return;
+    await savePromotionCampaign(
+      ref,
+      campaign.copyWith(remainingUses: remaining - 1),
+    );
   }
 
   String _addressTitle(DeliveryAddress address) {
@@ -360,6 +381,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           );
 
       await MetaAnalytics.logPurchase(order);
+      await _consumeCampaignUse();
 
       ref.read(cartProvider.notifier).clear();
       ref.read(couponNotifierProvider).clear();
@@ -649,47 +671,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     ),
                   ),
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  LocaleKeys.checkoutCouponTitle.tr(),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _couponController,
-                        decoration: InputDecoration(
-                          hintText: LocaleKeys.checkoutCouponHint.tr(),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final error = await ref
-                            .read(couponNotifierProvider)
-                            .apply(_couponController.text);
-                        if (!context.mounted) return;
-                        if (error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(error.tr())),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content:
-                                  Text(LocaleKeys.checkoutCouponApplied.tr()),
-                            ),
-                          );
-                        }
-                      },
-                      child: Text(LocaleKeys.checkoutCouponApply.tr()),
-                    ),
-                  ],
-                ),
+                const CampaignPickerTile(),
                 if (discount > 0 && discountLabel != null)
                   Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.xs),

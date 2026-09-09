@@ -8,7 +8,7 @@ Client Token: Meta Developers → Settings → Advanced → Client Token
 Detay: docs/META_APP_EVENTS.md
 Test: flutter run --dart-define=USE_MOCK_API=false --dart-define=META_TEST_EVENTS=true
 
-=== Release build (1.1.6+16) ===
+=== Release build (1.1.12+22) ===
 # Android (Play / cihaz) — PowerShell, bu PC:
 cd "C:\Users\excalibur\Desktop\Tostu Sahane"
 .\scripts\build_android.ps1
@@ -58,3 +58,7 @@ Sahane123!
 Kurye
 kurye1
 Sahane123!
+
+Demo giriş (mock)
+Kullanıcı: designer1
+Şifre: Sahane123!

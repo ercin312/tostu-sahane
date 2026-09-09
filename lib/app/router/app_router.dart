@@ -39,6 +39,7 @@ import '../../features/admin/phone_ai/presentation/pages/admin_phone_ai_training
 import '../../features/admin/paytr_settings/presentation/pages/admin_paytr_settings_page.dart';
 import '../../features/admin/promotions/presentation/pages/admin_promotions_page.dart';
 import '../../features/admin/presentation/pages/admin_tools_page.dart';
+import '../../features/designer/presentation/pages/designer_studio_page.dart';
 import '../../features/customer/cart/presentation/pages/cart_page.dart';
 import '../../features/customer/checkout/presentation/models/paytr_checkout_args.dart';
 import '../../features/customer/checkout/presentation/pages/paytr_payment_page.dart';
@@ -388,6 +389,10 @@ GoRouter createAppRouter(Ref ref) {
             builder: (context, state) => const AdminToolsPage(),
           ),
         ],
+      ),
+      GoRoute(
+        path: RoutePaths.designerStudio,
+        builder: (context, state) => const DesignerStudioPage(),
       ),
     ],
   );

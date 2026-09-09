@@ -392,7 +392,9 @@ class _AdminProductEditorSheetState
 
               decoration: InputDecoration(
 
-                labelText: LocaleKeys.adminProductPrice.tr(),
+                labelText: LocaleKeys.adminOnlinePrice.tr(),
+                helperText: LocaleKeys.adminOnlinePriceHint.tr(),
+                helperMaxLines: 3,
 
               ),
 

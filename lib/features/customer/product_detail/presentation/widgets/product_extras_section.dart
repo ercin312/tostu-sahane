@@ -32,6 +32,10 @@ class ProductExtrasSection extends StatelessWidget {
 
     required this.onToggle,
 
+    this.title,
+
+    this.subtitle,
+
   });
 
 
@@ -41,6 +45,10 @@ class ProductExtrasSection extends StatelessWidget {
   final Set<String> selectedIds;
 
   final ValueChanged<ProductExtra> onToggle;
+
+  final String? title;
+
+  final String? subtitle;
 
 
 
@@ -74,7 +82,7 @@ class ProductExtrasSection extends StatelessWidget {
 
                   Text(
 
-                    LocaleKeys.customerExtrasTitle.tr(),
+                    title ?? LocaleKeys.customerExtrasTitle.tr(),
 
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
 
@@ -84,13 +92,13 @@ class ProductExtrasSection extends StatelessWidget {
 
                   ),
 
-                  if (LocaleKeys.customerExtrasSubtitle.tr().isNotEmpty) ...[
+                  if ((subtitle ?? LocaleKeys.customerExtrasSubtitle.tr()).isNotEmpty) ...[
 
                     const SizedBox(height: 2),
 
                     Text(
 
-                      LocaleKeys.customerExtrasSubtitle.tr(),
+                      subtitle ?? LocaleKeys.customerExtrasSubtitle.tr(),
 
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
 

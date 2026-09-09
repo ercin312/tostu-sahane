@@ -54,6 +54,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       UserRole.kitchenStaff => RoutePaths.branchKitchen,
       UserRole.courier => RoutePaths.courierTasks,
       UserRole.superAdmin => RoutePaths.adminDashboard,
+      UserRole.designer => RoutePaths.designerStudio,
     };
   }
 

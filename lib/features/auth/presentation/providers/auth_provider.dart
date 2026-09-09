@@ -294,6 +294,7 @@ class AuthNotifier extends Notifier<AuthState?> {
       UserRole.kitchenStaff => LocaleKeys.authRoleKitchenStaff,
       UserRole.courier => LocaleKeys.authRoleCourier,
       UserRole.superAdmin => LocaleKeys.authRoleAdmin,
+      UserRole.designer => LocaleKeys.authRoleDesigner,
     };
   }
 

@@ -69,6 +69,7 @@ abstract final class EntityMappers {
         name: model.name,
         price: model.price,
         imageUrl: model.imageUrl,
+        kind: ProductExtraKindX.parse(model.kind),
       );
 
   static Order toOrder(OrderModel model) {
@@ -299,6 +300,7 @@ abstract final class EntityMappers {
         name: extra.name,
         price: extra.price,
         imageUrl: extra.imageUrl,
+        kind: extra.kind.name,
       );
 
   static User toUser(AuthUserModel model) => User(

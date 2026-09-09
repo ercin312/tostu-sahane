@@ -1,5 +1,6 @@
 import '../../shared/domain/entities/order.dart';
 import '../../shared/domain/entities/product_extra.dart';
+import 'format_utils.dart';
 import 'localized_text.dart';
 
 abstract final class CartItemDisplayUtils {
@@ -30,7 +31,9 @@ abstract final class CartItemDisplayUtils {
     List<ProductExtra> catalog, {
     bool includePortion = true,
   }) {
-    final buffer = StringBuffer('${item.quantity}x ${productTitle(item)}');
+    final buffer = StringBuffer(
+      '${FormatUtils.quantity(item.quantity)}x ${productTitle(item)}',
+    );
     final extras = extraLabels(item, catalog);
     if (extras.isNotEmpty) {
       buffer.write(' (+ ${extras.join(', ')})');

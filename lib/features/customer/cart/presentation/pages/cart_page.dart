@@ -20,8 +20,10 @@ import '../../../../../shared/domain/entities/order.dart';
 import '../../../../../shared/domain/entities/product.dart';
 import '../../../../../shared/domain/entities/product_extra.dart';
 import '../../../home/presentation/providers/branch_provider.dart';
+import '../../../checkout/presentation/providers/coupon_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/delivery_providers.dart';
+import '../widgets/campaign_picker_sheet.dart';
 import '../../../../../shared/presentation/providers/delivery_settings_provider.dart';
 
 class CartPage extends ConsumerWidget {
@@ -33,7 +35,9 @@ class CartPage extends ConsumerWidget {
     final products = ref.watch(productsProvider).value ?? [];
     final subtotal = ref.watch(cartSubtotalProvider);
     final meetsMinimum = ref.watch(cartMeetsMinimumProvider);
-    final total = ref.watch(cartTotalProvider);
+    final total = ref.watch(checkoutTotalProvider);
+    final discount = ref.watch(checkoutDiscountProvider);
+    final discountLabel = ref.watch(checkoutDiscountLabelProvider);
     final deliveryFee = ref.watch(deliveryFeeProvider);
     final freeDeliveryMinOrder = ref.watch(effectiveFreeDeliveryMinOrderProvider);
     final branch = ref.watch(branchProvider).value;
@@ -63,10 +67,10 @@ class CartPage extends ConsumerWidget {
                         catalog: catalog,
                         onIncrease: () => ref
                             .read(cartProvider.notifier)
-                            .updateQuantity(item.id, item.quantity + 1),
+                            .updateQuantity(item.id, (item.quantity + 1).round()),
                         onDecrease: () => ref
                             .read(cartProvider.notifier)
-                            .updateQuantity(item.id, item.quantity - 1),
+                            .updateQuantity(item.id, (item.quantity - 1).round()),
                         onRemove: () => ref
                             .read(cartProvider.notifier)
                             .removeItem(item.id),
@@ -85,6 +89,8 @@ class CartPage extends ConsumerWidget {
                         label: LocaleKeys.customerSubtotal.tr(),
                         value: FormatUtils.currency(subtotal),
                       ),
+                      const CampaignPickerTile(),
+                      const SizedBox(height: AppSpacing.sm),
                       _PriceRow(
                         label: LocaleKeys.customerDeliveryFee.tr(),
                         value: deliveryFee <= 0
@@ -108,6 +114,14 @@ class CartPage extends ConsumerWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
+                      if (discount > 0) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        _PriceRow(
+                          label: discountLabel ??
+                              LocaleKeys.campaignPickerCartCta.tr(),
+                          value: '-${FormatUtils.currency(discount)}',
+                        ),
+                      ],
                       const Divider(),
                       _PriceRow(
                         label: LocaleKeys.customerTotal.tr(),
@@ -150,10 +164,9 @@ class CartPage extends ConsumerWidget {
                                 }
                                 final cart = ref.read(cartProvider);
                                 final total = ref.read(cartTotalProvider);
-                                final numItems = cart.fold<int>(
-                                  0,
-                                  (s, i) => s + i.quantity,
-                                );
+                                final numItems = cart
+                                    .fold<double>(0, (s, i) => s + i.quantity)
+                                    .round();
                                 MetaAnalytics.logInitiatedCheckout(
                                   totalPrice: total,
                                   numItems: numItems,
@@ -240,7 +253,7 @@ class _CartItemTile extends StatelessWidget {
             ),
           ),
           IconButton(onPressed: onDecrease, icon: const Icon(Icons.remove)),
-          Text('${item.quantity}'),
+          Text(FormatUtils.quantity(item.quantity)),
           IconButton(onPressed: onIncrease, icon: const Icon(Icons.add)),
           IconButton(
             onPressed: onRemove,

@@ -8,6 +8,7 @@ enum UserRole {
   kitchenStaff,
   courier,
   superAdmin,
+  designer,
 }
 
 class User extends Equatable {

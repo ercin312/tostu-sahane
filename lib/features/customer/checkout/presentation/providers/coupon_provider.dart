@@ -4,6 +4,7 @@ import '../../../../../core/utils/promotion_utils.dart';
 import '../../../../../shared/domain/entities/coupon.dart';
 import '../../../../../shared/presentation/providers/repository_providers.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
+import '../../../../../shared/domain/entities/promotion_campaign.dart';
 import '../../../../../shared/presentation/providers/promotion_providers.dart';
 
 class CheckoutDiscountSelection {
@@ -11,6 +12,7 @@ class CheckoutDiscountSelection {
     required this.label,
     required this.amount,
     this.code,
+    this.campaignId,
     this.isAuto = false,
     this.isPromotion = false,
   });
@@ -18,6 +20,7 @@ class CheckoutDiscountSelection {
   final String label;
   final double amount;
   final String? code;
+  final String? campaignId;
   final bool isAuto;
   final bool isPromotion;
 }
@@ -60,6 +63,23 @@ final autoCheckoutDiscountProvider = Provider<CheckoutDiscountSelection?>((ref) 
 
 final checkoutDiscountProvider = Provider<double>((ref) {
   final manual = ref.watch(appliedCheckoutDiscountProvider);
+  if (manual?.campaignId != null) {
+    final campaigns = ref.watch(activePromotionCampaignsProvider);
+    PromotionCampaign? campaign;
+    for (final item in campaigns) {
+      if (item.id == manual!.campaignId) {
+        campaign = item;
+        break;
+      }
+    }
+    if (campaign == null) return 0;
+    return PromotionUtils.discountFor(
+      campaign: campaign,
+      subtotal: ref.watch(cartSubtotalProvider),
+      cartItems: ref.watch(cartProvider),
+      productCategories: ref.watch(productCategoryMapProvider),
+    );
+  }
   if (manual != null) return manual.amount;
   return ref.watch(autoCheckoutDiscountProvider)?.amount ?? 0;
 });
@@ -111,7 +131,8 @@ class CouponNotifier {
           CheckoutDiscountSelection(
         label: promotion.title,
         amount: discount,
-        code: promotion.normalizedCode,
+        code: promotion.hasCode ? promotion.normalizedCode : null,
+        campaignId: promotion.id,
         isPromotion: true,
       );
       return null;
@@ -130,6 +151,26 @@ class CouponNotifier {
       isPromotion: false,
     );
     return null;
+  }
+
+  void applyCampaign(PromotionCampaign campaign) {
+    final subtotal = _ref.read(cartSubtotalProvider);
+    final cart = _ref.read(cartProvider);
+    final categories = _ref.read(productCategoryMapProvider);
+    final discount = PromotionUtils.discountFor(
+      campaign: campaign,
+      subtotal: subtotal,
+      cartItems: cart,
+      productCategories: categories,
+    );
+    _ref.read(appliedCheckoutDiscountProvider.notifier).state =
+        CheckoutDiscountSelection(
+      label: campaign.title,
+      amount: discount,
+      code: campaign.hasCode ? campaign.normalizedCode : null,
+      campaignId: campaign.id,
+      isPromotion: true,
+    );
   }
 
   void clear() {

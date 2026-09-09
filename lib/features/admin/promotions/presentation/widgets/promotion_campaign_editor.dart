@@ -62,10 +62,12 @@ class _PromotionCampaignEditorSheetState
   late final TextEditingController _valueController;
   late final TextEditingController _minOrderController;
   late final TextEditingController _codeController;
+  late final TextEditingController _remainingController;
 
   late PromotionType _type;
   late bool _autoApply;
   late bool _isActive;
+  DateTime? _expiresAt;
   var _saving = false;
 
   @override
@@ -82,9 +84,13 @@ class _PromotionCampaignEditorSheetState
           : '${campaign?.minOrderAmount ?? ''}',
     );
     _codeController = TextEditingController(text: campaign?.code ?? '');
+    _remainingController = TextEditingController(
+      text: campaign?.remainingUses == null ? '' : '${campaign!.remainingUses}',
+    );
     _type = campaign?.type ?? PromotionType.percentDiscount;
     _autoApply = campaign?.autoApply ?? false;
     _isActive = campaign?.isActive ?? true;
+    _expiresAt = campaign?.expiresAt;
   }
 
   @override
@@ -93,6 +99,7 @@ class _PromotionCampaignEditorSheetState
     _valueController.dispose();
     _minOrderController.dispose();
     _codeController.dispose();
+    _remainingController.dispose();
     super.dispose();
   }
 
@@ -105,6 +112,10 @@ class _PromotionCampaignEditorSheetState
       _valueController.text.trim().replaceAll(',', '.'),
     );
     final code = _codeController.text.trim().toUpperCase();
+    final remainingText = _remainingController.text.trim();
+    final remaining = remainingText.isEmpty
+        ? null
+        : int.tryParse(remainingText);
 
     if (title.isEmpty || minOrder == null || minOrder < 0) {
       _showInvalid();
@@ -116,6 +127,10 @@ class _PromotionCampaignEditorSheetState
       return;
     }
     if (code.isNotEmpty && _autoApply) {
+      _showInvalid();
+      return;
+    }
+    if (remainingText.isNotEmpty && (remaining == null || remaining < 0)) {
       _showInvalid();
       return;
     }
@@ -132,6 +147,8 @@ class _PromotionCampaignEditorSheetState
       autoApply: code.isEmpty && _autoApply,
       isActive: _isActive,
       sortOrder: widget.campaign?.sortOrder ?? 0,
+      expiresAt: _expiresAt,
+      remainingUses: remaining,
     );
     await widget.onSave(campaign);
     if (mounted) setState(() => _saving = false);
@@ -237,6 +254,51 @@ class _PromotionCampaignEditorSheetState
               ),
               onChanged: (_) => setState(() {}),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _remainingController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: LocaleKeys.adminPromotionRemaining.tr(),
+                helperText: LocaleKeys.adminPromotionRemainingHint.tr(),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _expiresAt ?? DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                  lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+                );
+                if (picked == null) return;
+                setState(() {
+                  _expiresAt = DateTime(
+                    picked.year,
+                    picked.month,
+                    picked.day,
+                    23,
+                    59,
+                  );
+                });
+              },
+              icon: const Icon(Icons.event),
+              label: Text(
+                _expiresAt == null
+                    ? LocaleKeys.adminPromotionExpires.tr()
+                    : DateFormat('d MMM yyyy', 'tr_TR').format(_expiresAt!),
+              ),
+            ),
+            if (_expiresAt != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => setState(() => _expiresAt = null),
+                  child: Text(LocaleKeys.commonRemove.tr()),
+                ),
+              ),
             if (_codeController.text.trim().isEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
               SwitchListTile(

@@ -8,6 +8,7 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/format_utils.dart';
 import '../../../../../core/utils/waiter_pos_catalog_utils.dart';
 import '../../../../../shared/domain/entities/product.dart';
+import '../../../../../shared/domain/entities/product_extra.dart';
 import '../../../../../shared/domain/entities/waiter_mode_settings.dart';
 import '../../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
 import '../../../../waiter/domain/waiter_pos_catalog.dart';
@@ -107,6 +108,25 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
     await _persistCatalog(settings, catalog);
   }
 
+  Product? _linkedProduct(WaiterPosNode node) {
+    final linked = node.productId;
+    if (linked == null || linked.isEmpty) return null;
+    final products = ref.read(adminProductsProvider).value ?? [];
+    for (final product in products) {
+      if (product.id == linked) return product;
+    }
+    return null;
+  }
+
+  double _waiterPriceOf(WaiterModeSettings settings, WaiterPosNode node) {
+    final linked = node.productId;
+    if (linked != null && linked.isNotEmpty) {
+      final override = settings.productPrices[linked];
+      if (override != null && override >= 0) return override;
+    }
+    return node.price ?? _linkedProduct(node)?.price ?? 0;
+  }
+
   Future<void> _addProduct(WaiterModeSettings settings) async {
     final data = await _promptProduct();
     if (data == null) return;
@@ -116,7 +136,7 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
       final created = await ref.read(adminProductsProvider.notifier).createProduct(
             name: data.name,
             description: data.name,
-            price: data.price,
+            price: data.onlinePrice,
             category: category,
           );
       final catalog = _workingCatalog(settings);
@@ -125,7 +145,7 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
       final node = WaiterPosNode(
         id: newPosNodeId('wp'),
         label: data.name.toUpperCase(),
-        price: data.price,
+        price: data.waiterPrice,
         productId: created.id,
       );
       catalog[_section.name] = insertPosChild(
@@ -133,9 +153,11 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
         folderIds: folderIds,
         child: node,
       );
+      final productPrices = Map<String, double>.from(settings.productPrices)
+        ..[created.id] = data.waiterPrice;
       await saveWaiterModeSettings(
         ref,
-        settings.copyWith(posCatalog: catalog),
+        settings.copyWith(posCatalog: catalog, productPrices: productPrices),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -155,29 +177,24 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
     WaiterModeSettings settings,
     WaiterPosNode node,
   ) async {
+    final existing = _linkedProduct(node);
     final data = await _promptProduct(
       initialName: node.label,
-      initialPrice: node.price ?? 0,
+      initialWaiterPrice: _waiterPriceOf(settings, node),
+      initialOnlinePrice: existing?.price ?? node.price ?? 0,
     );
     if (data == null) return;
     setState(() => _busy = true);
     try {
-      final products = ref.read(adminProductsProvider).value ?? [];
-      final linked = node.productId;
-      if (linked != null && linked.isNotEmpty) {
-        Product? existing;
-        for (final p in products) {
-          if (p.id == linked) {
-            existing = p;
-            break;
-          }
-        }
-        if (existing != null) {
+      if (existing != null) {
+        final nameChanged = existing.nameKey != data.name;
+        final onlineChanged = existing.price != data.onlinePrice;
+        if (nameChanged || onlineChanged) {
           await ref.read(adminProductsProvider.notifier).updateProduct(
                 existing.copyWith(
                   nameKey: data.name,
                   descriptionKey: data.name,
-                  price: data.price,
+                  price: data.onlinePrice,
                 ),
               );
         }
@@ -188,12 +205,17 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
         nodeId: node.id,
         update: (current) => current.copyWith(
           label: data.name.toUpperCase(),
-          price: data.price,
+          price: data.waiterPrice,
         ),
       );
+      final productPrices = Map<String, double>.from(settings.productPrices);
+      final linked = node.productId;
+      if (linked != null && linked.isNotEmpty) {
+        productPrices[linked] = data.waiterPrice;
+      }
       await saveWaiterModeSettings(
         ref,
-        settings.copyWith(posCatalog: catalog),
+        settings.copyWith(posCatalog: catalog, productPrices: productPrices),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -274,15 +296,23 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
     return result;
   }
 
-  Future<({String name, double price})?> _promptProduct({
+  Future<({String name, double waiterPrice, double onlinePrice})?>
+      _promptProduct({
     String initialName = '',
-    double initialPrice = 0,
+    double initialWaiterPrice = 0,
+    double? initialOnlinePrice,
   }) async {
     final nameCtrl = TextEditingController(text: initialName);
-    final priceCtrl = TextEditingController(
-      text: initialPrice > 0 ? initialPrice.toStringAsFixed(0) : '',
+    final waiterCtrl = TextEditingController(
+      text: initialWaiterPrice > 0 ? initialWaiterPrice.toStringAsFixed(0) : '',
     );
-    final result = await showDialog<({String name, double price})>(
+    final onlineCtrl = TextEditingController(
+      text: (initialOnlinePrice ?? initialWaiterPrice) > 0
+          ? (initialOnlinePrice ?? initialWaiterPrice).toStringAsFixed(0)
+          : '',
+    );
+    final result =
+        await showDialog<({String name, double waiterPrice, double onlinePrice})>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(LocaleKeys.adminWaiterPosAddProduct.tr()),
@@ -299,10 +329,22 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
-              controller: priceCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              controller: waiterCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: LocaleKeys.adminProductPrice.tr(),
+                labelText: LocaleKeys.adminWaiterPrice.tr(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: onlineCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: LocaleKeys.adminOnlinePrice.tr(),
+                helperText: LocaleKeys.adminPriceChannelsHint.tr(),
+                helperMaxLines: 3,
               ),
             ),
           ],
@@ -315,12 +357,23 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
           FilledButton(
             onPressed: () {
               final name = nameCtrl.text.trim();
-              final price = double.tryParse(
-                    priceCtrl.text.trim().replaceAll(',', '.'),
+              final waiterPrice = double.tryParse(
+                    waiterCtrl.text.trim().replaceAll(',', '.'),
                   ) ??
                   0;
-              if (name.isEmpty || price < 0) return;
-              Navigator.pop(ctx, (name: name, price: price));
+              final onlinePrice = double.tryParse(
+                    onlineCtrl.text.trim().replaceAll(',', '.'),
+                  ) ??
+                  waiterPrice;
+              if (name.isEmpty || waiterPrice < 0 || onlinePrice < 0) return;
+              Navigator.pop(
+                ctx,
+                (
+                  name: name,
+                  waiterPrice: waiterPrice,
+                  onlinePrice: onlinePrice,
+                ),
+              );
             },
             child: Text(LocaleKeys.commonSave.tr()),
           ),
@@ -328,14 +381,15 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
       ),
     );
     nameCtrl.dispose();
-    priceCtrl.dispose();
+    waiterCtrl.dispose();
+    onlineCtrl.dispose();
     return result;
   }
 
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(waiterModeSettingsProvider);
-    final productsAsync = ref.watch(adminProductsProvider);
+    ref.watch(adminProductsProvider);
 
     return settingsAsync.when(
       skipLoadingOnReload: true,
@@ -343,7 +397,6 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, _) => Center(child: Text(LocaleKeys.commonError.tr())),
       data: (settings) {
-        final products = productsAsync.value ?? [];
         final roots = _roots(settings);
         final path = _resolvedPath(roots);
         final nodes = _visible(settings);
@@ -401,22 +454,19 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
                                   const SizedBox(height: 6),
                               itemBuilder: (context, index) {
                                 final node = nodes[index];
-                                final livePrice = node.productId == null
-                                    ? node.price
-                                    : () {
-                                        for (final p in products) {
-                                          if (p.id == node.productId) {
-                                            return p.price;
-                                          }
-                                        }
-                                        return node.price;
-                                      }();
+                                final waiterPrice = node.isFolder
+                                    ? null
+                                    : _waiterPriceOf(settings, node);
+                                final onlinePrice = node.isFolder
+                                    ? null
+                                    : _linkedProduct(node)?.price;
                                 return Material(
                                   color: node.isFolder
                                       ? const Color(0xFFE8F1F8)
                                       : Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                   child: ListTile(
+                                    isThreeLine: !node.isFolder,
                                     title: Text(
                                       node.label.toUpperCase(),
                                       style: const TextStyle(
@@ -426,11 +476,8 @@ class _AdminWaiterMenuTabState extends ConsumerState<AdminWaiterMenuTab> {
                                     subtitle: node.isFolder
                                         ? null
                                         : Text(
-                                            livePrice == null
-                                                ? '—'
-                                                : FormatUtils.currency(
-                                                    livePrice,
-                                                  ),
+                                            '${LocaleKeys.adminWaiterPrice.tr()}: ${waiterPrice == null ? '—' : FormatUtils.currency(waiterPrice)}\n'
+                                            '${LocaleKeys.adminOnlinePrice.tr()}: ${onlinePrice == null ? '—' : FormatUtils.currency(onlinePrice)}',
                                             style: const TextStyle(
                                               color: Color(0xFFD32F2F),
                                               fontWeight: FontWeight.w700,
@@ -637,7 +684,12 @@ class AdminWaiterExtrasTab extends ConsumerWidget {
           ),
         ),
         const Expanded(
-          child: AdminCatalogExtrasTab(showInlineAddButton: true),
+          child: AdminCatalogExtrasTab(
+            showInlineAddButton: true,
+            separateWaiterPrice: true,
+            kinds: const [ProductExtraKind.addon],
+            defaultKind: ProductExtraKind.addon,
+          ),
         ),
       ],
     );

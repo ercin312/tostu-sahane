@@ -575,7 +575,7 @@ class _WaiterOrderActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final itemCount =
-        cart.fold<int>(0, (sum, item) => sum + item.quantity);
+        cart.fold<double>(0, (sum, item) => sum + item.quantity);
     final screenW = MediaQuery.sizeOf(context).width;
     final screenH = MediaQuery.sizeOf(context).height;
     final compactPhone = screenW < 520;
@@ -664,7 +664,7 @@ class _WaiterOrderActionBar extends StatelessWidget {
             cart
                 .map(
                   (item) =>
-                      '${item.quantity}x ${localizedOrRaw(item.displayNameKey)}',
+                      '${formatWaiterQuantity(item.quantity)}x ${localizedOrRaw(item.displayNameKey)}',
                 )
                 .join(' · '),
             maxLines: 2,
@@ -733,7 +733,7 @@ class _WaiterOrderActionBar extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '$itemCount',
+                        formatWaiterQuantity(itemCount),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,

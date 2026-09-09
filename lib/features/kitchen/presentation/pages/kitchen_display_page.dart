@@ -7,6 +7,7 @@ import '../../../../core/orders/order_workflow.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/cart_item_display_utils.dart';
+import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/localized_text.dart';
 import '../../../../core/utils/order_kitchen_utils.dart';
 import '../../../../core/utils/waiter_preparation_tags.dart';
@@ -871,7 +872,7 @@ class _KitchenItemLine extends StatelessWidget {
         SizedBox(
           width: 44,
           child: Text(
-            '${item.quantity}×',
+            '${FormatUtils.quantity(item.quantity)}×',
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,

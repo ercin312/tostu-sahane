@@ -186,7 +186,8 @@ Product resolveWaiterPosLeafProduct({
         id: product.id,
         nameKey: displayLabel,
         descriptionKey: product.descriptionKey,
-        price: product.price,
+        // Garson fiyatı POS düğümünde; katalog fiyatı online menüdedir.
+        price: node.price ?? product.price,
         category: product.category,
         imageUrl: product.imageUrl,
         isAvailable: product.isAvailable,
@@ -239,7 +240,7 @@ Product resolveWaiterPosLeafProduct({
       id: best.id,
       nameKey: displayLabel,
       descriptionKey: best.descriptionKey,
-      price: best.price,
+      price: node.price ?? best.price,
       category: best.category,
       imageUrl: best.imageUrl,
       isAvailable: best.isAvailable,

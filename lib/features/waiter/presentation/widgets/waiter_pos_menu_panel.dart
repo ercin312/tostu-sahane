@@ -242,18 +242,23 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
                             )
                           : null;
                       final qty = product == null
-                          ? 0
+                          ? 0.0
                           : cart
                               .where(
                                 (item) => item.product?.id == product.id,
                               )
-                              .fold<int>(
+                              .fold<double>(
                                 0,
                                 (sum, item) => sum + item.quantity,
                               );
+                      final unitPrice = node.price ?? product?.price;
                       return WaiterPosProductTile(
                         title: node.label,
-                        price: product?.price ?? node.price,
+                        price: unitPrice == null
+                            ? null
+                            : qty > 0
+                                ? unitPrice * qty
+                                : unitPrice,
                         quantity: qty,
                         isFolder: node.isFolder,
                         cellWidth: fit.cellWidth,
@@ -607,7 +612,7 @@ class WaiterPosProductTile extends StatelessWidget {
 
   final String title;
   final double? price;
-  final int quantity;
+  final double quantity;
   final bool isFolder;
   final VoidCallback onTap;
   final VoidCallback onIncrement;
@@ -697,7 +702,7 @@ class WaiterPosProductTile extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              '×$quantity',
+                              '×${formatWaiterQuantity(quantity)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.w900,
                                 fontSize: (nameSize * 0.85).clamp(11, 15),

@@ -7,8 +7,35 @@ abstract final class PromotionUtils {
     required PromotionCampaign campaign,
     required double subtotal,
   }) {
-    if (!campaign.isActive) return false;
+    if (!campaign.isActive || campaign.isExpired || !campaign.hasUsesLeft) {
+      return false;
+    }
     return subtotal >= campaign.minOrderAmount;
+  }
+
+  static double amountStillNeeded({
+    required PromotionCampaign campaign,
+    required double subtotal,
+  }) {
+    if (subtotal >= campaign.minOrderAmount) return 0;
+    return campaign.minOrderAmount - subtotal;
+  }
+
+  /// Sepette seçilebilir: aktif, süresi dolmamış, hakkı var.
+  /// Minimum tutar yetmese bile listelenir (Yemeksepeti “daha ekle” bandı).
+  static bool canOfferInPicker(PromotionCampaign campaign) {
+    return campaign.isActive && !campaign.isExpired && campaign.hasUsesLeft;
+  }
+
+  static bool appliesToCart({
+    required PromotionCampaign campaign,
+    required List<CartItem> cartItems,
+    required Map<String, ProductCategory> productCategories,
+  }) {
+    if (campaign.type != PromotionType.freeDrinks) return true;
+    return cartItems.any(
+      (item) => productCategories[item.productId] == ProductCategory.drink,
+    );
   }
 
   static double discountFor({

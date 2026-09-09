@@ -213,6 +213,7 @@ class ProductExtraModel {
     required this.name,
     required this.price,
     this.imageUrl,
+    this.kind = 'addon',
   });
 
   factory ProductExtraModel.fromJson(Map<String, dynamic> json) =>
@@ -221,18 +222,21 @@ class ProductExtraModel {
         name: json['name'] as String,
         price: (json['price'] as num).toDouble(),
         imageUrl: json['image_url'] as String?,
+        kind: json['kind'] as String? ?? 'addon',
       );
 
   final String id;
   final String name;
   final double price;
   final String? imageUrl;
+  final String kind;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'price': price,
         'image_url': imageUrl,
+        'kind': kind,
       };
 }
 
@@ -254,7 +258,7 @@ class CartItemModel {
         productId: json['product_id'] as String,
         productNameKey: json['product_name_key'] as String,
         unitPrice: (json['unit_price'] as num).toDouble(),
-        quantity: (json['quantity'] as num).toInt(),
+        quantity: (json['quantity'] as num).toDouble(),
         selectedOptions: (json['selected_options'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
@@ -268,7 +272,7 @@ class CartItemModel {
   final String productId;
   final String productNameKey;
   final double unitPrice;
-  final int quantity;
+  final double quantity;
   final List<String> selectedOptions;
   final String? portionKey;
   final String? note;

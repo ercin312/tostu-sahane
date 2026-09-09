@@ -92,6 +92,12 @@ String? authRedirect(Ref ref, GoRouterState state) {
   if (path.startsWith('/admin') && role != UserRole.superAdmin) {
     return RoutePaths.homeForRole(role.name);
   }
+  if (path.startsWith('/designer') && role != UserRole.designer) {
+    return RoutePaths.homeForRole(role.name);
+  }
+  if (role == UserRole.designer && !path.startsWith('/designer')) {
+    return RoutePaths.designerStudio;
+  }
 
   return null;
 }

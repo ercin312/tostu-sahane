@@ -50,7 +50,7 @@ class CartItem extends Equatable {
   final String productId;
   final String productNameKey;
   final double unitPrice;
-  final int quantity;
+  final double quantity;
   final List<String> selectedOptions;
   final String? portionKey;
   final String? note;
@@ -59,7 +59,7 @@ class CartItem extends Equatable {
 
   double get totalPrice => unitPrice * quantity;
 
-  CartItem copyWith({int? quantity, String? productCategory}) {
+  CartItem copyWith({double? quantity, String? productCategory}) {
     return CartItem(
       id: id,
       productId: productId,

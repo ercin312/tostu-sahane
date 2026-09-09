@@ -36,6 +36,15 @@ abstract final class MockData {
       isActive: true,
       branchId: 'branch_1',
     ),
+    AdminUserModel(
+      id: 'd1',
+      name: 'Tasarımcı',
+      role: 'designer',
+      phone: '',
+      username: 'designer1',
+      password: demoPassword,
+      isActive: true,
+    ),
   ];
 
   static const branches = [
