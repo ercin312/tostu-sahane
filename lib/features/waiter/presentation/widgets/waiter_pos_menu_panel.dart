@@ -252,6 +252,10 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
                                 (sum, item) => sum + item.quantity,
                               );
                       final unitPrice = node.price ?? product?.price;
+                      final halfOk = product != null &&
+                          ref
+                              .read(waiterCartProvider.notifier)
+                              .allowsHalfQuantity(product);
                       return WaiterPosProductTile(
                         title: node.label,
                         price: unitPrice == null
@@ -264,6 +268,9 @@ class _WaiterPosMenuPanelState extends ConsumerState<WaiterPosMenuPanel> {
                         cellWidth: fit.cellWidth,
                         dense: !compactPhone,
                         readable: compactPhone,
+                        showHalfHint: halfOk &&
+                            qty > 0 &&
+                            (qty - 1).abs() < 0.001,
                         onTap: () => _onNodeTap(node, liveProducts, settings),
                         onIncrement: product == null
                             ? () {}
@@ -608,6 +615,7 @@ class WaiterPosProductTile extends StatelessWidget {
     this.isFolder = false,
     this.dense = false,
     this.readable = false,
+    this.showHalfHint = false,
   });
 
   final String title;
@@ -621,6 +629,8 @@ class WaiterPosProductTile extends StatelessWidget {
   final bool dense;
   /// Mobil: daha büyük yazı / padding (sıkışık dense grid yerine).
   final bool readable;
+  /// Adet 1 iken − tarafında 0,5 ipucu (Windows ile aynı yarım adım).
+  final bool showHalfHint;
 
   @override
   Widget build(BuildContext context) {
@@ -762,10 +772,13 @@ class WaiterPosProductTile extends StatelessWidget {
                             alignment: Alignment.centerLeft,
                             child: Padding(
                               padding: const EdgeInsets.only(left: 4),
-                              child: _SideHint(
-                                icon: Icons.remove,
-                                color: AppColors.error.withValues(alpha: 0.85),
-                              ),
+                              child: showHalfHint
+                                  ? _HalfQtyHint(compact: readable)
+                                  : _SideHint(
+                                      icon: Icons.remove,
+                                      color: AppColors.error
+                                          .withValues(alpha: 0.85),
+                                    ),
                             ),
                           ),
                         ),
@@ -824,6 +837,50 @@ class _SideHint extends StatelessWidget {
         ],
       ),
       child: Icon(icon, size: 20, color: color),
+    );
+  }
+}
+
+/// İlk − : 0,5 (yarım) — mobilde de Windows ile aynı seçenek görünsün.
+class _HalfQtyHint extends StatelessWidget {
+  const _HalfQtyHint({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppColors.error.withValues(alpha: 0.9);
+    return Container(
+      constraints: BoxConstraints(
+        minWidth: compact ? 40 : 36,
+        minHeight: compact ? 36 : 34,
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 6,
+        vertical: compact ? 6 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Text(
+        '0,5',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w900,
+          fontSize: compact ? 13 : 12,
+          height: 1,
+        ),
+      ),
     );
   }
 }

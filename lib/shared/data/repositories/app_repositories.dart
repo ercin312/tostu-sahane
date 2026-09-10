@@ -475,6 +475,32 @@ class OrderRepository {
     }
   }
 
+  Future<Order?> getOrder(String orderId) async {
+    if (AppConfig.useMockApi) {
+      final orders = await _mock.getOrders();
+      for (final order in orders) {
+        if (order.id == orderId) return order;
+      }
+      return null;
+    }
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.getOrder(orderId);
+      } catch (_) {
+        return null;
+      }
+    }
+    try {
+      final models = await _remote.getOrders();
+      for (final model in models) {
+        if (model.id == orderId) return EntityMappers.toOrder(model);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Order>> getCustomerOrders(AuthState auth) async {
     final keys = customerIdentityKeys(auth);
     final ten = normalizeTrPhoneDigits(auth.phone);

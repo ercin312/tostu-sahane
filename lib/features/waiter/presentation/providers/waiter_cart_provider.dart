@@ -209,7 +209,7 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     }).toList();
   }
 
-  /// Tost / yan ürün: … → 0.5 → 1 → 1.5 → 2 → 3… Diğer ürünler tam adet artar.
+  /// Yiyecekler: … → 0.5 → 1 → 1.5 → 2 → 3… İçecekler tam adet artar.
   double _nextQuantity(Product product, double current) {
     if (!_allowsHalfQuantity(product)) return current + 1;
     if ((current - 0.5).abs() < 0.001) return 1;
@@ -218,7 +218,7 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     return current + 1;
   }
 
-  /// Tost / yan ürün: 1’den eksi → 0.5 (yarım); 0.5’ten eksi → sil.
+  /// Yiyecekler: 1’den eksi → 0.5 (yarım); 0.5’ten eksi → sil.
   double _previousQuantity(Product product, double current) {
     if (!_allowsHalfQuantity(product)) return current - 1;
     if ((current - 0.5).abs() < 0.001) return 0;
@@ -229,9 +229,16 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     return current - 1;
   }
 
+  /// Tost / sahan / yan / combo — içecek hariç yarım porsiyon.
   bool _allowsHalfQuantity(Product product) =>
       product.category == ProductCategory.tost ||
-      product.category == ProductCategory.snack;
+      product.category == ProductCategory.sahanda ||
+      product.category == ProductCategory.snack ||
+      product.category == ProductCategory.combo ||
+      product.isCombo;
+
+  /// UI: eksi ile yarım adım mümkün mü (mobil ipucu için).
+  bool allowsHalfQuantity(Product product) => _allowsHalfQuantity(product);
 
   ProductExtra? _resolveExtra(List<ProductExtra> extras, String id) {
     for (final extra in extras) {

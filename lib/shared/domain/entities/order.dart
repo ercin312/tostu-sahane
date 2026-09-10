@@ -238,6 +238,8 @@ class Order extends Equatable {
   }
 
   Order copyWith({
+    String? id,
+    int? orderNumber,
     OrderStatus? status,
     String? customerId,
     String? customerName,
@@ -283,8 +285,8 @@ class Order extends Equatable {
     String? orderNote,
   }) {
     return Order(
-      id: id,
-      orderNumber: orderNumber,
+      id: id ?? this.id,
+      orderNumber: orderNumber ?? this.orderNumber,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
       branchId: branchId,

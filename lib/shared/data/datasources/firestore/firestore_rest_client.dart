@@ -64,18 +64,55 @@ class FirestoreRestClient {
     )) {
       byId[order.id] = order;
     }
-    // SDK watchOrders ile aynı: salon siparişleri orderBy penceresinden
-    // düşerse (eski string tarih / yoğun trafik) yine görünsün.
-    for (final order in await _queryOrdersEqual(
-      field: 'order_type',
-      stringValue: 'dineIn',
-      limit: 150,
-    )) {
+    // Salon: en yeni dineIn (sıralı). Index yoksa unordered fallback.
+    for (final order in await _queryDineInOrders(limit: 300)) {
+      byId[order.id] = order;
+    }
+    // Açık masa / mutfak: status penceresi (liste limitinden bağımsız).
+    for (final order in await _queryOpenDineInByStatus()) {
       byId[order.id] = order;
     }
     final orders = byId.values.toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return orders;
+  }
+
+  /// order_type == dineIn: sıralı (yeni) + unordered yedek (eski string tarihler).
+  Future<List<Order>> _queryDineInOrders({required int limit}) async {
+    final byId = <String, Order>{};
+    for (final order in await _queryOrdersEqual(
+      field: 'order_type',
+      stringValue: 'dineIn',
+      limit: limit,
+      orderByField: 'created_at',
+      orderByDescending: true,
+    )) {
+      byId[order.id] = order;
+    }
+    for (final order in await _queryOrdersEqual(
+      field: 'order_type',
+      stringValue: 'dineIn',
+      limit: limit,
+    )) {
+      byId[order.id] = order;
+    }
+    return byId.values.toList();
+  }
+
+  /// received / preparing / ready status’lerinden salon siparişlerini toplar.
+  Future<List<Order>> _queryOpenDineInByStatus() async {
+    const openStatuses = ['received', 'preparing', 'ready'];
+    final byId = <String, Order>{};
+    for (final status in openStatuses) {
+      for (final order in await _queryOrdersEqual(
+        field: 'status',
+        stringValue: status,
+        limit: 100,
+      )) {
+        if (order.isDineIn) byId[order.id] = order;
+      }
+    }
+    return byId.values.toList();
   }
 
   Future<List<Order>> _listOrdersPage({required int pageSize}) async {
@@ -109,46 +146,65 @@ class FirestoreRestClient {
     String? stringValue,
     bool? boolValue,
     required int limit,
+    String? orderByField,
+    bool orderByDescending = true,
   }) async {
     try {
       final value = <String, dynamic>{};
       if (stringValue != null) value['stringValue'] = stringValue;
       if (boolValue != null) value['booleanValue'] = boolValue;
+      final structuredQuery = <String, dynamic>{
+        'from': [
+          {'collectionId': 'orders'},
+        ],
+        'where': {
+          'fieldFilter': {
+            'field': {'fieldPath': field},
+            'op': 'EQUAL',
+            'value': value,
+          },
+        },
+        'limit': limit,
+      };
+      if (orderByField != null && orderByField.isNotEmpty) {
+        structuredQuery['orderBy'] = [
+          {
+            'field': {'fieldPath': orderByField},
+            'direction': orderByDescending ? 'DESCENDING' : 'ASCENDING',
+          },
+        ];
+      }
       final response = await _dio.post<List<dynamic>>(
         'https://firestore.googleapis.com/v1/projects/${_options.projectId}/databases/(default)/documents:runQuery',
         queryParameters: {'key': _options.apiKey},
-        data: {
-          'structuredQuery': {
-            'from': [
-              {'collectionId': 'orders'},
-            ],
-            'where': {
-              'fieldFilter': {
-                'field': {'fieldPath': field},
-                'op': 'EQUAL',
-                'value': value,
-              },
-            },
-            'limit': limit,
-          },
-        },
+        data: {'structuredQuery': structuredQuery},
         options: Options(contentType: 'application/json'),
       );
       final rows = response.data ?? const [];
       final orders = <Order>[];
       for (final row in rows) {
         if (row is! Map<String, dynamic>) continue;
+        // runQuery hata satırı (index gerekli vb.)
+        if (row.containsKey('error')) {
+          debugPrint(
+            'Firestore REST orders query ($field) row error: ${row['error']}',
+          );
+          continue;
+        }
         final doc = row['document'];
         if (doc is! Map<String, dynamic>) continue;
         try {
           orders.add(_documentToOrder(doc));
         } catch (e) {
-          debugPrint('Firestore REST phone query parse skip: $e');
+          debugPrint('Firestore REST orders query parse skip: $e');
         }
       }
       return orders;
     } catch (e) {
-      debugPrint('Firestore REST orders query ($field) failed: $e');
+      debugPrint(
+        'Firestore REST orders query ($field'
+        '${orderByField != null ? '+$orderByField' : ''}) failed: $e',
+      );
       return const [];
     }
   }
@@ -312,10 +368,30 @@ class FirestoreRestClient {
   }
 
   Future<Order> createOrder(Order order) async {
+    try {
+      return await _createOrderOnce(order);
+    } on DioException catch (e) {
+      if (!_isAlreadyExists(e)) rethrow;
+      debugPrint(
+        'Firestore REST createOrder conflict on ${order.id} — retry with new id',
+      );
+      final next = await nextOrderNumber();
+      final retried = order.copyWith(
+        id: 'order_$next',
+        orderNumber: next,
+      );
+      return _createOrderOnce(retried);
+    }
+  }
+
+  Future<Order> _createOrderOnce(Order order) async {
     final model = EntityMappers.fromOrder(order);
     final json = FirestoreDataSource.stripNullFields(
       FirestoreDataSource.normalizeOrderJson(model.toJson()),
     );
+    // documentId ile id alanı tutarlı kalsın.
+    json['id'] = order.id;
+    json['order_number'] = order.orderNumber;
     final body = {
       'fields': FirestoreRestValueCodec.encodeOrderDocumentFields(json),
     };
@@ -342,6 +418,13 @@ class FirestoreRestClient {
       debugPrint('Firestore REST createOrder read-back failed: $e');
       return order;
     }
+  }
+
+  static bool _isAlreadyExists(DioException e) {
+    if (e.response?.statusCode == 409) return true;
+    final data = e.response?.data;
+    final text = data == null ? (e.message ?? '') : data.toString();
+    return text.contains('ALREADY_EXISTS');
   }
 
   Future<List<AdminUserModel>> getOpsUsers() async {

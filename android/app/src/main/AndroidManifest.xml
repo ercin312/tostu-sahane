@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <!-- Play reklam kimligi beyani (Meta App Events). tools:node=merge: bagimlilik remove etse bile kalsin. -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="merge" />
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -62,8 +66,6 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <!-- Meta / reklam ölçümü (GAID). Kullanıcı Play reklam kişiselleştirmesini kapatırsa SDK saygı duyar. -->
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
     <!-- Galeri: Android Photo Picker kullanilir; genis medya izni yok (Play politikasi). -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />

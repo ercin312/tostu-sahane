@@ -125,16 +125,21 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
         role == UserRole.branchManager ||
         role == UserRole.branchStaff ||
         role == UserRole.superAdmin;
-    return _mergeOrders(current, remote, opsAuthoritative: opsAuthoritative);
+    return _mergeOrders(
+      current,
+      remote,
+      opsAuthoritative: opsAuthoritative,
+    );
   }
 
   /// Ops (garson/mutfak): salon siparişlerinde Firestore kaynak doğrudur.
   /// Yerelde kalan hayalet masa siparişleri karşı cihazda görünmezliği bozar.
-  List<Order> _mergeOrders(
+  /// Liste sorgusu kaçırırsa getOrder(id) ile doğrularız; 404 ise düşer.
+  Future<List<Order>> _mergeOrders(
     List<Order> cached,
     List<Order> remote, {
     required bool opsAuthoritative,
-  }) {
+  }) async {
     if (remote.isEmpty) return cached;
     if (!opsAuthoritative) {
       final map = {for (final o in cached) o.id: o};
@@ -151,6 +156,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     final map = <String, Order>{
       for (final order in remote) order.id: order,
     };
+    final missingActiveDineIn = <Order>[];
     for (final local in cached) {
       final remoteOrder = map[local.id];
       if (remoteOrder != null) {
@@ -166,8 +172,26 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
       // Teslimat vb. sorguda kaçmış olabilir — salonu uzak kaynaktan yönet.
       if (!local.isDineIn) {
         map[local.id] = local;
+        continue;
       }
+      if (local.isActive) {
+        missingActiveDineIn.add(local);
+      }
+      // Pasif salon (delivered/cancelled) uzak listede yoksa düşer.
     }
+
+    if (missingActiveDineIn.isNotEmpty) {
+      final repo = ref.read(orderRepositoryProvider);
+      await Future.wait(
+        missingActiveDineIn.map((local) async {
+          final fetched = await repo.getOrder(local.id);
+          if (fetched != null) {
+            map[local.id] = OrderMerge.resolve(local, fetched);
+          }
+        }),
+      );
+    }
+
     return map.values.toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }

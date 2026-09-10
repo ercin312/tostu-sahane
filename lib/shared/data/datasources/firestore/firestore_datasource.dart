@@ -863,21 +863,55 @@ class FirestoreDataSource {
         } catch (_) {}
       }
     } catch (_) {}
-    // watchOrders ile aynı: string created_at / yoğun trafik yüzünden
-    // orderBy penceresinden düşen salon siparişlerini çek.
+    await _mergeDineInSupplements(byId);
+    return byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// Salon yedek: sıralı dineIn + açık status’ler.
+  Future<void> _mergeDineInSupplements(Map<String, Order> byId) async {
     try {
       final dineInSnap = await _ordersCol
           .where('order_type', isEqualTo: 'dineIn')
-          .limit(150)
+          .orderBy('created_at', descending: true)
+          .limit(300)
           .get();
       for (final doc in dineInSnap.docs) {
         try {
           byId[doc.id] = _docToOrder(doc);
         } catch (_) {}
       }
-    } catch (_) {}
-    return byId.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } catch (_) {
+      try {
+        final dineInSnap = await _ordersCol
+            .where('order_type', isEqualTo: 'dineIn')
+            .limit(300)
+            .get();
+        for (final doc in dineInSnap.docs) {
+          try {
+            byId[doc.id] = _docToOrder(doc);
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+    for (final status in const [
+      OrderStatus.received,
+      OrderStatus.preparing,
+      OrderStatus.ready,
+    ]) {
+      try {
+        final snap = await _ordersCol
+            .where('status', isEqualTo: status.name)
+            .limit(100)
+            .get();
+        for (final doc in snap.docs) {
+          try {
+            final order = _docToOrder(doc);
+            if (order.isDineIn) byId[doc.id] = order;
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
   }
 
   Future<List<Order>> getCustomerOrders({
@@ -1000,19 +1034,7 @@ class FirestoreDataSource {
               } catch (_) {}
             }
           } catch (_) {}
-          // Windows REST eski yazımlarda created_at string olabiliyor;
-          // orderBy(Timestamp) onları dışarıda bırakır — masa oturumları için çek.
-          try {
-            final dineInSnap = await _ordersCol
-                .where('order_type', isEqualTo: 'dineIn')
-                .limit(150)
-                .get();
-            for (final doc in dineInSnap.docs) {
-              try {
-                byId[doc.id] = _docToOrder(doc);
-              } catch (_) {}
-            }
-          } catch (_) {}
+          await _mergeDineInSupplements(byId);
           return byId.values.toList()
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });
@@ -1363,11 +1385,16 @@ class FirestoreDataSource {
         actorName: actorName,
       );
 
-  Future<Order> _getOrder(String orderId) async {
+  Future<Order> getOrder(String orderId) async {
     if (_rest != null) return _rest!.getOrder(orderId);
     final doc = await _ordersCol.doc(orderId).get();
+    if (!doc.exists) {
+      throw StateError('Order not found: $orderId');
+    }
     return _docToOrder(doc);
   }
+
+  Future<Order> _getOrder(String orderId) => getOrder(orderId);
 
   Future<Order> assignCourier(
     String orderId,

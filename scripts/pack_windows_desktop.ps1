@@ -23,11 +23,24 @@ if (-not (Test-Path "$src\tostu_sahane.exe")) {
     exit 1
 }
 
-if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-New-Item -ItemType Directory -Path $dest -Force | Out-Null
+# Antivirus / Explorer bazen vc_redist.x64.exe'yi kilitler; klasoru silmek yerine icerikleri guncelle.
+if (-not (Test-Path $dest)) {
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+} else {
+    Get-ChildItem $dest -Force | ForEach-Object {
+        try {
+            Remove-Item $_.FullName -Recurse -Force -ErrorAction Stop
+        } catch {
+            Write-Warning "Kilitli atlandi (uzerine yazilacak): $($_.FullName)"
+        }
+    }
+}
 
 Get-ChildItem $src -File | Where-Object { $_.Extension -notin '.lib', '.exp' } |
     Copy-Item -Destination $dest -Force
+if (Test-Path "$dest\data") {
+    try { Remove-Item "$dest\data" -Recurse -Force -ErrorAction Stop } catch { }
+}
 Copy-Item -Path "$src\data" -Destination $dest -Recurse -Force
 
 Write-Host "VC++ runtime DLL'leri pakete ekleniyor..."
@@ -37,11 +50,15 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $redist = Join-Path $dest "vc_redist.x64.exe"
 if (-not (Test-Path $redist)) {
     Write-Host "VC++ Redistributable indiriliyor..."
+    $redistTmp = Join-Path $env:TEMP "tostu_vc_redist.x64.exe"
     try {
-        Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile $redist -UseBasicParsing
+        Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile $redistTmp -UseBasicParsing
+        Copy-Item $redistTmp -Destination $redist -Force
     } catch {
         Write-Warning "vc_redist indirilemedi (ag/antivirus). Gerekirse elle ekleyin: https://aka.ms/vs/17/release/vc_redist.x64.exe"
     }
+} else {
+    Write-Host "Mevcut vc_redist.x64.exe korunuyor (kilitli/zaten var)."
 }
 
 @'
