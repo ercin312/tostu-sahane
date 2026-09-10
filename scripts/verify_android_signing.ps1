@@ -1,7 +1,7 @@
 # Upload keystore SHA1 parmak izini Play Console ile karsilastirir.
 param(
     [string]$KeyPropertiesPath = (Join-Path $PSScriptRoot '..\android\key.properties'),
-    [string]$ExpectedSha1 = '5A:98:1A:E9:2D:E8:25:92:89:21:5A:23:9F:44:43:E8:60:06:64:17'
+    [string]$ExpectedSha1 = 'FC:28:FC:95:59:A6:F1:1D:0C:93:E1:66:AA:EB:40:F2:30:94:53:1C'
 )
 
 Set-StrictMode -Version Latest
