@@ -69,6 +69,7 @@ abstract final class MockData {
   ];
 
   static const catalogExtras = [
+    ...toastIngredientExtras,
     ProductExtra(
       id: 'fbt_coca_cola_33',
       name: 'extra_coca_cola_33_name',
@@ -117,6 +118,40 @@ abstract final class MockData {
       price: 75,
       imageUrl:
           'https://www.tostusahane.com/wp-content/uploads/2026/01/Patates-Kizartmasi.webp',
+    ),
+  ];
+
+  /// Mobil tost detayında "Ekstra Malzeme" — yönetici düzenleyebilir.
+  static const toastIngredientExtras = [
+    ProductExtra(
+      id: 'ing_yumurta',
+      name: 'Yumurta',
+      price: 20,
+      kind: ProductExtraKind.ingredient,
+    ),
+    ProductExtra(
+      id: 'ing_ketcap_mayonez',
+      name: 'Ketçap Mayonez',
+      price: 0,
+      kind: ProductExtraKind.ingredient,
+    ),
+    ProductExtra(
+      id: 'ing_domates_biber',
+      name: 'Domates Biber',
+      price: 20,
+      kind: ProductExtraKind.ingredient,
+    ),
+    ProductExtra(
+      id: 'ing_acili',
+      name: 'Acılı',
+      price: 0,
+      kind: ProductExtraKind.ingredient,
+    ),
+    ProductExtra(
+      id: 'ing_salca',
+      name: 'Salça',
+      price: 0,
+      kind: ProductExtraKind.ingredient,
     ),
   ];
 

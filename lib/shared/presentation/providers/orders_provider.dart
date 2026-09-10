@@ -33,7 +33,9 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
 
   @override
   Future<List<Order>> build() async {
+    var disposed = false;
     ref.onDispose(() {
+      disposed = true;
       _pollTimer?.cancel();
       _courierLocationTimer?.cancel();
       _ordersSub?.cancel();
@@ -50,16 +52,29 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
         const Duration(seconds: 12),
         (_) => _pushCourierLocation(),
       );
-      _ordersSub = ref.read(orderRepositoryProvider).watchOrders().listen(
-        (remote) async {
-          final merged = await _mergeRemoteInto(state.value ?? cached, remote);
-          state = AsyncData(merged);
-          await _persist(merged);
-        },
-        onError: (_) {},
-      );
+      void subscribe() {
+        if (disposed) return;
+        _ordersSub?.cancel();
+        _ordersSub = ref.read(orderRepositoryProvider).watchOrders().listen(
+          (remote) async {
+            final merged =
+                await _mergeRemoteInto(state.value ?? cached, remote);
+            state = AsyncData(merged);
+            await _persist(merged);
+          },
+          onError: (_) {
+            // Stream koptuysa yeniden bağlan — sessiz ölümü önle.
+            Future<void>.delayed(const Duration(seconds: 2), subscribe);
+          },
+        );
+      }
+
+      subscribe();
       try {
-        final merged = await _mergeRemoteInto(cached, await ref.read(orderRepositoryProvider).getOrders());
+        final merged = await _mergeRemoteInto(
+          cached,
+          await ref.read(orderRepositoryProvider).getOrders(),
+        );
         await _persist(merged);
         return merged;
       } catch (_) {
@@ -98,21 +113,60 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
         return _mergeOrders(
           current.where((o) => orderBelongsToCustomer(o, auth)).toList(),
           scoped,
+          opsAuthoritative: false,
         );
       } catch (_) {
         return current.where((o) => orderBelongsToCustomer(o, auth!)).toList();
       }
     }
-    return _mergeOrders(current, remote);
+    final role = auth?.user.role;
+    final opsAuthoritative = role == UserRole.waiter ||
+        role == UserRole.kitchenStaff ||
+        role == UserRole.branchManager ||
+        role == UserRole.branchStaff ||
+        role == UserRole.superAdmin;
+    return _mergeOrders(current, remote, opsAuthoritative: opsAuthoritative);
   }
 
-  List<Order> _mergeOrders(List<Order> cached, List<Order> remote) {
+  /// Ops (garson/mutfak): salon siparişlerinde Firestore kaynak doğrudur.
+  /// Yerelde kalan hayalet masa siparişleri karşı cihazda görünmezliği bozar.
+  List<Order> _mergeOrders(
+    List<Order> cached,
+    List<Order> remote, {
+    required bool opsAuthoritative,
+  }) {
     if (remote.isEmpty) return cached;
-    final map = {for (final o in cached) o.id: o};
-    for (final order in remote) {
-      final existing = map[order.id];
-      map[order.id] =
-          existing == null ? order : OrderMerge.resolve(existing, order);
+    if (!opsAuthoritative) {
+      final map = {for (final o in cached) o.id: o};
+      for (final order in remote) {
+        final existing = map[order.id];
+        map[order.id] =
+            existing == null ? order : OrderMerge.resolve(existing, order);
+      }
+      return map.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+
+    final now = DateTime.now();
+    final map = <String, Order>{
+      for (final order in remote) order.id: order,
+    };
+    for (final local in cached) {
+      final remoteOrder = map[local.id];
+      if (remoteOrder != null) {
+        map[local.id] = OrderMerge.resolve(local, remoteOrder);
+        continue;
+      }
+      // Yeni yazılan sipariş poll'dan önce kaybolmasın.
+      final ageSec = now.difference(local.createdAt).inSeconds;
+      if (ageSec >= 0 && ageSec < 45) {
+        map[local.id] = local;
+        continue;
+      }
+      // Teslimat vb. sorguda kaçmış olabilir — salonu uzak kaynaktan yönet.
+      if (!local.isDineIn) {
+        map[local.id] = local;
+      }
     }
     return map.values.toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -135,6 +189,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
   }
 
   Future<void> _ensureMockHas(Order order) async {
+    if (!AppConfig.useMockApi) return;
     ref.read(mockApiDataSourceProvider).upsertOrder(order);
   }
 
@@ -781,13 +836,18 @@ final kitchenQueueOrdersProvider = Provider<List<Order>>((ref) {
   final products = ref.watch(opsBranchProductsProvider).value ?? const [];
   return orders
       .where(
-        (o) =>
-            o.branchId == branch.id &&
-            o.isDineIn &&
-            (o.status == OrderStatus.received ||
-                o.status == OrderStatus.preparing) &&
-            (!o.isTableAddon ||
-                orderHasKitchenItems(o, catalog: products)),
+        (o) {
+          if (o.branchId != branch.id || !o.isDineIn) return false;
+          if (o.status != OrderStatus.received &&
+              o.status != OrderStatus.preparing) {
+            return false;
+          }
+          if (!o.isTableAddon) return true;
+          // Katalog yokken / yanlış eşleşmede yiyecek siparişi düşmesin:
+          // ürün kategorisi veya katalog — ikisinden biri mutfak diyorsa göster.
+          return o.hasKitchenItems ||
+              orderHasKitchenItems(o, catalog: products);
+        },
       )
       .toList()
     ..sort((a, b) => a.createdAt.compareTo(b.createdAt));

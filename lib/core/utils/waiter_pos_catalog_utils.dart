@@ -188,7 +188,9 @@ Product resolveWaiterPosLeafProduct({
         descriptionKey: product.descriptionKey,
         // Garson fiyatı POS düğümünde; katalog fiyatı online menüdedir.
         price: node.price ?? product.price,
-        category: product.category,
+        // Mutfak filtresi POS bölümüne güvenir; online kategori sapması
+        // (ör. yanlış drink) siparişi KDS'den düşürmesin.
+        category: category,
         imageUrl: product.imageUrl,
         isAvailable: product.isAvailable,
         isCombo: product.isCombo,
@@ -241,7 +243,7 @@ Product resolveWaiterPosLeafProduct({
       nameKey: displayLabel,
       descriptionKey: best.descriptionKey,
       price: node.price ?? best.price,
-      category: best.category,
+      category: category,
       imageUrl: best.imageUrl,
       isAvailable: best.isAvailable,
       isCombo: best.isCombo,

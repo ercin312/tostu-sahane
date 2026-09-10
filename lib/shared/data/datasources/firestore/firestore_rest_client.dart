@@ -20,6 +20,7 @@ import '../../../domain/entities/waiter_mode_settings.dart';
 import '../../../domain/entities/qr_menu_settings.dart';
 import '../../datasources/local/campaign_local_datasource.dart';
 import '../../mappers/entity_mappers.dart';
+import '../../mock/mock_data.dart';
 import '../../models/api_models.dart';
 import 'firestore_datasource.dart';
 
@@ -60,6 +61,15 @@ class FirestoreRestClient {
       field: 'phone_failed',
       boolValue: true,
       limit: 50,
+    )) {
+      byId[order.id] = order;
+    }
+    // SDK watchOrders ile aynı: salon siparişleri orderBy penceresinden
+    // düşerse (eski string tarih / yoğun trafik) yine görünsün.
+    for (final order in await _queryOrdersEqual(
+      field: 'order_type',
+      stringValue: 'dineIn',
+      limit: 150,
     )) {
       byId[order.id] = order;
     }
@@ -180,12 +190,16 @@ class FirestoreRestClient {
   }
 
   Stream<List<Order>> watchOrders() async* {
+    List<Order>? lastGood;
     while (true) {
       try {
-        yield await getOrders();
+        final orders = await getOrders();
+        lastGood = orders;
+        yield orders;
       } catch (e, st) {
         debugPrint('Firestore REST poll failed: $e\n$st');
-        yield const [];
+        // Boş liste verme — merge önbelleği dondurur / hayalet masa bırakır.
+        if (lastGood != null) yield lastGood;
       }
       await Future<void>.delayed(_pollInterval);
     }
@@ -673,11 +687,30 @@ class FirestoreRestClient {
           'pageSize': 200,
         },
       );
-      return _parseCatalogExtrasResponse(response.data);
+      var extras = _parseCatalogExtrasResponse(response.data);
+      extras = await _ensureToastIngredientsPresent(extras);
+      return extras;
     } catch (e) {
       debugPrint('Firestore REST catalog_extras read failed: $e');
       return const [];
     }
+  }
+
+  /// Windows REST: tost ekstra malzemeleri yoksa varsayılanları yazar.
+  Future<List<ProductExtra>> _ensureToastIngredientsPresent(
+    List<ProductExtra> extras,
+  ) async {
+    if (extras.any((e) => e.isToastIngredient)) return extras;
+    final seeded = <ProductExtra>[];
+    for (final extra in MockData.toastIngredientExtras) {
+      try {
+        seeded.add(await createCatalogExtra(extra));
+      } catch (e) {
+        debugPrint('Firestore REST seed toast ingredient ${extra.id}: $e');
+        seeded.add(extra);
+      }
+    }
+    return [...seeded, ...extras];
   }
 
   Stream<List<ProductExtra>> watchCatalogExtras() async* {

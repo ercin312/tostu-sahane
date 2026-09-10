@@ -628,14 +628,32 @@ class FirestoreDataSource {
   // ── Catalog extras ────────────────────────────────────────────────────────
 
   Future<void> ensureCatalogExtrasSeeded() async {
-    final snap = await _activeDb.collection(_catalogExtras).limit(1).get();
-    if (snap.docs.isNotEmpty) return;
+    final snap = await _activeDb.collection(_catalogExtras).get();
+    if (snap.docs.isEmpty) {
+      final batch = _activeDb.batch();
+      for (final extra in MockData.catalogExtras) {
+        batch.set(
+          _activeDb.collection(_catalogExtras).doc(extra.id),
+          EntityMappers.fromProductExtra(extra).toJson(),
+        );
+      }
+      await batch.commit();
+      return;
+    }
+
+    // Mevcut katalogda tost malzemesi yoksa varsayılanları ekle (silmez).
+    final hasIngredient = snap.docs.any((doc) {
+      final kind = doc.data()['kind']?.toString();
+      return kind == ProductExtraKind.ingredient.name;
+    });
+    if (hasIngredient) return;
 
     final batch = _activeDb.batch();
-    for (final extra in MockData.catalogExtras) {
+    for (final extra in MockData.toastIngredientExtras) {
       batch.set(
         _activeDb.collection(_catalogExtras).doc(extra.id),
         EntityMappers.fromProductExtra(extra).toJson(),
+        SetOptions(merge: true),
       );
     }
     await batch.commit();
@@ -840,6 +858,19 @@ class FirestoreDataSource {
       final failedSnap =
           await _ordersCol.where('phone_failed', isEqualTo: true).limit(50).get();
       for (final doc in failedSnap.docs) {
+        try {
+          byId[doc.id] = _docToOrder(doc);
+        } catch (_) {}
+      }
+    } catch (_) {}
+    // watchOrders ile aynı: string created_at / yoğun trafik yüzünden
+    // orderBy penceresinden düşen salon siparişlerini çek.
+    try {
+      final dineInSnap = await _ordersCol
+          .where('order_type', isEqualTo: 'dineIn')
+          .limit(150)
+          .get();
+      for (final doc in dineInSnap.docs) {
         try {
           byId[doc.id] = _docToOrder(doc);
         } catch (_) {}
@@ -1113,6 +1144,7 @@ class FirestoreDataSource {
       statusActorNames: {OrderStatus.preparing: waiterName},
       isPickup: isPickup,
       isTableAddon: isTableAddon,
+      orderSource: OrderSource.waiter,
     );
   }
 

@@ -258,7 +258,7 @@ class CartItemModel {
         productId: json['product_id'] as String,
         productNameKey: json['product_name_key'] as String,
         unitPrice: (json['unit_price'] as num).toDouble(),
-        quantity: (json['quantity'] as num).toDouble(),
+        quantity: _asQuantity(json['quantity']),
         selectedOptions: (json['selected_options'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
@@ -267,6 +267,12 @@ class CartItemModel {
         note: json['note'] as String?,
         productCategory: json['product_category'] as String?,
       );
+
+  static double _asQuantity(dynamic raw) {
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.replaceAll(',', '.')) ?? 1;
+    return 1;
+  }
 
   final String id;
   final String productId;

@@ -274,9 +274,15 @@ class AdminCatalogExtrasTab extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
       data: (allExtras) {
-        final extras = kinds.isEmpty
+        final filtered = kinds.isEmpty
             ? allExtras
             : allExtras.where((extra) => kinds.contains(extra.kind)).toList();
+        final extras = [...filtered]..sort((a, b) {
+            if (a.isToastIngredient != b.isToastIngredient) {
+              return a.isToastIngredient ? -1 : 1;
+            }
+            return a.name.compareTo(b.name);
+          });
         if (extras.isEmpty) {
           return Center(
             child: Padding(

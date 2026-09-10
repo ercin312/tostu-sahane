@@ -65,6 +65,10 @@ class WaiterCartItem {
     final id = '${lineKey}_${DateTime.now().microsecondsSinceEpoch}';
     if (catalogExtra != null) {
       final extra = resolvedCatalogExtra ?? catalogExtra!;
+      // Katalog ekstraları mutfağa gitmez (extra_*); kategori yalnızca etiket.
+      final extraCategory = extra.isToastIngredient
+          ? ProductCategory.tost.name
+          : ProductCategory.drink.name;
       return CartItem(
         id: id,
         productId: 'extra_${catalogExtra!.id}',
@@ -72,7 +76,7 @@ class WaiterCartItem {
         unitPrice: extra.price,
         quantity: quantity,
         note: note,
-        productCategory: ProductCategory.drink.name,
+        productCategory: extraCategory,
       );
     }
     final resolved = productWithExtras ?? product!;
@@ -205,21 +209,29 @@ class WaiterCartNotifier extends Notifier<List<WaiterCartItem>> {
     }).toList();
   }
 
-  /// Tost: 1 → 1.5 → 2 → 3… Diğer ürünler tam adet artar.
+  /// Tost / yan ürün: … → 0.5 → 1 → 1.5 → 2 → 3… Diğer ürünler tam adet artar.
   double _nextQuantity(Product product, double current) {
-    if (product.category != ProductCategory.tost) return current + 1;
+    if (!_allowsHalfQuantity(product)) return current + 1;
+    if ((current - 0.5).abs() < 0.001) return 1;
     if ((current - 1).abs() < 0.001) return 1.5;
     if ((current - 1.5).abs() < 0.001) return 2;
     return current + 1;
   }
 
+  /// Tost / yan ürün: 1’den eksi → 0.5 (yarım); 0.5’ten eksi → sil.
   double _previousQuantity(Product product, double current) {
-    if (product.category != ProductCategory.tost) return current - 1;
-    if (current <= 1) return 0;
+    if (!_allowsHalfQuantity(product)) return current - 1;
+    if ((current - 0.5).abs() < 0.001) return 0;
+    if ((current - 1).abs() < 0.001) return 0.5;
     if ((current - 1.5).abs() < 0.001) return 1;
     if ((current - 2).abs() < 0.001) return 1.5;
+    if (current <= 1) return 0;
     return current - 1;
   }
+
+  bool _allowsHalfQuantity(Product product) =>
+      product.category == ProductCategory.tost ||
+      product.category == ProductCategory.snack;
 
   ProductExtra? _resolveExtra(List<ProductExtra> extras, String id) {
     for (final extra in extras) {

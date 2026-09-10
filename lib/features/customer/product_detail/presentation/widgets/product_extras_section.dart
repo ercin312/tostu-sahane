@@ -1,423 +1,176 @@
 import 'package:easy_localization/easy_localization.dart';
-
 import 'package:flutter/material.dart';
 
-
-
 import '../../../../../core/localization/locale_keys.dart';
-
-import '../../../../../core/media/app_image.dart';
-
 import '../../../../../core/theme/app_colors.dart';
-
 import '../../../../../core/theme/app_spacing.dart';
-
 import '../../../../../core/utils/format_utils.dart';
-
 import '../../../../../core/utils/localized_text.dart';
-
 import '../../../../../shared/domain/entities/product_extra.dart';
 
-
-
-class ProductExtrasSection extends StatelessWidget {
-
+/// Yemeksepeti tarzı ekstra malzeme listesi (checkbox + ad + fiyat).
+class ProductExtrasSection extends StatefulWidget {
   const ProductExtrasSection({
-
     super.key,
-
     required this.extras,
-
     required this.selectedIds,
-
     required this.onToggle,
-
     this.title,
-
     this.subtitle,
-
+    this.initiallyExpanded = true,
   });
-
-
 
   final List<ProductExtra> extras;
-
   final Set<String> selectedIds;
-
   final ValueChanged<ProductExtra> onToggle;
-
   final String? title;
-
   final String? subtitle;
-
-
+  final bool initiallyExpanded;
 
   @override
-
-  Widget build(BuildContext context) {
-
-    if (extras.isEmpty) return const SizedBox.shrink();
-
-
-
-    return Column(
-
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-
-      children: [
-
-        Row(
-
-          crossAxisAlignment: CrossAxisAlignment.start,
-
-          children: [
-
-            Expanded(
-
-              child: Column(
-
-                crossAxisAlignment: CrossAxisAlignment.start,
-
-                children: [
-
-                  Text(
-
-                    title ?? LocaleKeys.customerExtrasTitle.tr(),
-
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-
-                          fontWeight: FontWeight.w700,
-
-                        ),
-
-                  ),
-
-                  if ((subtitle ?? LocaleKeys.customerExtrasSubtitle.tr()).isNotEmpty) ...[
-
-                    const SizedBox(height: 2),
-
-                    Text(
-
-                      subtitle ?? LocaleKeys.customerExtrasSubtitle.tr(),
-
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-
-                            color: AppColors.textSecondary,
-
-                          ),
-
-                    ),
-
-                  ],
-
-                ],
-
-              ),
-
-            ),
-
-            Container(
-
-              padding: const EdgeInsets.symmetric(
-
-                horizontal: AppSpacing.sm,
-
-                vertical: 4,
-
-              ),
-
-              decoration: BoxDecoration(
-
-                color: AppColors.divider.withValues(alpha: 0.6),
-
-                borderRadius: BorderRadius.circular(20),
-
-              ),
-
-              child: Text(
-
-                LocaleKeys.customerExtrasOptional.tr(),
-
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-
-                      color: AppColors.textSecondary,
-
-                      fontWeight: FontWeight.w600,
-
-                    ),
-
-              ),
-
-            ),
-
-          ],
-
-        ),
-
-        const SizedBox(height: AppSpacing.md),
-
-        ...extras.map(
-
-          (extra) => _ExtraTile(
-
-            extra: extra,
-
-            selected: selectedIds.contains(extra.id),
-
-            onTap: () => onToggle(extra),
-
-          ),
-
-        ),
-
-      ],
-
-    );
-
-  }
-
+  State<ProductExtrasSection> createState() => _ProductExtrasSectionState();
 }
 
+class _ProductExtrasSectionState extends State<ProductExtrasSection> {
+  late var _expanded = widget.initiallyExpanded;
 
+  @override
+  Widget build(BuildContext context) {
+    if (widget.extras.isEmpty) return const SizedBox.shrink();
 
-class _ExtraTile extends StatelessWidget {
+    final title = widget.title ?? LocaleKeys.customerExtrasTitle.tr();
+    final subtitle = widget.subtitle;
 
-  const _ExtraTile({
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                        if (subtitle != null && subtitle.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            const Divider(height: 1),
+            ...widget.extras.map(
+              (extra) => _ExtraCheckRow(
+                extra: extra,
+                selected: widget.selectedIds.contains(extra.id),
+                onTap: () => widget.onToggle(extra),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
+class _ExtraCheckRow extends StatelessWidget {
+  const _ExtraCheckRow({
     required this.extra,
-
     required this.selected,
-
     required this.onTap,
-
   });
 
-
-
   final ProductExtra extra;
-
   final bool selected;
-
   final VoidCallback onTap;
 
-
-
   @override
-
   Widget build(BuildContext context) {
-
     final name = localizedOrRaw(extra.name);
-
-
-
-    return Padding(
-
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-
-      child: Material(
-
-        color: selected
-
-            ? AppColors.primary.withValues(alpha: 0.06)
-
-            : AppColors.white,
-
-        borderRadius: BorderRadius.circular(14),
-
-        child: InkWell(
-
-          onTap: onTap,
-
-          borderRadius: BorderRadius.circular(14),
-
-          child: Container(
-
-            padding: const EdgeInsets.all(AppSpacing.sm),
-
-            decoration: BoxDecoration(
-
-              borderRadius: BorderRadius.circular(14),
-
-              border: Border.all(
-
-                color: selected
-
-                    ? AppColors.primary.withValues(alpha: 0.45)
-
-                    : AppColors.divider,
-
-                width: selected ? 1.5 : 1,
-
-              ),
-
-            ),
-
-            child: Row(
-
-              children: [
-
-                ClipRRect(
-
-                  borderRadius: BorderRadius.circular(10),
-
-                  child: SizedBox(
-
-                    width: 56,
-
-                    height: 56,
-
-                    child: extra.imageUrl != null && extra.imageUrl!.isNotEmpty
-
-                        ? AppImage(
-
-                            source: extra.imageUrl,
-
-                            fit: BoxFit.cover,
-
-                            errorWidget: _extraPlaceholder(extra),
-
-                          )
-
-                        : _extraPlaceholder(extra),
-
-                  ),
-
-                ),
-
-                const SizedBox(width: AppSpacing.sm),
-
-                Expanded(
-
-                  child: Column(
-
-                    crossAxisAlignment: CrossAxisAlignment.start,
-
-                    children: [
-
-                      Text(
-
-                        name,
-
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-
-                              fontWeight: FontWeight.w600,
-
-                            ),
-
-                      ),
-
-                      if (extra.price > 0)
-
-                        Text(
-
-                          LocaleKeys.customerExtraPriceAdd.tr(
-
-                            namedArgs: {
-
-                              'price': FormatUtils.currency(extra.price),
-
-                            },
-
-                          ),
-
-                          style:
-
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-
-                                    color: AppColors.textSecondary,
-
-                                  ),
-
-                        )
-
-                      else
-
-                        Text(
-
-                          LocaleKeys.commonFree.tr(),
-
-                          style:
-
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-
-                                    color: AppColors.success,
-
-                                  ),
-
-                        ),
-
-                    ],
-
-                  ),
-
-                ),
-
-                AnimatedContainer(
-
-                  duration: const Duration(milliseconds: 180),
-
-                  width: 26,
-
-                  height: 26,
-
-                  decoration: BoxDecoration(
-
-                    color: selected ? AppColors.primary : Colors.transparent,
-
-                    borderRadius: BorderRadius.circular(6),
-
-                    border: Border.all(
-
-                      color: selected ? AppColors.primary : AppColors.divider,
-
-                      width: 2,
-
-                    ),
-
-                  ),
-
-                  child: selected
-
-                      ? const Icon(Icons.check, size: 16, color: AppColors.white)
-
-                      : null,
-
-                ),
-
-              ],
-
-            ),
-
-          ),
-
+    final priceLabel = extra.price > 0
+        ? '+${FormatUtils.currency(extra.price)}'
+        : null;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 12,
         ),
-
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: selected,
+                onChanged: (_) => onTap(),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                side: const BorderSide(color: AppColors.divider, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                name,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
+            if (priceLabel != null)
+              Text(
+                priceLabel,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+          ],
+        ),
       ),
-
     );
-
   }
-
-
-
-  Widget _extraPlaceholder(ProductExtra extra) {
-
-    return ColoredBox(
-
-      color: AppColors.primary.withValues(alpha: 0.08),
-
-      child: Icon(
-
-        Icons.fastfood_outlined,
-
-        color: AppColors.primary.withValues(alpha: 0.5),
-
-      ),
-
-    );
-
-  }
-
 }
-
-

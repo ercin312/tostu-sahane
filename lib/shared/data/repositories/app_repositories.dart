@@ -464,11 +464,8 @@ class OrderRepository {
   Future<List<Order>> getOrders() async {
     if (AppConfig.useMockApi) return _mock.getOrders();
     if (AppConfig.useFirestoreBackend) {
-      try {
-        return await _firestore.getOrders();
-      } catch (_) {
-        return _mock.getOrders();
-      }
+      // Mock'a düşme: Windows↔mobil senkronu kırılır.
+      return await _firestore.getOrders();
     }
     try {
       final models = await _remote.getOrders();

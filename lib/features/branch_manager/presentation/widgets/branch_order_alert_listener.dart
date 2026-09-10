@@ -23,8 +23,8 @@ import '../../../../shared/presentation/providers/print_routing_settings_provide
 
 /// Şube ekranlarında yeni sipariş geldiğinde ses, snackbar ve otomatik fiş yazdırır.
 ///
-/// Açılışta mevcut siparişler ASLA yazdırılmaz. Yalnızca uygulama açıldıktan sonra
-/// ilk kez görülen siparişler basılır.
+/// Açılışta mevcut siparişler ASLA yazdırılmaz / bildirilmez. Yalnızca uygulama
+/// açıldıktan sonra oluşan siparişler için uyarı verilir.
 class BranchOrderAlertListener extends ConsumerStatefulWidget {
   const BranchOrderAlertListener({super.key, required this.child});
 
@@ -38,24 +38,34 @@ class BranchOrderAlertListener extends ConsumerStatefulWidget {
 class _BranchOrderAlertListenerState
     extends ConsumerState<BranchOrderAlertListener> {
   /// İlk dolu poll veya bu süre sonrası: yazdırma açık.
-  static const _bootstrapMaxWait = Duration(seconds: 12);
+  static const _bootstrapMaxWait = Duration(seconds: 15);
 
-  final _knownOrderIds = <String>{};
-  final _printedOrderIds = <String>{};
-  final _printedPhoneItemCounts = <String, int>{};
-  final _printedCancelIds = <String>{};
-  final _alertedInquiryIds = <String>{};
-  var _bootstrapped = false;
-  late final DateTime _sessionStartedAt;
+  /// Widget yeniden oluşsa bile aynı oturumda eski sipariş tekrar bildirilmesin.
+  static final _sessionKnownOrderIds = <String>{};
+  static final _sessionPrintedOrderIds = <String>{};
+  static final _sessionPrintedPhoneItemCounts = <String, int>{};
+  static final _sessionPrintedCancelIds = <String>{};
+  static final _sessionAlertedInquiryIds = <String>{};
+  static DateTime? _sessionStartedAtUtc;
+  static var _sessionBootstrapped = false;
+  static DateTime? _lastAlertAtUtc;
+
+  final _knownOrderIds = _sessionKnownOrderIds;
+  final _printedOrderIds = _sessionPrintedOrderIds;
+  final _printedPhoneItemCounts = _sessionPrintedPhoneItemCounts;
+  final _printedCancelIds = _sessionPrintedCancelIds;
+  final _alertedInquiryIds = _sessionAlertedInquiryIds;
+
+  DateTime get _sessionStartedAt =>
+      _sessionStartedAtUtc ??= DateTime.now().toUtc();
 
   @override
   void initState() {
     super.initState();
-    _sessionStartedAt = DateTime.now().toUtc();
+    _sessionStartedAtUtc ??= DateTime.now().toUtc();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(kitchenPrinterProvider.notifier).load());
       unawaited(ref.read(cashierPrinterProvider.notifier).load());
-      // Mevcut snapshot varsa hemen bootstrap’a al (listen ilk değeri vermeyebilir).
       final current = ref.read(ordersProvider).value;
       if (current != null) {
         _onBranchOrdersUpdated(_branchOrders(current));
@@ -105,7 +115,6 @@ class _BranchOrderAlertListenerState
         .toList();
   }
 
-  // Bootstrap: açılıştaki inquiry'leri “görüldü” say (eski uyarı basma).
   void _absorbAsKnown(Iterable<Order> orders) {
     for (final order in orders) {
       _knownOrderIds.add(order.id);
@@ -122,10 +131,17 @@ class _BranchOrderAlertListenerState
     }
   }
 
+  /// Yalnızca uygulama açıldıktan sonra oluşan siparişler.
   bool _createdAfterAppOpen(Order order) {
     final created = order.createdAt.toUtc();
-    // Ağ gecikmesi için 2 sn tolerans; eski siparişler geçmez.
-    return !created.isBefore(_sessionStartedAt.subtract(const Duration(seconds: 2)));
+    // Parse edilemeyen / epoch → eski kabul et, bildirme.
+    if (created.millisecondsSinceEpoch < 1000) return false;
+    final now = DateTime.now().toUtc();
+    // Saat sapmasıyla "gelecek" görünenleri alma.
+    if (created.isAfter(now.add(const Duration(minutes: 5)))) return false;
+    // Açılıştan önce oluşan her şey eski.
+    return !created
+        .isBefore(_sessionStartedAt.subtract(const Duration(seconds: 5)));
   }
 
   void _resetForBranchChange() {
@@ -134,7 +150,19 @@ class _BranchOrderAlertListenerState
     _printedPhoneItemCounts.clear();
     _printedCancelIds.clear();
     _alertedInquiryIds.clear();
-    _bootstrapped = false;
+    _sessionBootstrapped = false;
+    _sessionStartedAtUtc = DateTime.now().toUtc();
+    _lastAlertAtUtc = null;
+  }
+
+  Future<void> _playAlertThrottled() async {
+    final now = DateTime.now().toUtc();
+    final last = _lastAlertAtUtc;
+    if (last != null && now.difference(last) < const Duration(seconds: 4)) {
+      return;
+    }
+    _lastAlertAtUtc = now;
+    await BranchAlertService.playNewOrderAlert();
   }
 
   @override
@@ -163,7 +191,7 @@ class _BranchOrderAlertListenerState
   }
 
   void _onPhoneSpecialEvents(List<Order> all) {
-    if (!_bootstrapped) return;
+    if (!_sessionBootstrapped) return;
     final branchId = _managedBranchId();
     final auth = ref.read(authProvider);
     final canListenWithoutBranch =
@@ -179,7 +207,7 @@ class _BranchOrderAlertListenerState
           !_printedCancelIds.contains(order.id) &&
           _createdAfterAppOpen(order)) {
         _printedCancelIds.add(order.id);
-        BranchAlertService.playNewOrderAlert();
+        unawaited(_playAlertThrottled());
         unawaited(_printOrders([order], force: true));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -202,10 +230,12 @@ class _BranchOrderAlertListenerState
         }
       }
 
+      // Eski "nerede kaldı" kayıtları açılışta bildirilmesin.
       if (order.phoneStatusInquiry &&
-          !_alertedInquiryIds.contains(order.id)) {
+          !_alertedInquiryIds.contains(order.id) &&
+          _createdAfterAppOpen(order)) {
         _alertedInquiryIds.add(order.id);
-        BranchAlertService.playNewOrderAlert();
+        unawaited(_playAlertThrottled());
         if (mounted) {
           final mins = order.phoneStatusInquiryMinutes;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -228,6 +258,8 @@ class _BranchOrderAlertListenerState
             ),
           );
         }
+      } else if (order.phoneStatusInquiry) {
+        _alertedInquiryIds.add(order.id);
       }
     }
   }
@@ -238,19 +270,20 @@ class _BranchOrderAlertListenerState
         auth?.user.role == UserRole.superAdmin && _managedBranchId() == null;
     if (_managedBranchId() == null && !canListenWithoutBranch) return;
 
-    // Bootstrap: açılıştaki tüm siparişleri “bilinen” yap, yazdırma.
-    if (!_bootstrapped) {
+    // Bootstrap: açılıştaki tüm siparişleri “bilinen” yap, yazdırma/bildirim yok.
+    if (!_sessionBootstrapped) {
       _absorbAsKnown(orders);
       final waitedEnough =
           DateTime.now().toUtc().difference(_sessionStartedAt) >=
               _bootstrapMaxWait;
+      // Boş listeyle erken bitirme: geç gelen eski siparişler "yeni" sanılır.
+      // Dolu feed gelince VEYA süre dolunca bootstrap tamam.
       if (orders.isNotEmpty || waitedEnough) {
-        _bootstrapped = true;
+        _sessionBootstrapped = true;
       }
       return;
     }
 
-    // Bootstrap sonrası ilk kez görülen + uygulama açılışından sonra oluşan
     final brandNew = <Order>[];
     for (final order in orders) {
       if (_knownOrderIds.contains(order.id)) {
@@ -261,7 +294,6 @@ class _BranchOrderAlertListenerState
       if (_createdAfterAppOpen(order)) {
         brandNew.add(order);
       } else {
-        // Eski sipariş sonradan poll’a düştü — basma.
         _printedOrderIds.add(order.id);
         if (order.isPhoneOrder) {
           _printedPhoneItemCounts[order.id] = order.items.length;
@@ -282,8 +314,6 @@ class _BranchOrderAlertListenerState
         return o.status == OrderStatus.received;
       }
       if (o.isDineIn) {
-        // Masa ekstra: yalnızca yiyecek (mutfak kalemi) varsa bas.
-        // İçecek-only ekstra → mutfağa gitmez.
         if (o.isTableAddon && !o.hasKitchenItems) return false;
         return o.status == OrderStatus.received ||
             o.status == OrderStatus.preparing;
@@ -298,7 +328,7 @@ class _BranchOrderAlertListenerState
       return;
     }
 
-    BranchAlertService.playNewOrderAlert();
+    unawaited(_playAlertThrottled());
     unawaited(_printOrders(printable));
 
     if (!mounted) return;
@@ -335,7 +365,7 @@ class _BranchOrderAlertListenerState
 
     _printedOrderIds.remove(order.id);
     _printedPhoneItemCounts[order.id] = order.items.length;
-    BranchAlertService.playNewOrderAlert();
+    unawaited(_playAlertThrottled());
     unawaited(_printOrders([order]));
   }
 

@@ -100,7 +100,9 @@ abstract final class EntityMappers {
         items: model.items.map(toCartItem).toList(),
         totalAmount: model.totalAmount,
         status: OrderStatus.values.byName(model.status),
-        createdAt: _parseInstant(model.createdAt) ?? DateTime.now().toUtc(),
+        createdAt: _parseInstant(model.createdAt) ??
+            // now() kullanma: her poll'da "yeni sipariş" sanılır.
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         address: model.address,
         paymentMethod: PaymentMethod.values.byName(model.paymentMethod),
         courierId: model.courierId,

@@ -772,6 +772,7 @@ class MockApiDataSource {
       statusActorNames: {OrderStatus.preparing: waiterName},
       isPickup: isPickup,
       isTableAddon: isTableAddon,
+      orderSource: OrderSource.waiter,
     );
   }
 

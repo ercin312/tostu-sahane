@@ -74,7 +74,7 @@ void main() {
           productId: 'ts_1',
           productNameKey: 'Tost',
           unitPrice: 50,
-          quantity: 1,
+          quantity: 1.5,
           productCategory: 'tost',
         ),
       ],
@@ -82,6 +82,35 @@ void main() {
     );
     expect(order.hasKitchenItems, isTrue);
     expect(kitchenCartItems(order).single.productId, 'ts_1');
+  });
+
+  test('POS section category beats wrong catalog drink link', () {
+    // Garson tost bölümünden girilmiş; canlı katalog yanlışlıkla drink olsa bile
+    // product_category=tost → mutfağa düşmeli.
+    final order = _orderWithItems(
+      const [
+        CartItem(
+          id: '1',
+          productId: 'p_wrong',
+          productNameKey: 'Kaşarlı Tost',
+          unitPrice: 120,
+          quantity: 1,
+          productCategory: 'tost',
+        ),
+      ],
+      isTableAddon: true,
+    );
+    const catalog = [
+      Product(
+        id: 'p_wrong',
+        nameKey: 'Kaşarlı Tost',
+        descriptionKey: '',
+        price: 120,
+        category: ProductCategory.drink,
+      ),
+    ];
+    expect(order.hasKitchenItems, isTrue);
+    expect(orderHasKitchenItems(order, catalog: catalog), isTrue);
   });
 
   test('catalog lookup excludes drink without productCategory', () {
