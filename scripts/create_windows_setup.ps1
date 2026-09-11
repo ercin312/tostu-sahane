@@ -11,6 +11,14 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot\..
 
+# Bazi agent/CI kabuklarinda ProgramFiles(x86) yok; CMake/VS bunu ister.
+if (-not [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) {
+    Set-Item -Path 'Env:ProgramFiles(x86)' -Value 'C:\Program Files (x86)'
+}
+if (-not [Environment]::GetEnvironmentVariable('CommonProgramFiles(x86)')) {
+    Set-Item -Path 'Env:CommonProgramFiles(x86)' -Value 'C:\Program Files (x86)\Common Files'
+}
+
 $pubspec = Get-Content 'pubspec.yaml' -Raw
 if ($pubspec -match 'version:\s*([0-9]+\.[0-9]+\.[0-9]+)') {
     $appVersion = $Matches[1]
