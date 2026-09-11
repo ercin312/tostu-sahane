@@ -15,16 +15,17 @@ import '../../../../../features/customer/home/presentation/providers/branch_prov
 import '../../../../../shared/domain/entities/order.dart';
 import '../../../../../shared/presentation/providers/orders_provider.dart';
 
-class AdminCourierTrackingPage extends ConsumerStatefulWidget {
-  const AdminCourierTrackingPage({super.key});
+/// Şube Windows/mobil: aktif teslimatlar haritası (yalnız kendi şubesi).
+class BranchCourierTrackingPage extends ConsumerStatefulWidget {
+  const BranchCourierTrackingPage({super.key});
 
   @override
-  ConsumerState<AdminCourierTrackingPage> createState() =>
-      _AdminCourierTrackingPageState();
+  ConsumerState<BranchCourierTrackingPage> createState() =>
+      _BranchCourierTrackingPageState();
 }
 
-class _AdminCourierTrackingPageState
-    extends ConsumerState<AdminCourierTrackingPage> {
+class _BranchCourierTrackingPageState
+    extends ConsumerState<BranchCourierTrackingPage> {
   Timer? _refreshTimer;
 
   @override
@@ -43,7 +44,11 @@ class _AdminCourierTrackingPageState
 
   @override
   Widget build(BuildContext context) {
-    final deliveries = ref.watch(activeDeliveryOrdersProvider);
+    final branch = ref.watch(managedBranchProvider).value;
+    final all = ref.watch(activeDeliveryOrdersProvider);
+    final deliveries = branch == null
+        ? const <Order>[]
+        : all.where((o) => o.branchId == branch.id).toList();
     final mapHeight = PlatformLayout.useDesktopLayout(context) ? 420.0 : 320.0;
 
     return Scaffold(
@@ -60,7 +65,7 @@ class _AdminCourierTrackingPageState
                 children: [
                   SizedBox(
                     height: mapHeight,
-                    child: _AdminCourierMap(
+                    child: _BranchCourierMap(
                       orders: deliveries,
                       mapHeight: mapHeight,
                     ),
@@ -71,7 +76,7 @@ class _AdminCourierTrackingPageState
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  ...deliveries.map((o) => _DeliveryTrackingCard(order: o)),
+                  ...deliveries.map((o) => _BranchDeliveryCard(order: o)),
                 ],
               ),
             ),
@@ -79,8 +84,8 @@ class _AdminCourierTrackingPageState
   }
 }
 
-class _AdminCourierMap extends ConsumerWidget {
-  const _AdminCourierMap({
+class _BranchCourierMap extends ConsumerWidget {
+  const _BranchCourierMap({
     required this.orders,
     required this.mapHeight,
   });
@@ -94,9 +99,7 @@ class _AdminCourierMap extends ConsumerWidget {
 
     return branchesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => Center(
-        child: Text(LocaleKeys.commonError.tr()),
-      ),
+      error: (_, __) => Center(child: Text(LocaleKeys.commonError.tr())),
       data: (branches) {
         final branchById = {
           for (final branch in branches)
@@ -113,8 +116,8 @@ class _AdminCourierMap extends ConsumerWidget {
   }
 }
 
-class _DeliveryTrackingCard extends StatelessWidget {
-  const _DeliveryTrackingCard({required this.order});
+class _BranchDeliveryCard extends StatelessWidget {
+  const _BranchDeliveryCard({required this.order});
 
   final Order order;
 

@@ -412,6 +412,12 @@ class _OsmZoneMapState extends State<_OsmZoneMap> {
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.tostusahane.tostu_sahane',
+          tileProvider: NetworkTileProvider(
+            headers: const {
+              'User-Agent':
+                  'TostuSahane/1.1 (Flutter Ops; +https://tostusahane.com)',
+            },
+          ),
         ),
         if (zonePolygons.isNotEmpty) PolygonLayer(polygons: zonePolygons),
         if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),

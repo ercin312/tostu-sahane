@@ -868,14 +868,15 @@ class FirestoreDataSource {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  /// Salon yedek: sıralı dineIn + açık status’ler.
+  /// Salon yedek: sıralı dineIn + açık status’ler (sunucudan — yerel önbellek kaçırmasın).
   Future<void> _mergeDineInSupplements(Map<String, Order> byId) async {
+    const server = GetOptions(source: Source.server);
     try {
       final dineInSnap = await _ordersCol
           .where('order_type', isEqualTo: 'dineIn')
           .orderBy('created_at', descending: true)
           .limit(300)
-          .get();
+          .get(server);
       for (final doc in dineInSnap.docs) {
         try {
           byId[doc.id] = _docToOrder(doc);
@@ -886,7 +887,7 @@ class FirestoreDataSource {
         final dineInSnap = await _ordersCol
             .where('order_type', isEqualTo: 'dineIn')
             .limit(300)
-            .get();
+            .get(server);
         for (final doc in dineInSnap.docs) {
           try {
             byId[doc.id] = _docToOrder(doc);
@@ -903,7 +904,7 @@ class FirestoreDataSource {
         final snap = await _ordersCol
             .where('status', isEqualTo: status.name)
             .limit(100)
-            .get();
+            .get(server);
         for (final doc in snap.docs) {
           try {
             final order = _docToOrder(doc);

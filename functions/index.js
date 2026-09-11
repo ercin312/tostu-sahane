@@ -339,11 +339,24 @@ function statusLabelTr(status) {
   return STATUS_TR[status] || status;
 }
 
+const OPS_ROLES = new Set([
+  'waiter',
+  'kitchenStaff',
+  'branchStaff',
+  'branchManager',
+  'superAdmin',
+  'courier',
+]);
+
 exports.onOrderUpdate = functions.firestore
   .document('orders/{orderId}')
   .onWrite(async (change, context) => {
     const after = change.after.exists ? change.after.data() : null;
     if (!after) return null;
+
+    const before = change.before.exists ? change.before.data() : null;
+    // Konum / kalem güncellemelerinde spam olmasın — yalnız durum değişince.
+    if (before && before.status === after.status) return null;
 
     const status = after.status;
     const branchId = after.branch_id;
@@ -371,6 +384,9 @@ exports.onOrderUpdate = functions.firestore
       ) {
         tokens.push(token);
       } else if (doc.id === customerId) {
+        // Salon siparişinde customer_id = garson; garson/ops'a durum push'u yok.
+        if (orderType === 'dineIn') return;
+        if (OPS_ROLES.has(role)) return;
         tokens.push(token);
       }
     });

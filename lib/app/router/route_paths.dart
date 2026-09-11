@@ -37,6 +37,7 @@ abstract final class RoutePaths {
   static const branchDineIn = '/branch/dine-in';
   static const branchCashier = '/branch/cashier';
   static const branchKitchen = '/branch/kitchen';
+  static const branchCourierTracking = '/branch/courier-tracking';
   static String branchCashierBill(int tableNumber) =>
       '/branch/cashier/table/$tableNumber/bill';
 

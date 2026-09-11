@@ -95,7 +95,7 @@ abstract final class AdminNavConfig {
       outlinedIcon: Icons.map_outlined,
       filledIcon: Icons.map,
       mobileToolsMenu: true,
-      desktopRail: false,
+      desktopRail: true,
     ),
     AdminNavItem(
       route: RoutePaths.adminCashRemittances,

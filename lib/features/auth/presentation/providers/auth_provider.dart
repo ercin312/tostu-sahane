@@ -61,11 +61,12 @@ class AuthNotifier extends Notifier<AuthState?> {
     final needsPhone = prefs.getBool(_needsPhoneKey) ?? false;
 
     if (userId != null && roleName != null && name != null) {
+      final role = UserRole.values.byName(roleName);
       state = AuthState(
         user: User(
           id: userId,
           name: name,
-          role: UserRole.values.byName(roleName),
+          role: role,
           branchId: branchId,
           username: username,
         ),
@@ -74,6 +75,8 @@ class AuthNotifier extends Notifier<AuthState?> {
         needsAddressOnboarding: false,
         needsPhoneOnboarding: needsPhone,
       );
+      NotificationService.suppressOrderStatusNotifications =
+          role == UserRole.waiter;
     }
   }
 
@@ -236,6 +239,8 @@ class AuthNotifier extends Notifier<AuthState?> {
       needsAddressOnboarding: addressNeeded,
       needsPhoneOnboarding: phoneNeeded,
     );
+    NotificationService.suppressOrderStatusNotifications =
+        session.role == UserRole.waiter;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey, user.id);
@@ -300,6 +305,7 @@ class AuthNotifier extends Notifier<AuthState?> {
 
   Future<void> logout() async {
     state = null;
+    NotificationService.suppressOrderStatusNotifications = false;
     try {
       await _customerAuth.signOut();
     } catch (_) {}

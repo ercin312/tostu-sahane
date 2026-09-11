@@ -94,6 +94,12 @@ class _OsmPinMapPickerState extends State<OsmPinMapPicker> {
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.tostusahane.tostu_sahane',
+              tileProvider: NetworkTileProvider(
+                headers: const {
+                  'User-Agent':
+                      'TostuSahane/1.1 (Flutter Ops; +https://tostusahane.com)',
+                },
+              ),
             ),
           ],
         ),

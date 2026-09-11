@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/address_onboarding_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/branch_manager/cash_remittance/presentation/pages/branch_cash_remittances_page.dart';
 import '../../features/branch_manager/cashier/presentation/pages/branch_cashier_page.dart';
+import '../../features/branch_manager/courier_tracking/presentation/pages/branch_courier_tracking_page.dart';
 import '../../features/branch_manager/dine_in/presentation/pages/branch_dine_in_page.dart';
 import '../../features/branch_manager/dashboard/presentation/pages/branch_dashboard_page.dart';
 import '../../features/branch_manager/menu_quick_edit/presentation/pages/branch_menu_page.dart';
@@ -196,6 +197,10 @@ GoRouter createAppRouter(Ref ref) {
           GoRoute(
             path: RoutePaths.branchReports,
             builder: (context, state) => const BranchReportsPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.branchCourierTracking,
+            builder: (context, state) => const BranchCourierTrackingPage(),
           ),
           GoRoute(
             path: RoutePaths.branchCashRemittances,

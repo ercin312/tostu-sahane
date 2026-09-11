@@ -218,12 +218,18 @@ class OsmActiveDeliveriesMapView extends StatelessWidget {
         ),
       );
 
-      final onTheWay = order.status == OrderStatus.onTheWay;
       final hasCourier =
           order.courierLatitude != null && order.courierLongitude != null;
       LatLng? courier;
-      if (onTheWay && hasCourier) {
+      if (hasCourier) {
+        // waitingCourier veya onTheWay — konum varsa göster.
         courier = LatLng(order.courierLatitude!, order.courierLongitude!);
+      } else if (order.status == OrderStatus.onTheWay ||
+          order.status == OrderStatus.waitingCourier) {
+        // GPS henüz gelmediyse şube konumunda kurye ikonu (görünürlük).
+        courier = branch;
+      }
+      if (courier != null) {
         cameraPoints.add(courier);
         markers.add(
           Marker(
@@ -243,8 +249,8 @@ class OsmActiveDeliveriesMapView extends StatelessWidget {
         _routePolylines(
           branch: branch,
           delivery: delivery,
-          courierLat: courier?.latitude,
-          courierLng: courier?.longitude,
+          courierLat: hasCourier ? order.courierLatitude : null,
+          courierLng: hasCourier ? order.courierLongitude : null,
           muted: true,
         ),
       );
@@ -380,6 +386,13 @@ class _OsmMapFrameState extends State<_OsmMapFrame> {
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.tostusahane.tostu_sahane',
+                    // Windows/desktop: OSM boş karo (User-Agent) sorununu azalt.
+                    tileProvider: NetworkTileProvider(
+                      headers: const {
+                        'User-Agent':
+                            'TostuSahane/1.1 (Flutter Ops; +https://tostusahane.com)',
+                      },
+                    ),
                   ),
                   if (widget.polylines.isNotEmpty)
                     PolylineLayer(polylines: widget.polylines),

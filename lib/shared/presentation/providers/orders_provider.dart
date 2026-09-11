@@ -70,6 +70,15 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
       }
 
       subscribe();
+      // Mobil SDK snapshot yalnız top-300 created_at dinler; Windows/diğer
+      // garson salon siparişleri kaçabiliyor. Ops rollerde periyodik
+      // getOrders (dineIn + açık status yedekleri) ile masa haritasını doldur.
+      _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+        if (disposed) return;
+        final role = ref.read(authProvider)?.user.role;
+        if (role == null || role == UserRole.customer) return;
+        _syncFromRepository();
+      });
       try {
         final merged = await _mergeRemoteInto(
           cached,
@@ -212,6 +221,19 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     return localizedOrRaw(name);
   }
 
+  /// Garsona "hazırlanıyor / iptal" gibi durum push'ları göstermeyiz.
+  bool get _shouldNotifyOrderStatus {
+    final role = ref.read(authProvider)?.user.role;
+    return role != UserRole.waiter;
+  }
+
+  Future<void> _notifyOrderStatus(OrderStatus status) async {
+    if (!_shouldNotifyOrderStatus) return;
+    await NotificationService.instance.notifyOrderStatus(
+      OrderStatusUtils.labelKey(status),
+    );
+  }
+
   Future<void> _ensureMockHas(Order order) async {
     if (!AppConfig.useMockApi) return;
     ref.read(mockApiDataSourceProvider).upsertOrder(order);
@@ -257,6 +279,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
       final ob = b[i];
       if (oa.id != ob.id ||
           oa.status != ob.status ||
+          oa.tableNumber != ob.tableNumber ||
           oa.rating != ob.rating ||
           oa.courierLatitude != ob.courierLatitude ||
           oa.courierLongitude != ob.courierLongitude ||
@@ -550,9 +573,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
         actorName: _actorName(),
       );
       await _upsertOrder(updated);
-      unawaited(NotificationService.instance.notifyOrderStatus(
-        OrderStatusUtils.labelKey(status),
-      ));
+      unawaited(_notifyOrderStatus(status));
       return updated;
     } catch (_) {
       await _upsertOrder(existing);
@@ -624,9 +645,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     }
 
     await _upsertOrder(updated);
-    await NotificationService.instance.notifyOrderStatus(
-      OrderStatusUtils.labelKey(OrderStatus.onTheWay),
-    );
+    await _notifyOrderStatus(OrderStatus.onTheWay);
     return updated;
   }
 
@@ -674,9 +693,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
         actorName: _actorName(),
       );
       await _upsertOrder(updated);
-      unawaited(NotificationService.instance.notifyOrderStatus(
-        OrderStatusUtils.labelKey(OrderStatus.cancelled),
-      ));
+      unawaited(_notifyOrderStatus(OrderStatus.cancelled));
       return updated;
     } catch (_) {
       await _upsertOrder(existing);

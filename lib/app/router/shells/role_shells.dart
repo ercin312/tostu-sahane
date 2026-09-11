@@ -115,7 +115,8 @@ class BranchShell extends ConsumerWidget {
     if (location.startsWith(RoutePaths.branchDineIn)) return 2;
     if (location.startsWith('/branch/menu')) return 3;
     if (location.startsWith('/branch/reports')) return 4;
-    if (location.startsWith(RoutePaths.branchCashRemittances)) return 5;
+    if (location.startsWith(RoutePaths.branchCourierTracking)) return 5;
+    if (location.startsWith(RoutePaths.branchCashRemittances)) return 6;
     return 0;
   }
 
@@ -132,6 +133,8 @@ class BranchShell extends ConsumerWidget {
       case 4:
         context.go(RoutePaths.branchReports);
       case 5:
+        context.go(RoutePaths.branchCourierTracking);
+      case 6:
         context.go(RoutePaths.branchCashRemittances);
     }
   }
@@ -166,6 +169,11 @@ class BranchShell extends ConsumerWidget {
         icon: const Icon(Icons.bar_chart_outlined),
         selectedIcon: const Icon(Icons.bar_chart),
         label: Text(LocaleKeys.navReports.tr()),
+      ),
+      NavigationRailDestination(
+        icon: const Icon(Icons.map_outlined),
+        selectedIcon: const Icon(Icons.map),
+        label: Text(LocaleKeys.navCourierTracking.tr()),
       ),
       NavigationRailDestination(
         icon: Badge(
@@ -210,6 +218,11 @@ class BranchShell extends ConsumerWidget {
         icon: const Icon(Icons.bar_chart_outlined),
         activeIcon: const Icon(Icons.bar_chart),
         label: LocaleKeys.navReports.tr(),
+      ),
+      BottomNavigationBarItem(
+        icon: const Icon(Icons.map_outlined),
+        activeIcon: const Icon(Icons.map),
+        label: LocaleKeys.navCourierTracking.tr(),
       ),
       BottomNavigationBarItem(
         icon: Badge(

@@ -30,6 +30,9 @@ class NotificationService {
 
   static OrderUpdateCallback? onOrderUpdate;
 
+  /// Garson oturumunda "hazırlanıyor / iptal" durum push'larını gösterme.
+  static bool suppressOrderStatusNotifications = false;
+
   final _local = FlutterLocalNotificationsPlugin();
   bool _fcmReady = false;
 
@@ -76,8 +79,15 @@ class NotificationService {
   void _onForegroundMessage(RemoteMessage message) {
     final data = message.data;
     final statusName = data['status'] as String?;
+    final isOrderUpdate = data['type'] == 'order_update';
+
+    if (isOrderUpdate) {
+      onOrderUpdate?.call();
+      if (suppressOrderStatusNotifications) return;
+    }
+
     var body = message.notification?.body ?? '';
-    if (statusName != null && data['type'] == 'order_update') {
+    if (statusName != null && isOrderUpdate) {
       try {
         final status = OrderStatus.values.byName(statusName);
         final label = OrderStatusUtils.label(status);
@@ -94,13 +104,6 @@ class NotificationService {
     final title = message.notification?.title ?? LocaleKeys.appName.tr();
 
     showLocal(title: title, body: body);
-
-    if (message.data['type'] == 'order_update') {
-
-      onOrderUpdate?.call();
-
-    }
-
   }
 
 
@@ -158,15 +161,11 @@ class NotificationService {
 
 
   Future<void> notifyOrderStatus(String statusKey) async {
-
+    if (suppressOrderStatusNotifications) return;
     await showLocal(
-
       title: LocaleKeys.appName.tr(),
-
       body: statusKey.tr(),
-
     );
-
   }
 
 
