@@ -56,6 +56,7 @@ class OrderStatusTimeline extends StatelessWidget {
                 status,
                 order.status,
                 dineIn: order.isDineIn,
+                customerPickup: order.isCustomerPickup,
               );
           if (at == null && !isCurrent && !isPast) {
             return const SizedBox.shrink();

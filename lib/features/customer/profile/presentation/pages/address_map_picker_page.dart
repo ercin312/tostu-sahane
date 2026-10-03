@@ -3,23 +3,29 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/services/location_service.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../core/utils/delivery_zone_utils.dart';
 import '../../../../../core/widgets/osm_pin_map_picker.dart';
+import '../../../../../shared/domain/entities/branch.dart';
+import '../../../../../shared/domain/entities/geo_point.dart';
 
 class AddressMapPickerPage extends StatefulWidget {
   const AddressMapPickerPage({
     super.key,
     this.initialLat,
     this.initialLng,
+    this.deliveryBranch,
   });
 
   final double? initialLat;
   final double? initialLng;
+  final Branch? deliveryBranch;
 
   @override
   State<AddressMapPickerPage> createState() => _AddressMapPickerPageState();
@@ -114,6 +120,28 @@ class _AddressMapPickerPageState extends State<AddressMapPickerPage> {
     _scheduleGeocode(immediate: immediate);
   }
 
+  List<LatLng> get _zoneOutline {
+    final branch = widget.deliveryBranch;
+    if (branch == null) return const [];
+    final points = switch (branch.deliveryZoneMode) {
+      DeliveryZoneMode.radius => DeliveryZoneUtils.circleOutline(
+          latitude: branch.latitude,
+          longitude: branch.longitude,
+          radiusKm: branch.deliveryRadiusKm,
+        ),
+      DeliveryZoneMode.polygon => branch.deliveryPolygon,
+    };
+    return [
+      for (final point in points) LatLng(point.latitude, point.longitude),
+    ];
+  }
+
+  bool get _pinOutsideZone {
+    final branch = widget.deliveryBranch;
+    if (branch == null) return false;
+    return !DeliveryZoneUtils.isDeliverable(branch, _lat, _lng);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,6 +167,7 @@ class _AddressMapPickerPageState extends State<AddressMapPickerPage> {
             child: OsmPinMapPicker(
               latitude: _lat,
               longitude: _lng,
+              zoneOutline: _zoneOutline,
               onPositionChanging: (pos) => _onPositionChanged(
                 pos.lat,
                 pos.lng,
@@ -166,6 +195,16 @@ class _AddressMapPickerPageState extends State<AddressMapPickerPage> {
                   _address ?? LocaleKeys.addressMapPickerUnknown.tr(),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+                if (_pinOutsideZone) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    LocaleKeys.deliveryOutOfZone.tr(),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 ElevatedButton(
                   onPressed: () {

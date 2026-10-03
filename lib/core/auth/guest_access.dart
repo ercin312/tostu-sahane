@@ -11,7 +11,10 @@ abstract final class GuestAccess {
 
   static bool isBrowsablePath(String path) {
     if (path == RoutePaths.customerHome) return true;
+    if (path == RoutePaths.customerPickup) return true;
     if (path == RoutePaths.customerCart) return true;
+    if (path == RoutePaths.customerNotifications) return true;
+    if (path.startsWith('/notification/')) return true;
     if (RegExp(r'^/customer/product/[^/]+$').hasMatch(path)) return true;
     return false;
   }

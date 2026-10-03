@@ -231,7 +231,7 @@ async function upsertWebOrderFromWoo(orderPayload) {
     ).trim() || DEFAULT_BRANCH_ID;
 
   const orderNumber = await nextOrderNumber(db);
-  const now = new Date().toISOString();
+  const now = admin.firestore.Timestamp.now();
   const phoneRaw =
     (order.billing && order.billing.phone) ||
     order.customer_phone ||

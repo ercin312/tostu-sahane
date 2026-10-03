@@ -7,8 +7,11 @@ abstract final class RoutePaths {
   static const authAddressOnboarding = '/auth/address-onboarding';
 
   static const customerHome = '/customer/home';
+  static const customerPickup = '/customer/pickup';
   static const customerOrders = '/customer/orders';
   static const customerProfile = '/customer/profile';
+  static const customerNotifications = '/customer/notifications';
+  static String broadcastDetail(String id) => '/notification/$id';
   static const customerCart = '/customer/cart';
   static const customerCheckout = '/customer/checkout';
   static const customerPayment = '/customer/payment';
@@ -66,6 +69,8 @@ abstract final class RoutePaths {
   static const adminPhoneAiTraining = '/admin/phone-ai-training';
   static const adminPaytrSettings = '/admin/paytr-settings';
   static const adminPromotions = '/admin/promotions';
+  static const adminPickup = '/admin/pickup';
+  static const adminBroadcasts = '/admin/broadcasts';
   static const adminTools = '/admin/tools';
 
   static const designerStudio = '/designer/studio';

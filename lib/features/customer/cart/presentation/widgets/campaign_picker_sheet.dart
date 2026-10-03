@@ -8,9 +8,11 @@ import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/format_utils.dart';
 import '../../../../../core/utils/promotion_utils.dart';
 import '../../../../../shared/domain/entities/promotion_campaign.dart';
+import '../../../../../shared/presentation/providers/orders_provider.dart';
 import '../../../../../shared/presentation/providers/promotion_providers.dart';
 import '../../../checkout/presentation/providers/coupon_provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/delivery_providers.dart';
 
 Future<void> showCampaignPicker(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
@@ -50,7 +52,17 @@ class _CampaignPickerSheetState extends ConsumerState<_CampaignPickerSheet> {
         computed > 0
             ? FormatUtils.currency(computed)
             : '%${campaign.value.toStringAsFixed(0)}',
-      PromotionType.freeDrinks => LocaleKeys.adminPromotionTypeFreeDrinks.tr(),
+      PromotionType.freeDrinks =>
+        computed > 0
+            ? FormatUtils.currency(computed)
+            : LocaleKeys.adminPromotionTypeFreeDrinks.tr(),
+      PromotionType.freeItem => LocaleKeys.adminPromotionTypeFreeItem.tr(),
+      PromotionType.buyXGetY =>
+        '${campaign.buyQuantity} + ${campaign.freeQuantity}',
+      PromotionType.freeDelivery =>
+        computed > 0
+            ? FormatUtils.currency(computed)
+            : LocaleKeys.adminPromotionTypeFreeDelivery.tr(),
     };
   }
 
@@ -86,10 +98,13 @@ class _CampaignPickerSheetState extends ConsumerState<_CampaignPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final campaigns = ref.watch(activePromotionCampaignsProvider);
+    final campaigns = ref.watch(checkoutCampaignsProvider);
     final subtotal = ref.watch(cartSubtotalProvider);
     final cart = ref.watch(cartProvider);
     final categories = ref.watch(productCategoryMapProvider);
+    final drinkExtras = ref.watch(drinkExtraPricesProvider);
+    final deliveryFee = ref.watch(deliveryFeeProvider);
+    final isFirstOrder = ref.watch(customerIsFirstOrderProvider);
     final selected = ref.watch(appliedCheckoutDiscountProvider);
     final height = MediaQuery.sizeOf(context).height * 0.92;
 
@@ -99,7 +114,10 @@ class _CampaignPickerSheetState extends ConsumerState<_CampaignPickerSheet> {
     var bestAmount = 0.0;
 
     for (final campaign in campaigns) {
-      if (!PromotionUtils.canOfferInPicker(campaign)) {
+      if (!PromotionUtils.canOfferInPicker(
+        campaign,
+        isFirstOrder: isFirstOrder,
+      )) {
         if (campaign.isActive) invalid.add(campaign);
         continue;
       }
@@ -107,6 +125,7 @@ class _CampaignPickerSheetState extends ConsumerState<_CampaignPickerSheet> {
         campaign: campaign,
         cartItems: cart,
         productCategories: categories,
+        drinkExtraPrices: drinkExtras,
       );
       if (!applies) {
         invalid.add(campaign);
@@ -118,6 +137,9 @@ class _CampaignPickerSheetState extends ConsumerState<_CampaignPickerSheet> {
         subtotal: subtotal,
         cartItems: cart,
         productCategories: categories,
+        deliveryFee: deliveryFee,
+        isFirstOrder: isFirstOrder,
+        drinkExtraPrices: drinkExtras,
       );
       if (amount > bestAmount) {
         bestAmount = amount;
@@ -195,6 +217,9 @@ class _CampaignPickerSheetState extends ConsumerState<_CampaignPickerSheet> {
                       subtotal: subtotal,
                       cartItems: cart,
                       productCategories: categories,
+                      deliveryFee: deliveryFee,
+                      isFirstOrder: isFirstOrder,
+                      drinkExtraPrices: drinkExtras,
                     );
                     final eligible = needed <= 0 && computed > 0;
                     return Padding(
@@ -348,13 +373,29 @@ class _CouponCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      campaign.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        height: 1.3,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          campaign.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (campaign.description.trim().isNotEmpty)
+                          Text(
+                            campaign.description.trim(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              height: 1.3,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   if (best)

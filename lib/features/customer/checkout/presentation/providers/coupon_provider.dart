@@ -5,7 +5,19 @@ import '../../../../../shared/domain/entities/coupon.dart';
 import '../../../../../shared/presentation/providers/repository_providers.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../../../shared/domain/entities/promotion_campaign.dart';
+import '../../../../../shared/presentation/providers/pickup_settings_provider.dart';
 import '../../../../../shared/presentation/providers/promotion_providers.dart';
+import '../../../pickup/presentation/providers/fulfillment_mode_provider.dart';
+import '../../../cart/presentation/providers/delivery_providers.dart';
+import '../../../../../shared/presentation/providers/orders_provider.dart';
+
+final checkoutCampaignsProvider = Provider<List<PromotionCampaign>>((ref) {
+  if (ref.watch(customerPickupActiveProvider)) {
+    return ref.watch(pickupSettingsProvider).valueOrNull?.activeCampaigns ??
+        const [];
+  }
+  return ref.watch(activePromotionCampaignsProvider);
+});
 
 class CheckoutDiscountSelection {
   const CheckoutDiscountSelection({
@@ -34,13 +46,19 @@ final autoCheckoutDiscountProvider = Provider<CheckoutDiscountSelection?>((ref) 
   final subtotal = ref.watch(cartSubtotalProvider);
   final cart = ref.watch(cartProvider);
   final categories = ref.watch(productCategoryMapProvider);
-  final campaigns = ref.watch(activePromotionCampaignsProvider);
+  final drinkExtras = ref.watch(drinkExtraPricesProvider);
+  final campaigns = ref.watch(checkoutCampaignsProvider);
 
+  final deliveryFee = ref.watch(deliveryFeeProvider);
+  final isFirstOrder = ref.watch(customerIsFirstOrderProvider);
   final best = PromotionUtils.bestAutoPromotion(
     campaigns: campaigns,
     subtotal: subtotal,
     cartItems: cart,
     productCategories: categories,
+    deliveryFee: deliveryFee,
+    isFirstOrder: isFirstOrder,
+    drinkExtraPrices: drinkExtras,
   );
   if (best == null) return null;
 
@@ -49,6 +67,9 @@ final autoCheckoutDiscountProvider = Provider<CheckoutDiscountSelection?>((ref) 
     subtotal: subtotal,
     cartItems: cart,
     productCategories: categories,
+    deliveryFee: deliveryFee,
+    isFirstOrder: isFirstOrder,
+    drinkExtraPrices: drinkExtras,
   );
   if (amount <= 0) return null;
 
@@ -64,7 +85,7 @@ final autoCheckoutDiscountProvider = Provider<CheckoutDiscountSelection?>((ref) 
 final checkoutDiscountProvider = Provider<double>((ref) {
   final manual = ref.watch(appliedCheckoutDiscountProvider);
   if (manual?.campaignId != null) {
-    final campaigns = ref.watch(activePromotionCampaignsProvider);
+    final campaigns = ref.watch(checkoutCampaignsProvider);
     PromotionCampaign? campaign;
     for (final item in campaigns) {
       if (item.id == manual!.campaignId) {
@@ -78,6 +99,9 @@ final checkoutDiscountProvider = Provider<double>((ref) {
       subtotal: ref.watch(cartSubtotalProvider),
       cartItems: ref.watch(cartProvider),
       productCategories: ref.watch(productCategoryMapProvider),
+      deliveryFee: ref.watch(deliveryFeeProvider),
+      isFirstOrder: ref.watch(customerIsFirstOrderProvider),
+      drinkExtraPrices: ref.watch(drinkExtraPricesProvider),
     );
   }
   if (manual != null) return manual.amount;
@@ -115,16 +139,33 @@ class CouponNotifier {
     final subtotal = _ref.read(cartSubtotalProvider);
     final cart = _ref.read(cartProvider);
     final categories = _ref.read(productCategoryMapProvider);
+    final drinkExtras = _ref.read(drinkExtraPricesProvider);
 
-    final promotion = await _ref
-        .read(promotionRepositoryProvider)
-        .getPromotionByCode(normalized);
+    PromotionCampaign? promotion;
+    if (_ref.read(customerPickupActiveProvider)) {
+      final normalizedCode = normalized.toUpperCase();
+      for (final item
+          in _ref.read(pickupSettingsProvider).valueOrNull?.activeCampaigns ??
+              const <PromotionCampaign>[]) {
+        if (item.normalizedCode == normalizedCode) {
+          promotion = item;
+          break;
+        }
+      }
+    } else {
+      promotion = await _ref
+          .read(promotionRepositoryProvider)
+          .getPromotionByCode(normalized);
+    }
     if (promotion != null) {
       final discount = PromotionUtils.discountFor(
         campaign: promotion,
         subtotal: subtotal,
         cartItems: cart,
         productCategories: categories,
+        deliveryFee: _ref.read(deliveryFeeProvider),
+        isFirstOrder: _ref.read(customerIsFirstOrderProvider),
+        drinkExtraPrices: drinkExtras,
       );
       if (discount <= 0) return 'coupon_min_order';
       _ref.read(appliedCheckoutDiscountProvider.notifier).state =
@@ -157,11 +198,15 @@ class CouponNotifier {
     final subtotal = _ref.read(cartSubtotalProvider);
     final cart = _ref.read(cartProvider);
     final categories = _ref.read(productCategoryMapProvider);
+    final drinkExtras = _ref.read(drinkExtraPricesProvider);
     final discount = PromotionUtils.discountFor(
       campaign: campaign,
       subtotal: subtotal,
       cartItems: cart,
       productCategories: categories,
+      deliveryFee: _ref.read(deliveryFeeProvider),
+      isFirstOrder: _ref.read(customerIsFirstOrderProvider),
+      drinkExtraPrices: drinkExtras,
     );
     _ref.read(appliedCheckoutDiscountProvider.notifier).state =
         CheckoutDiscountSelection(

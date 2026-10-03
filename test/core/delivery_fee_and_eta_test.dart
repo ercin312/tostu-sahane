@@ -25,6 +25,27 @@ void main() {
     );
   });
 
+  test('DeliveryFeeUtils charges the admin fee below the cart minimum', () {
+    expect(
+      DeliveryFeeUtils.calculate(
+        branch: branch,
+        subtotal: 80,
+        freeDeliveryMinOrder: 150,
+        belowMinimumDeliveryFee: 25,
+      ),
+      25,
+    );
+    expect(
+      DeliveryFeeUtils.calculate(
+        branch: branch,
+        subtotal: 150,
+        freeDeliveryMinOrder: 150,
+        belowMinimumDeliveryFee: 25,
+      ),
+      0,
+    );
+  });
+
   test('DeliveryFeeUtils adds distance component', () {
     final fee = DeliveryFeeUtils.calculate(
       branch: branch,

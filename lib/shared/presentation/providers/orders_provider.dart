@@ -70,15 +70,6 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
       }
 
       subscribe();
-      // Mobil SDK snapshot yalnız top-300 created_at dinler; Windows/diğer
-      // garson salon siparişleri kaçabiliyor. Ops rollerde periyodik
-      // getOrders (dineIn + açık status yedekleri) ile masa haritasını doldur.
-      _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-        if (disposed) return;
-        final role = ref.read(authProvider)?.user.role;
-        if (role == null || role == UserRole.customer) return;
-        _syncFromRepository();
-      });
       try {
         final merged = await _mergeRemoteInto(
           cached,
@@ -319,6 +310,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
     double discountAmount = 0,
     double deliveryFeeAmount = 0,
     int? estimatedDeliveryMinutes,
+    bool isPickup = false,
   }) async {
     final created = await ref.read(placeOrderUseCaseProvider).call(
           PlaceOrderParams(
@@ -341,6 +333,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
             discountAmount: discountAmount,
             deliveryFeeAmount: deliveryFeeAmount,
             estimatedDeliveryMinutes: estimatedDeliveryMinutes,
+            isPickup: isPickup,
           ),
         );
     final updated = [created, ...?state.value];
@@ -551,6 +544,7 @@ class OrdersNotifier extends AsyncNotifier<List<Order>> {
           existing.status,
           status,
           dineIn: existing.isDineIn,
+          customerPickup: existing.isCustomerPickup,
         )) {
       throw StateError(
         'Invalid status transition: ${existing.status.name} → ${status.name}',
@@ -817,6 +811,12 @@ final customerHistoryOrdersProvider = Provider<List<Order>>((ref) {
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 });
 
+/// İptal dışında siparişi olmayan müşteri ilk sipariş kampanyasını kullanabilir.
+final customerIsFirstOrderProvider = Provider<bool>((ref) {
+  final orders = ref.watch(customerOrdersProvider);
+  return !orders.any((order) => order.status != OrderStatus.cancelled);
+});
+
 final branchOrdersProvider = Provider<List<Order>>((ref) {
   final auth = ref.watch(authProvider);
   final branch = ref.watch(managedBranchProvider).value;
@@ -878,11 +878,13 @@ final kitchenQueueOrdersProvider = Provider<List<Order>>((ref) {
   return orders
       .where(
         (o) {
-          if (o.branchId != branch.id || !o.isDineIn) return false;
+          if (o.branchId != branch.id) return false;
+          if (!o.isDineIn && !o.isCustomerPickup) return false;
           if (o.status != OrderStatus.received &&
               o.status != OrderStatus.preparing) {
             return false;
           }
+          if (o.isCustomerPickup) return true;
           if (!o.isTableAddon) return true;
           // Katalog yokken / yanlış eşleşmede yiyecek siparişi düşmesin:
           // ürün kategorisi veya katalog — ikisinden biri mutfak diyorsa göster.

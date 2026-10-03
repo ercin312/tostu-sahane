@@ -15,6 +15,7 @@ class OsmPinMapPicker extends StatefulWidget {
     required this.onPositionChanged,
     this.onPositionChanging,
     this.initialZoom = 16,
+    this.zoneOutline = const [],
   });
 
   final double latitude;
@@ -22,6 +23,8 @@ class OsmPinMapPicker extends StatefulWidget {
   final ValueChanged<({double lat, double lng})> onPositionChanged;
   final ValueChanged<({double lat, double lng})>? onPositionChanging;
   final double initialZoom;
+  /// Yöneticinin çizdiği teslimat sınırı. Boşsa gösterilmez.
+  final List<LatLng> zoneOutline;
 
   @override
   State<OsmPinMapPicker> createState() => _OsmPinMapPickerState();
@@ -95,12 +98,23 @@ class _OsmPinMapPickerState extends State<OsmPinMapPicker> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.tostusahane.tostu_sahane',
               tileProvider: NetworkTileProvider(
-                headers: const {
+                headers: {
                   'User-Agent':
                       'TostuSahane/1.1 (Flutter Ops; +https://tostusahane.com)',
                 },
               ),
             ),
+            if (widget.zoneOutline.length >= 3)
+              PolygonLayer(
+                polygons: [
+                  Polygon(
+                    points: widget.zoneOutline,
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderColor: AppColors.primary,
+                    borderStrokeWidth: 2,
+                  ),
+                ],
+              ),
           ],
         ),
         const Center(

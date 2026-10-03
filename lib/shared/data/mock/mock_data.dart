@@ -548,6 +548,7 @@ abstract final class MockData {
       value: 15,
       minOrderAmount: 150,
       sortOrder: 1,
+      firstOrderOnly: true,
     ),
   ];
 

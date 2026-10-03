@@ -9,7 +9,6 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/cart_item_display_utils.dart';
 import '../../../../../core/utils/format_utils.dart';
-import '../../../../../core/utils/localized_text.dart';
 import '../../../../../core/utils/order_status_utils.dart';
 import '../../../../../core/utils/payment_method_utils.dart';
 import '../../../../../shared/data/mock/mock_data.dart';
@@ -19,6 +18,7 @@ import '../../../home/presentation/providers/branch_provider.dart';
 import '../../../product_detail/presentation/providers/product_reviews_provider.dart';
 import '../../../orders/presentation/utils/customer_reorder_utils.dart';
 import '../../../order_tracking/presentation/widgets/order_rating_sheet.dart';
+import '../../../orders/presentation/widgets/first_order_empty.dart';
 import '../../../orders/presentation/widgets/recommended_products_section.dart';
 
 class CustomerOrdersPage extends ConsumerWidget {
@@ -27,6 +27,9 @@ class CustomerOrdersPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
+    final hasLoadedOrders = ordersAsync.valueOrNull != null;
+    final showFirstOrder =
+        hasLoadedOrders && ref.watch(customerOrdersProvider).isEmpty;
     final activeCount = ref.watch(customerActiveOrdersProvider).length;
     final historyCount = ref.watch(customerHistoryOrdersProvider).length;
     final initialTab = activeCount == 0 && historyCount > 0 ? 1 : 0;
@@ -40,7 +43,9 @@ class CustomerOrdersPage extends ConsumerWidget {
           title: Text(LocaleKeys.customerOrdersTitle.tr()),
           backgroundColor: AppColors.white,
           elevation: 0,
-          bottom: TabBar(
+          bottom: showFirstOrder
+              ? null
+              : TabBar(
             tabs: [
               Tab(
                 child: Row(
@@ -110,6 +115,10 @@ class CustomerOrdersPage extends ConsumerWidget {
           data: (_) {
             final activeOrders = ref.watch(customerActiveOrdersProvider);
             final historyOrders = ref.watch(customerHistoryOrdersProvider);
+            final hasAnyOrder = ref.watch(customerOrdersProvider).isNotEmpty;
+            if (!hasAnyOrder) {
+              return const FirstOrderEmpty();
+            }
 
             return TabBarView(
               children: [

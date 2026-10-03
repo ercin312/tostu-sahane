@@ -52,7 +52,9 @@ abstract final class PrintRoutingUtils {
     if (order.isDelivery) {
       return switch (role) {
         UserRole.kitchenStaff => routing.deliveryAtKitchen,
-        UserRole.branchManager || UserRole.branchStaff =>
+        UserRole.branchManager ||
+        UserRole.branchStaff ||
+        UserRole.superAdmin =>
           routing.deliveryAtCashier,
         _ => false,
       };

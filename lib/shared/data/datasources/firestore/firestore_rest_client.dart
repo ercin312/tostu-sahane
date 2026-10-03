@@ -15,7 +15,9 @@ import '../../../domain/entities/paytr_settings.dart';
 import '../../../domain/entities/print_routing_settings.dart';
 import '../../../domain/entities/campaign_banner.dart';
 import '../../../domain/entities/delivery_settings.dart';
+import '../../../domain/entities/pickup_settings.dart';
 import '../../../domain/entities/promotion_campaign.dart';
+import '../../../domain/entities/app_broadcast.dart';
 import '../../../domain/entities/waiter_mode_settings.dart';
 import '../../../domain/entities/qr_menu_settings.dart';
 import '../../datasources/local/campaign_local_datasource.dart';
@@ -29,9 +31,11 @@ class FirestoreRestClient {
   FirestoreRestClient({Dio? dio}) : _dio = dio ?? Dio(_baseOptions);
 
   static final _options = DefaultFirebaseOptions.windows;
-  static const _pollInterval = Duration(seconds: 1);
-  /// Ürün/fiyat/görsel senkronu — Windows↔mobil/garson.
-  static const _catalogPollInterval = Duration(seconds: 5);
+  /// 5 sn: tek liste + ince salon yedekleri (dineIn + açık status).
+  static const _pollInterval = Duration(seconds: 5);
+  /// Ürün/fiyat/görsel senkronu — sık gerekmez.
+  static const _catalogPollInterval = Duration(seconds: 60);
+  static const _orderPageSize = 100;
 
   static BaseOptions get _baseOptions => BaseOptions(
         connectTimeout: const Duration(seconds: 20),
@@ -46,73 +50,32 @@ class FirestoreRestClient {
 
   Future<List<Order>> getOrders() async {
     final byId = <String, Order>{};
-    for (final order in await _listOrdersPage(pageSize: 300)) {
+    for (final order in await _listOrdersPage(pageSize: _orderPageSize)) {
       byId[order.id] = order;
     }
-    // Paket / telefon siparişleri salon trafiği arasında kaybolmasın.
-    for (final order in await _queryOrdersEqual(
-      field: 'order_source',
-      stringValue: 'phone',
-      limit: 100,
-    )) {
-      byId[order.id] = order;
-    }
-    for (final order in await _queryOrdersEqual(
-      field: 'phone_failed',
-      boolValue: true,
-      limit: 50,
-    )) {
-      byId[order.id] = order;
-    }
-    // Salon: en yeni dineIn (sıralı). Index yoksa unordered fallback.
-    for (final order in await _queryDineInOrders(limit: 300)) {
-      byId[order.id] = order;
-    }
-    // Açık masa / mutfak: status penceresi (liste limitinden bağımsız).
-    for (final order in await _queryOpenDineInByStatus()) {
-      byId[order.id] = order;
-    }
-    final orders = byId.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return orders;
-  }
-
-  /// order_type == dineIn: sıralı (yeni) + unordered yedek (eski string tarihler).
-  Future<List<Order>> _queryDineInOrders({required int limit}) async {
-    final byId = <String, Order>{};
+    // Salon/garson: top-N created_at bazen masa siparişini kaçırır
+    // (eski string tarih / yoğun paket trafiği). Tek tip sorgu + açık status.
     for (final order in await _queryOrdersEqual(
       field: 'order_type',
       stringValue: 'dineIn',
-      limit: limit,
+      limit: 80,
       orderByField: 'created_at',
       orderByDescending: true,
     )) {
       byId[order.id] = order;
     }
-    for (final order in await _queryOrdersEqual(
-      field: 'order_type',
-      stringValue: 'dineIn',
-      limit: limit,
-    )) {
-      byId[order.id] = order;
-    }
-    return byId.values.toList();
-  }
-
-  /// received / preparing / ready status’lerinden salon siparişlerini toplar.
-  Future<List<Order>> _queryOpenDineInByStatus() async {
-    const openStatuses = ['received', 'preparing', 'ready'];
-    final byId = <String, Order>{};
-    for (final status in openStatuses) {
+    for (final status in const ['received', 'preparing', 'ready']) {
       for (final order in await _queryOrdersEqual(
         field: 'status',
         stringValue: status,
-        limit: 100,
+        limit: 40,
       )) {
         if (order.isDineIn) byId[order.id] = order;
       }
     }
-    return byId.values.toList();
+    final orders = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
   }
 
   Future<List<Order>> _listOrdersPage({required int pageSize}) async {
@@ -184,7 +147,6 @@ class FirestoreRestClient {
       final orders = <Order>[];
       for (final row in rows) {
         if (row is! Map<String, dynamic>) continue;
-        // runQuery hata satırı (index gerekli vb.)
         if (row.containsKey('error')) {
           debugPrint(
             'Firestore REST orders query ($field) row error: ${row['error']}',
@@ -886,7 +848,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST remittances poll failed: $e');
         if (lastGood != null) yield lastGood;
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1000,7 +962,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST paytr settings poll failed: $e');
         yield PaytrSettings.defaults;
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1038,7 +1000,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST print routing poll failed: $e');
         yield PrintRoutingSettings.defaults;
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1062,6 +1024,8 @@ class FirestoreRestClient {
   ) async {
     final normalized = settings.copyWith(
       freeDeliveryMinOrder: settings.freeDeliveryMinOrder.clamp(0, 100000),
+      belowMinimumDeliveryFee:
+          settings.belowMinimumDeliveryFee.clamp(0, 100000),
     );
     try {
       await patchDocument('meta/delivery_settings', normalized.toJson());
@@ -1079,7 +1043,44 @@ class FirestoreRestClient {
         debugPrint('Firestore REST delivery settings poll failed: $e');
         yield DeliverySettings.defaults;
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
+    }
+  }
+
+  Future<PickupSettings> getPickupSettings() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/meta/pickup_settings',
+        queryParameters: {'key': _options.apiKey},
+      );
+      final fields = response.data?['fields'] as Map<String, dynamic>? ?? {};
+      final json = FirestoreRestValueCodec.documentToJson(fields);
+      return PickupSettings.fromJson(json);
+    } catch (e) {
+      debugPrint('Firestore REST pickup settings read failed: $e');
+      return PickupSettings.defaults;
+    }
+  }
+
+  Future<PickupSettings> updatePickupSettings(PickupSettings settings) async {
+    final normalized = PickupSettings.fromJson(settings.toJson());
+    try {
+      await patchDocument('meta/pickup_settings', normalized.toJson());
+    } catch (e) {
+      debugPrint('Firestore REST pickup settings patch failed: $e');
+    }
+    return normalized;
+  }
+
+  Stream<PickupSettings> watchPickupSettings() async* {
+    while (true) {
+      try {
+        yield await getPickupSettings();
+      } catch (e) {
+        debugPrint('Firestore REST pickup settings poll failed: $e');
+        yield PickupSettings.defaults;
+      }
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1119,7 +1120,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST campaign banners poll failed: $e');
         yield CampaignLocalDataSource.defaults;
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1148,7 +1149,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST promotions poll failed: $e');
         yield const [];
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1219,6 +1220,66 @@ class FirestoreRestClient {
       }
     }
     items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return items;
+  }
+
+  Future<List<AppBroadcast>> getBroadcasts() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_documentsRoot/broadcasts',
+        queryParameters: {'key': _options.apiKey, 'pageSize': 200},
+      );
+      return _parseBroadcastsResponse(response.data);
+    } catch (e) {
+      debugPrint('Firestore REST broadcasts read failed: $e');
+      return const [];
+    }
+  }
+
+  Stream<List<AppBroadcast>> watchBroadcasts() async* {
+    while (true) {
+      try {
+        yield await getBroadcasts();
+      } catch (e) {
+        debugPrint('Firestore REST broadcasts poll failed: $e');
+        yield const [];
+      }
+      await Future<void>.delayed(_catalogPollInterval);
+    }
+  }
+
+  Future<void> createBroadcast(AppBroadcast broadcast) async {
+    final body = {
+      'fields': FirestoreRestValueCodec.encodeDocumentFields(broadcast.toJson()),
+    };
+    await _dio.post<Map<String, dynamic>>(
+      '$_documentsRoot/broadcasts',
+      queryParameters: {
+        'key': _options.apiKey,
+        'documentId': broadcast.id,
+      },
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
+  }
+
+  List<AppBroadcast> _parseBroadcastsResponse(Map<String, dynamic>? data) {
+    final docs = data?['documents'] as List<dynamic>? ?? const [];
+    final items = <AppBroadcast>[];
+    for (final raw in docs) {
+      if (raw is! Map<String, dynamic>) continue;
+      try {
+        final name = raw['name'] as String? ?? '';
+        final id = name.split('/').last;
+        final fields = raw['fields'] as Map<String, dynamic>? ?? {};
+        final json = FirestoreRestValueCodec.documentToJson(fields);
+        json['id'] = json['id'] ?? id;
+        items.add(AppBroadcast.fromJson(json));
+      } catch (e) {
+        debugPrint('Firestore REST broadcast parse skip: $e');
+      }
+    }
+    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
   }
 
@@ -1343,7 +1404,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST table service poll failed: $e');
         yield const [];
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 
@@ -1486,7 +1547,7 @@ class FirestoreRestClient {
         debugPrint('Firestore REST waiter settings poll failed: $e');
         yield WaiterModeSettings.defaults;
       }
-      await Future<void>.delayed(_pollInterval);
+      await Future<void>.delayed(_catalogPollInterval);
     }
   }
 }

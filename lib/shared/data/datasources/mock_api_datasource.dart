@@ -11,7 +11,9 @@ import '../../domain/entities/auth.dart';
 import '../../domain/entities/waiter_mode_settings.dart';
 import '../../domain/entities/paytr_settings.dart';
 import '../../domain/entities/delivery_settings.dart';
+import '../../domain/entities/pickup_settings.dart';
 import '../../domain/entities/promotion_campaign.dart';
+import '../../domain/entities/app_broadcast.dart';
 import '../../domain/entities/print_routing_settings.dart';
 import '../mappers/entity_mappers.dart';
 import '../mock/mock_data.dart';
@@ -59,9 +61,12 @@ class MockApiDataSource {
   PrintRoutingSettings _printRoutingSettings;
   PaytrSettings _paytrSettings = PaytrSettings.defaults;
   DeliverySettings _deliverySettings = DeliverySettings.defaults;
+  PickupSettings _pickupSettings = PickupSettings.defaults;
   List<PromotionCampaign> _promotions = List<PromotionCampaign>.of(
     MockData.promotions,
   );
+  final List<AppBroadcast> _broadcasts = [];
+  final _broadcastUpdates = StreamController<List<AppBroadcast>>.broadcast();
   var _products = List<Product>.of(MockData.products);
   var _catalogExtras = List<ProductExtra>.of(MockData.catalogExtras);
   List<AdminUserModel> _adminUsers;
@@ -910,12 +915,29 @@ class MockApiDataSource {
     await _delay();
     _deliverySettings = settings.copyWith(
       freeDeliveryMinOrder: settings.freeDeliveryMinOrder.clamp(0, 100000),
+      belowMinimumDeliveryFee:
+          settings.belowMinimumDeliveryFee.clamp(0, 100000),
     );
     return _deliverySettings;
   }
 
   Stream<DeliverySettings> watchDeliverySettings() async* {
     yield _deliverySettings;
+  }
+
+  Future<PickupSettings> getPickupSettings() async {
+    await _delay();
+    return _pickupSettings;
+  }
+
+  Future<PickupSettings> updatePickupSettings(PickupSettings settings) async {
+    await _delay();
+    _pickupSettings = PickupSettings.fromJson(settings.toJson());
+    return _pickupSettings;
+  }
+
+  Stream<PickupSettings> watchPickupSettings() async* {
+    yield _pickupSettings;
   }
 
   Future<List<PromotionCampaign>> getPromotionCampaigns() async {
@@ -961,6 +983,22 @@ class MockApiDataSource {
   Future<void> deletePromotionCampaign(String id) async {
     await _delay();
     _promotions = _promotions.where((item) => item.id != id).toList();
+  }
+
+  List<AppBroadcast> _sortedBroadcasts() {
+    return List<AppBroadcast>.of(_broadcasts)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  Stream<List<AppBroadcast>> watchBroadcasts() async* {
+    yield _sortedBroadcasts();
+    yield* _broadcastUpdates.stream;
+  }
+
+  Future<void> createBroadcast(AppBroadcast broadcast) async {
+    await _delay();
+    _broadcasts.insert(0, broadcast);
+    _broadcastUpdates.add(_sortedBroadcasts());
   }
 
   Future<void> _delay() =>

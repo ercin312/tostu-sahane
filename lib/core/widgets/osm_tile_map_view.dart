@@ -388,7 +388,7 @@ class _OsmMapFrameState extends State<_OsmMapFrame> {
                     userAgentPackageName: 'com.tostusahane.tostu_sahane',
                     // Windows/desktop: OSM boş karo (User-Agent) sorununu azalt.
                     tileProvider: NetworkTileProvider(
-                      headers: const {
+                      headers: {
                         'User-Agent':
                             'TostuSahane/1.1 (Flutter Ops; +https://tostusahane.com)',
                       },

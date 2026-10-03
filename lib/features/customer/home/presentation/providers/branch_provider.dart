@@ -103,8 +103,20 @@ class BranchNotifier extends AsyncNotifier<Branch> {
   }
 
   bool isAddressDeliverable(Branch branch, double? lat, double? lng) {
-    if (lat == null || lng == null) return true;
+    if (lat == null || lng == null) return false;
     return DeliveryZoneUtils.isDeliverable(branch, lat, lng);
+  }
+
+  /// Ödeme ekranı, yöneticinin yeni kaydettiği sınırı yeniden okur.
+  Future<void> refreshSelectedZone() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    try {
+      final branches = await ref.read(branchRepositoryProvider).getBranches();
+      final fresh = branches.where((branch) => branch.id == current.id).firstOrNull;
+      if (fresh == null) return;
+      state = AsyncData(fresh.copyWith(distanceKm: current.distanceKm));
+    } catch (_) {}
   }
 }
 
@@ -263,4 +275,23 @@ final recommendedProductsProvider = Provider<List<Product>>((ref) {
       .where((p) => p.isRecommended && p.isAvailable)
       .take(8)
       .toList();
+});
+
+/// Empty-cart suggestions. Recommended items come first; the rest of the
+/// visible menu fills the list so the cart is never a blank page.
+final cartSuggestionProductsProvider = Provider<List<Product>>((ref) {
+  final products = ref.watch(productsProvider).value ?? [];
+  final sahandaEnabled =
+      ref.watch(waiterModeSettingsProvider).valueOrNull?.customerSahandaEnabled ??
+          true;
+  final available = products.where((product) {
+    if (!product.isAvailable) return false;
+    if (!sahandaEnabled && product.category == ProductCategory.sahanda) {
+      return false;
+    }
+    return true;
+  }).toList();
+  final recommended = available.where((product) => product.isRecommended);
+  final others = available.where((product) => !product.isRecommended);
+  return [...recommended, ...others].take(12).toList();
 });

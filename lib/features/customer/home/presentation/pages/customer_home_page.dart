@@ -25,6 +25,11 @@ import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../cart/presentation/utils/branch_cart_guard.dart';
 import '../providers/branch_provider.dart';
 import '../../../../../shared/presentation/providers/waiter_mode_settings_provider.dart';
+import '../../../../../shared/presentation/providers/pickup_settings_provider.dart';
+import '../../../pickup/presentation/providers/fulfillment_mode_provider.dart';
+import '../../../pickup/presentation/widgets/pickup_entry_button.dart';
+import '../../../notifications/presentation/widgets/broadcast_open_listener.dart';
+import '../widgets/home_campaign_products_section.dart';
 
 class CustomerHomePage extends ConsumerWidget {
   const CustomerHomePage({super.key});
@@ -131,49 +136,57 @@ class _HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF7F2F4),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             pinned: true,
             elevation: 0,
-            scrolledUnderElevation: 0.5,
-            backgroundColor: AppColors.white,
+            scrolledUnderElevation: 0,
+            backgroundColor: const Color(0xFFF7F2F4),
             title: Row(
               children: [
-                const AppLogo(height: 28),
+                const AppLogo(height: 32),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   LocaleKeys.appName.tr(),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                       ),
                 ),
               ],
             ),
             actions: [
-              IconButton(
-                icon: Badge(
-                  isLabelVisible: cartCount > 0,
-                  backgroundColor: AppColors.primary,
-                  label: Text(
-                    '$cartCount',
-                    style: const TextStyle(color: AppColors.white),
+              const CustomerNotificationBell(),
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.white,
+                    shape: const CircleBorder(),
                   ),
-                  child: const Icon(Icons.shopping_bag_outlined),
+                  icon: Badge(
+                    isLabelVisible: cartCount > 0,
+                    backgroundColor: AppColors.primary,
+                    label: Text(
+                      '$cartCount',
+                      style: const TextStyle(color: AppColors.white),
+                    ),
+                    child: const Icon(Icons.shopping_bag_outlined),
+                  ),
+                  onPressed: () => context.push(RoutePaths.customerCart),
                 ),
-                onPressed: () => context.push(RoutePaths.customerCart),
               ),
-              const SizedBox(width: AppSpacing.xs),
             ],
           ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
                 AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.md,
               ),
               child: _BranchSelector(
                 branch: branch,
@@ -183,22 +196,40 @@ class _HomeContent extends StatelessWidget {
               ),
             ),
           ),
+          const SliverToBoxAdapter(child: PickupEntryButton()),
           if (!branch.isOpenNow)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  0,
+                ),
                 child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm + 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.warning.withValues(alpha: 0.3),
-                    ),
+                    color: const Color(0xFFFFF6E8),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.schedule, color: AppColors.warning),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.schedule_rounded,
+                          color: AppColors.warning,
+                          size: 18,
+                        ),
+                      ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
@@ -216,54 +247,57 @@ class _HomeContent extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.md,
-                  AppSpacing.md,
+                  AppSpacing.lg,
                   AppSpacing.md,
                   AppSpacing.sm,
                 ),
-                child: Text(
-                  LocaleKeys.customerCampaigns.tr(),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
+                child: _SectionTitle(LocaleKeys.customerCampaigns.tr()),
               ),
             ),
             SliverToBoxAdapter(
               child: _CampaignCarousel(campaigns: campaigns),
             ),
           ],
+          const SliverToBoxAdapter(child: HomeCampaignProductsSection()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md,
-                AppSpacing.md,
+                AppSpacing.lg,
                 AppSpacing.md,
                 AppSpacing.sm,
               ),
+              child: _SectionTitle(LocaleKeys.navMenu.tr()),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: TextField(
                 onChanged: onSearchChanged,
                 decoration: InputDecoration(
                   hintText: LocaleKeys.customerSearchMenu.tr(),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
                   suffixIcon: searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear),
+                          icon: const Icon(Icons.close_rounded),
                           onPressed: () => onSearchChanged(''),
                         )
                       : null,
                   filled: true,
                   fillColor: AppColors.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.divider),
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.primary),
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
                   ),
                 ),
               ),
@@ -271,10 +305,15 @@ class _HomeContent extends StatelessWidget {
           ),
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 44,
+              height: 52,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  0,
+                ),
                 children: visibleCategories.map((category) {
                   final labelKey = MockData.categoryKeys[category];
                   final label = labelKey?.tr() ?? category.name;
@@ -287,17 +326,19 @@ class _HomeContent extends StatelessWidget {
                       showCheckmark: false,
                       avatar: Icon(
                         _categoryIcon(category),
-                        size: 18,
+                        size: 16,
                         color: selected ? AppColors.white : AppColors.primary,
                       ),
                       selectedColor: AppColors.primary,
                       labelStyle: TextStyle(
                         color: selected ? AppColors.white : AppColors.textPrimary,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
                       ),
                       backgroundColor: AppColors.white,
+                      shape: const StadiumBorder(),
                       side: BorderSide(
-                        color: selected ? AppColors.primary : AppColors.divider,
+                        color: selected ? AppColors.primary : Colors.transparent,
                       ),
                       onSelected: (_) => onSelectCategory(category),
                     ),
@@ -366,6 +407,36 @@ class _HomeContent extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CampaignCarousel extends StatefulWidget {
   const _CampaignCarousel({required this.campaigns});
 
@@ -430,7 +501,7 @@ class _CampaignCarouselState extends State<_CampaignCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 148,
+          height: 168,
           child: PageView.builder(
             controller: _controller,
             itemCount: widget.campaigns.length,
@@ -466,10 +537,23 @@ class _CampaignCarouselState extends State<_CampaignCarousel> {
                           AppImage(
                             source: banner.imageUrl,
                             fit: BoxFit.cover,
-                            errorWidget: _gradientFallback(banner, context),
+                            errorWidget: const _CampaignFallback(),
                           )
                         else
-                          _gradientFallback(banner, context),
+                          const _CampaignFallback(),
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0x00000000),
+                                Color(0x99000000),
+                              ],
+                              stops: [0.45, 1],
+                            ),
+                          ),
+                        ),
                         if (banner.title.trim().isNotEmpty)
                           Positioned(
                             left: AppSpacing.md,
@@ -477,12 +561,15 @@ class _CampaignCarouselState extends State<_CampaignCarousel> {
                             bottom: AppSpacing.md,
                             child: Text(
                               localizedOrRaw(banner.title),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: Theme.of(context)
                                   .textTheme
                                   .titleLarge
                                   ?.copyWith(
                                     color: AppColors.white,
                                     fontWeight: FontWeight.w800,
+                                    height: 1.15,
                                   ),
                             ),
                           ),
@@ -519,24 +606,21 @@ class _CampaignCarouselState extends State<_CampaignCarousel> {
     );
   }
 
-  Widget _gradientFallback(CampaignBanner banner, BuildContext context) {
-    final hasTitle = banner.title.trim().isNotEmpty;
-    return Container(
-      decoration: const BoxDecoration(
+}
+
+class _CampaignFallback extends StatelessWidget {
+  const _CampaignFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFF4D7A), AppColors.primary, AppColors.primaryDark],
         ),
       ),
-      alignment: hasTitle ? Alignment.bottomLeft : Alignment.center,
-      padding: hasTitle ? const EdgeInsets.all(AppSpacing.md) : EdgeInsets.zero,
-      child: hasTitle
-          ? Text(
-              localizedOrRaw(banner.title),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.white,
-                  ),
-            )
-          : null,
     );
   }
 }
@@ -561,41 +645,59 @@ class _BranchSelector extends StatelessWidget {
       children: [
         Material(
           color: AppColors.white,
-          borderRadius: BorderRadius.circular(16),
-          elevation: 0,
-          shadowColor: Colors.black26,
+          borderRadius: BorderRadius.circular(20),
           child: InkWell(
             onTap: () => _showBranchPicker(context),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.divider),
-              ),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(Icons.store, color: AppColors.primary),
+                    child: const Icon(Icons.storefront_rounded, color: AppColors.primary),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          branch.name,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                branch.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                               ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: branch.isOpenNow
+                                    ? const Color(0xFF1FA971)
+                                    : AppColors.warning,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          branch.address,
+                          branch.distanceKm > 0
+                              ? '${branch.address} · ${branch.distanceKm} km'
+                              : branch.address,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textSecondary,
                               ),
@@ -605,44 +707,28 @@ class _BranchSelector extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (branch.distanceKm > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                  if (allBranches.length > 1)
+                    IconButton(
+                      tooltip: LocaleKeys.locationUseNearest.tr(),
+                      onPressed: onUseNearest,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 36,
+                        height: 36,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${branch.distanceKm} km',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
+                      icon: const Icon(Icons.my_location_rounded, size: 20),
+                      color: AppColors.primary,
                     ),
-                  const Icon(Icons.keyboard_arrow_down),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.textSecondary,
+                  ),
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        if (allBranches.length > 1)
-          OutlinedButton.icon(
-            onPressed: onUseNearest,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.my_location, size: 18),
-            label: Text(LocaleKeys.locationUseNearest.tr()),
-          ),
       ],
     );
   }
@@ -697,14 +783,22 @@ class _BranchSelector extends StatelessWidget {
   }
 }
 
-class _ProductCard extends StatelessWidget {
+class _ProductCard extends ConsumerWidget {
   const _ProductCard({required this.product, required this.onTap});
 
   final Product product;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pickupActive = ref.watch(customerPickupActiveProvider);
+    final pickupSettings = ref.watch(pickupSettingsProvider).valueOrNull;
+    final price = customerUnitPrice(
+      product: product,
+      pickupActive: pickupActive,
+      settings: pickupSettings,
+    );
+    final discounted = pickupActive && price + 0.009 < product.price;
     return Material(
       color: AppColors.white,
       borderRadius: BorderRadius.circular(18),
@@ -714,35 +808,32 @@ class _ProductCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Container(
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+                color: const Color(0xFF3A1020).withValues(alpha: 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(18),
-                ),
-                child: SizedBox(
-                  width: 108,
-                  height: 108,
-                  child: ProductThumbnail.fromProduct(
-                    product: product,
-                    borderRadius: 0,
-                  ),
+              SizedBox(
+                width: 96,
+                height: 96,
+                child: ProductThumbnail.fromProduct(
+                  product: product,
+                  borderRadius: 16,
                 ),
               ),
+              const SizedBox(width: AppSpacing.sm + 2),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -754,7 +845,10 @@ class _ProductCard extends StatelessWidget {
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700),
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.15,
+                                  ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -767,8 +861,8 @@ class _ProductCard extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 LocaleKeys.customerComboBadge.tr(),
@@ -788,25 +882,56 @@ class _ProductCard extends StatelessWidget {
                         localizedOrRaw(product.descriptionKey),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textSecondary,
+                              height: 1.3,
                             ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        FormatUtils.currency(product.price),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w800,
+                      Row(
+                        children: [
+                          Text(
+                            FormatUtils.currency(price),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          if (discounted) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              FormatUtils.currency(product.price),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
                             ),
+                          ],
+                          const Spacer(),
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_forward_rounded,
+                              color: AppColors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(right: AppSpacing.sm),
-                child: Icon(Icons.arrow_forward_ios_rounded, size: 16),
               ),
             ],
           ),

@@ -60,6 +60,11 @@ class CustomerProfilePage extends ConsumerWidget {
           ),
           const Divider(),
           _ProfileTile(
+            icon: Icons.notifications_outlined,
+            titleKey: LocaleKeys.customerNotificationsTitle,
+            onTap: () => context.push(RoutePaths.customerNotifications),
+          ),
+          _ProfileTile(
             icon: Icons.receipt_long_outlined,
             titleKey: LocaleKeys.customerOrdersTitle,
             onTap: () => context.go(RoutePaths.customerOrders),

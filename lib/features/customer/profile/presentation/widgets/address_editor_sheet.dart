@@ -6,6 +6,7 @@ import '../../../../../core/localization/locale_keys.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/domain/entities/delivery_address.dart';
+import '../../../home/presentation/providers/branch_provider.dart';
 import '../pages/address_map_picker_page.dart';
 import '../providers/address_provider.dart';
 
@@ -100,6 +101,8 @@ Future<DeliveryAddress?> showAddressEditorSheet({
                                 builder: (_) => AddressMapPickerPage(
                                   initialLat: pickedLat,
                                   initialLng: pickedLng,
+                                  deliveryBranch:
+                                      ref.read(branchProvider).valueOrNull,
                                 ),
                               ),
                             );

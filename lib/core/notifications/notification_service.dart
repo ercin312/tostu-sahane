@@ -30,6 +30,11 @@ class NotificationService {
 
   static OrderUpdateCallback? onOrderUpdate;
 
+  /// Bildirime tıklanınca ayrıntı ekranını açan köprü.
+  static void Function(String broadcastId)? onBroadcastOpened;
+
+  static String? pendingBroadcastId;
+
   /// Garson oturumunda "hazırlanıyor / iptal" durum push'larını gösterme.
   static bool suppressOrderStatusNotifications = false;
 
@@ -44,8 +49,13 @@ class NotificationService {
         android: androidSettings,
         iOS: iosSettings,
       ),
-      onDidReceiveNotificationResponse: (_) {},
+      onDidReceiveNotificationResponse: (response) {
+        _handlePayload(response.payload);
+      },
     );
+
+    final launch = await _local.getNotificationAppLaunchDetails();
+    _handlePayload(launch?.notificationResponse?.payload);
 
     if (!kIsWeb && _isMobilePlatform) {
       try {
@@ -60,6 +70,8 @@ class NotificationService {
         unawaited(FirebaseMessaging.instance.requestPermission());
         FirebaseMessaging.onMessage.listen(_onForegroundMessage);
         FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpened);
+        final initial = await FirebaseMessaging.instance.getInitialMessage();
+        if (initial != null) _onMessageOpened(initial);
         _fcmReady = true;
       } catch (e) {
         debugPrint('FCM init skipped: $e');
@@ -78,6 +90,8 @@ class NotificationService {
 
   void _onForegroundMessage(RemoteMessage message) {
     final data = message.data;
+    if (data['type'] == 'broadcast') return;
+
     final statusName = data['status'] as String?;
     final isOrderUpdate = data['type'] == 'order_update';
 
@@ -109,23 +123,36 @@ class NotificationService {
 
 
   void _onMessageOpened(RemoteMessage message) {
-
-    if (message.data['type'] == 'order_update') {
-
-      onOrderUpdate?.call();
-
+    if (message.data['type'] == 'broadcast') {
+      _handlePayload('broadcast:${message.data['broadcast_id']}');
+      return;
     }
+    if (message.data['type'] == 'order_update') {
+      onOrderUpdate?.call();
+    }
+  }
 
+  static void _handlePayload(String? payload) {
+    if (payload == null || !payload.startsWith('broadcast:')) return;
+    final id = payload.substring('broadcast:'.length);
+    if (id.isEmpty) return;
+    pendingBroadcastId = id;
+    onBroadcastOpened?.call(id);
+  }
+
+  static void consumePending(void Function(String id) open) {
+    final id = pendingBroadcastId;
+    if (id == null || id.isEmpty) return;
+    pendingBroadcastId = null;
+    open(id);
   }
 
 
 
   Future<void> showLocal({
-
     required String title,
-
     required String body,
-
+    String? payload,
   }) async {
 
     final androidDetails = AndroidNotificationDetails(
@@ -153,7 +180,7 @@ class NotificationService {
       body,
 
       NotificationDetails(android: androidDetails, iOS: iosDetails),
-
+      payload: payload,
     );
 
   }

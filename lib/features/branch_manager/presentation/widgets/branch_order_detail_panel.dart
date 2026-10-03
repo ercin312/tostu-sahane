@@ -264,9 +264,11 @@ class _BranchOrderDetailPanelState extends ConsumerState<BranchOrderDetailPanel>
             successMessage: LocaleKeys.branchOrderReady.tr(),
           ),
           child: Text(
-            order.isDineIn
-                ? LocaleKeys.kitchenMarkReady.tr()
-                : LocaleKeys.branchMarkReady.tr(),
+            order.isCustomerPickup
+                ? LocaleKeys.pickupMarkReady.tr()
+                : order.isDineIn
+                    ? LocaleKeys.kitchenMarkReady.tr()
+                    : LocaleKeys.branchMarkReady.tr(),
           ),
         ),
       );
@@ -278,6 +280,25 @@ class _BranchOrderDetailPanelState extends ConsumerState<BranchOrderDetailPanel>
           style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
           onPressed: () => _rejectOrder(context, ref, user, order),
           child: Text(LocaleKeys.branchRejectOrder.tr()),
+        ),
+      );
+    }
+
+    if (OrderWorkflow.canPerform(
+      user,
+      order,
+      OrderWorkflowAction.markDelivered,
+    )) {
+      actions.add(
+        ElevatedButton(
+          onPressed: () => _runAction(
+            context,
+            ref,
+            order,
+            OrderWorkflowAction.markDelivered,
+            successMessage: LocaleKeys.pickupStatusCollected.tr(),
+          ),
+          child: Text(LocaleKeys.pickupMarkCollected.tr()),
         ),
       );
     }

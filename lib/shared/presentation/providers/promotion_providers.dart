@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/promotion_utils.dart';
 import '../../../features/customer/home/presentation/providers/branch_provider.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/product_extra.dart';
 import '../../domain/entities/promotion_campaign.dart';
 import 'repository_providers.dart';
 
@@ -19,6 +20,13 @@ final activePromotionCampaignsProvider = Provider<List<PromotionCampaign>>((ref)
 final productCategoryMapProvider = Provider<Map<String, ProductCategory>>((ref) {
   final products = ref.watch(productsProvider).value ?? [];
   return {for (final product in products) product.id: product.category};
+});
+
+final drinkExtraPricesProvider = Provider<Map<String, double>>((ref) {
+  final products = ref.watch(productsProvider).value ?? const <Product>[];
+  final extras =
+      ref.watch(catalogExtrasProvider).value ?? const <ProductExtra>[];
+  return PromotionUtils.drinkExtraPriceMap(products: products, extras: extras);
 });
 
 Future<void> savePromotionCampaign(

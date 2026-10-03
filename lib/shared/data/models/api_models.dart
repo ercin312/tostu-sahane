@@ -41,7 +41,7 @@ class BranchModel {
             (json['free_delivery_min_order'] as num?)?.toDouble() ?? 150.0,
         deliveryFeePerKm:
             (json['delivery_fee_per_km'] as num?)?.toDouble() ?? 5.0,
-        prepTimeMinutes: json['prep_time_minutes'] as int? ?? 15,
+        prepTimeMinutes: (json['prep_time_minutes'] as num?)?.toInt() ?? 15,
       );
 
   final String id;

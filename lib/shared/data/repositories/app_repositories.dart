@@ -20,7 +20,9 @@ import '../../domain/entities/paytr_settings.dart';
 import '../../domain/entities/print_routing_settings.dart';
 import '../../domain/entities/campaign_banner.dart';
 import '../../domain/entities/delivery_settings.dart';
+import '../../domain/entities/pickup_settings.dart';
 import '../../domain/entities/promotion_campaign.dart';
+import '../../domain/entities/app_broadcast.dart';
 import '../datasources/local/campaign_local_datasource.dart';
 import '../datasources/firestore/firestore_datasource.dart';
 import '../datasources/mock_api_datasource.dart';
@@ -1486,6 +1488,42 @@ class AdminRepository {
     return Stream.value(DeliverySettings.defaults);
   }
 
+  Future<PickupSettings> getPickupSettings() async {
+    if (AppConfig.useMockApi) return _mock.getPickupSettings();
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return await _firestore.getPickupSettings();
+      } catch (_) {
+        return _mock.getPickupSettings();
+      }
+    }
+    return PickupSettings.defaults;
+  }
+
+  Future<PickupSettings> updatePickupSettings(PickupSettings settings) async {
+    if (AppConfig.useMockApi) {
+      return _mock.updatePickupSettings(settings);
+    }
+    if (AppConfig.useFirestoreBackend) {
+      return _firestore.updatePickupSettings(settings);
+    }
+    return _mock.updatePickupSettings(settings);
+  }
+
+  Stream<PickupSettings> watchPickupSettings() {
+    if (AppConfig.useMockApi) {
+      return _mock.watchPickupSettings();
+    }
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return _firestore.watchPickupSettings();
+      } catch (_) {
+        return _mock.watchPickupSettings();
+      }
+    }
+    return Stream.value(PickupSettings.defaults);
+  }
+
   Future<List<CampaignBanner>> getCampaignBanners() async {
     if (AppConfig.useMockApi) {
       return CampaignLocalDataSource().load();
@@ -1607,6 +1645,41 @@ class PromotionRepository {
       return;
     }
     await _mock.deletePromotionCampaign(id);
+  }
+}
+
+class BroadcastRepository {
+  BroadcastRepository({
+    required MockApiDataSource mock,
+    required FirestoreDataSource firestore,
+  })  : _mock = mock,
+        _firestore = firestore;
+
+  final MockApiDataSource _mock;
+  final FirestoreDataSource _firestore;
+
+  Stream<List<AppBroadcast>> watchBroadcasts() {
+    if (AppConfig.useMockApi) return _mock.watchBroadcasts();
+    if (AppConfig.useFirestoreBackend) {
+      try {
+        return _firestore.watchBroadcasts();
+      } catch (_) {
+        return _mock.watchBroadcasts();
+      }
+    }
+    return Stream.value(const []);
+  }
+
+  Future<void> createBroadcast(AppBroadcast broadcast) async {
+    if (AppConfig.useMockApi) {
+      await _mock.createBroadcast(broadcast);
+      return;
+    }
+    if (AppConfig.useFirestoreBackend) {
+      await _firestore.createBroadcast(broadcast);
+      return;
+    }
+    await _mock.createBroadcast(broadcast);
   }
 }
 

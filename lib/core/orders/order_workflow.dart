@@ -22,7 +22,9 @@ abstract final class OrderWorkflow {
         sameBranch(user, order) && _branchCan(action, order),
       UserRole.courier => _courierCan(user, order, action),
       UserRole.kitchenStaff =>
-        order.isDineIn && sameBranch(user, order) && _kitchenCan(action, order),
+        (order.isDineIn || order.isCustomerPickup) &&
+            sameBranch(user, order) &&
+            _kitchenCan(action, order),
       UserRole.waiter => false,
       UserRole.customer => false,
       UserRole.designer => false,
@@ -35,11 +37,13 @@ abstract final class OrderWorkflow {
         order.status == OrderStatus.received ? OrderStatus.preparing : null,
       OrderWorkflowAction.markReady =>
         order.status == OrderStatus.preparing
-            ? (order.isPickup
-                ? OrderStatus.delivered
-                : order.isDineIn
-                    ? OrderStatus.ready
-                    : OrderStatus.waitingCourier)
+            ? (order.isCustomerPickup
+                ? OrderStatus.ready
+                : order.isPickup
+                    ? OrderStatus.delivered
+                    : order.isDineIn
+                        ? OrderStatus.ready
+                        : OrderStatus.waitingCourier)
             : null,
       OrderWorkflowAction.reject =>
         order.canBranchReject ? OrderStatus.cancelled : null,
@@ -48,7 +52,11 @@ abstract final class OrderWorkflow {
             ? OrderStatus.onTheWay
             : null,
       OrderWorkflowAction.markDelivered =>
-        order.status == OrderStatus.onTheWay ? OrderStatus.delivered : null,
+        order.isCustomerPickup && order.status == OrderStatus.ready
+            ? OrderStatus.delivered
+            : order.status == OrderStatus.onTheWay
+                ? OrderStatus.delivered
+                : null,
     };
   }
 
@@ -58,6 +66,8 @@ abstract final class OrderWorkflow {
         order.isDelivery && order.status == OrderStatus.received,
       OrderWorkflowAction.markReady =>
         order.status == OrderStatus.preparing,
+      OrderWorkflowAction.markDelivered =>
+        order.isCustomerPickup && order.status == OrderStatus.ready,
       OrderWorkflowAction.reject => order.canBranchReject,
       _ => false,
     };
@@ -69,6 +79,8 @@ abstract final class OrderWorkflow {
         order.isDelivery && order.status == OrderStatus.received,
       OrderWorkflowAction.markReady =>
         order.status == OrderStatus.preparing,
+      OrderWorkflowAction.markDelivered =>
+        order.isCustomerPickup && order.status == OrderStatus.ready,
       OrderWorkflowAction.reject => order.canBranchReject,
       _ => false,
     };
@@ -90,6 +102,7 @@ abstract final class OrderWorkflow {
     return switch (action) {
       OrderWorkflowAction.assignCourier =>
         order.isDelivery &&
+            !order.isPickup &&
             order.status == OrderStatus.waitingCourier &&
             order.courierId == null &&
             (user.branchId == null || user.branchId == order.branchId),

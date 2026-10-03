@@ -407,3 +407,39 @@ exports.onOrderUpdate = functions.firestore
       },
     });
   });
+
+exports.onBroadcastCreated = functions.firestore
+  .document('broadcasts/{broadcastId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data() || {};
+    const title = `${data.title || 'Tostu Şahane'}`;
+    const fullBody = `${data.body || ''}`;
+    const preview = fullBody.length > 140
+      ? `${fullBody.slice(0, 137)}...`
+      : fullBody;
+    const usersSnap = await admin.firestore().collection('users').get();
+    const tokens = [];
+    usersSnap.forEach((doc) => {
+      const token = doc.data().fcm_token;
+      if (token) tokens.push(token);
+    });
+    const unique = [...new Set(tokens)];
+    if (unique.length === 0) return null;
+
+    const chunkSize = 500;
+    for (let i = 0; i < unique.length; i += chunkSize) {
+      const chunk = unique.slice(i, i + chunkSize);
+      await admin.messaging().sendEachForMulticast({
+        tokens: chunk,
+        notification: {
+          title,
+          body: preview || title,
+        },
+        data: {
+          type: 'broadcast',
+          broadcast_id: context.params.broadcastId,
+        },
+      });
+    }
+    return null;
+  });

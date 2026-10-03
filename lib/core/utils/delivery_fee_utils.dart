@@ -8,9 +8,16 @@ abstract final class DeliveryFeeUtils {
     double? deliveryLat,
     double? deliveryLng,
     double? freeDeliveryMinOrder,
+    double? belowMinimumDeliveryFee,
   }) {
     final threshold = freeDeliveryMinOrder ?? branch.freeDeliveryMinOrder;
     if (subtotal >= threshold) return 0;
+
+    if (belowMinimumDeliveryFee != null) {
+      return double.parse(
+        belowMinimumDeliveryFee.clamp(0, 100000).toStringAsFixed(2),
+      );
+    }
 
     var fee = branch.baseDeliveryFee;
 

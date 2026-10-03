@@ -20,7 +20,9 @@ import '../../../domain/entities/paytr_settings.dart';
 import '../../../domain/entities/print_routing_settings.dart';
 import '../../../domain/entities/campaign_banner.dart';
 import '../../../domain/entities/delivery_settings.dart';
+import '../../../domain/entities/pickup_settings.dart';
 import '../../../domain/entities/promotion_campaign.dart';
+import '../../../domain/entities/app_broadcast.dart';
 import '../../datasources/local/campaign_local_datasource.dart';
 import '../../mappers/entity_mappers.dart';
 import '../../mock/mock_data.dart';
@@ -64,8 +66,10 @@ class FirestoreDataSource {
   static const _paytrSettings = 'paytr_settings';
   static const _printRoutingSettings = 'print_routing_settings';
   static const _deliverySettings = 'delivery_settings';
+  static const _pickupSettings = 'pickup_settings';
   static const _campaignBanners = 'campaign_banners';
   static const _promotions = 'promotions';
+  static const _broadcasts = 'broadcasts';
   static const _productReviews = 'product_reviews';
   static const _catalogExtras = 'catalog_extras';
   static const _opsUsers = 'ops_users';
@@ -373,6 +377,8 @@ class FirestoreDataSource {
   ) async {
     final normalized = settings.copyWith(
       freeDeliveryMinOrder: settings.freeDeliveryMinOrder.clamp(0, 100000),
+      belowMinimumDeliveryFee:
+          settings.belowMinimumDeliveryFee.clamp(0, 100000),
     );
     if (_rest != null) {
       return _rest!.updateDeliverySettings(normalized);
@@ -380,6 +386,44 @@ class FirestoreDataSource {
     await _activeDb
         .collection(_meta)
         .doc(_deliverySettings)
+        .set(normalized.toJson(), SetOptions(merge: true));
+    return normalized;
+  }
+
+  // ── Pickup (Gel Al) settings ───────────────────────────────────────────────
+
+  Future<PickupSettings> getPickupSettings() async {
+    if (_rest != null) return _rest!.getPickupSettings();
+    await ensureSeeded();
+    final doc = await _activeDb.collection(_meta).doc(_pickupSettings).get(
+          const GetOptions(source: Source.server),
+        );
+    if (!doc.exists || doc.data() == null) {
+      return PickupSettings.defaults;
+    }
+    return PickupSettings.fromJson(doc.data()!);
+  }
+
+  Stream<PickupSettings> watchPickupSettings() {
+    if (_rest != null) return _rest!.watchPickupSettings();
+    return _activeDb.collection(_meta).doc(_pickupSettings).snapshots().map(
+      (doc) {
+        if (!doc.exists || doc.data() == null) {
+          return PickupSettings.defaults;
+        }
+        return PickupSettings.fromJson(doc.data()!);
+      },
+    );
+  }
+
+  Future<PickupSettings> updatePickupSettings(PickupSettings settings) async {
+    final normalized = PickupSettings.fromJson(settings.toJson());
+    if (_rest != null) {
+      return _rest!.updatePickupSettings(normalized);
+    }
+    await _activeDb
+        .collection(_meta)
+        .doc(_pickupSettings)
         .set(normalized.toJson(), SetOptions(merge: true));
     return normalized;
   }
@@ -510,6 +554,30 @@ class FirestoreDataSource {
       return;
     }
     await _activeDb.collection(_promotions).doc(id).delete();
+  }
+
+  Stream<List<AppBroadcast>> watchBroadcasts() {
+    if (_rest != null) return _rest!.watchBroadcasts();
+    return _activeDb.collection(_broadcasts).snapshots().map((snap) {
+      final items = snap.docs
+          .map(
+            (doc) => AppBroadcast.fromJson({...doc.data(), 'id': doc.id}),
+          )
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    });
+  }
+
+  Future<void> createBroadcast(AppBroadcast broadcast) async {
+    if (_rest != null) {
+      await _rest!.createBroadcast(broadcast);
+      return;
+    }
+    await _activeDb
+        .collection(_broadcasts)
+        .doc(broadcast.id)
+        .set(broadcast.toJson());
   }
 
   Map<String, dynamic> _branchToMap(Branch branch) => {
@@ -830,71 +898,44 @@ class FirestoreDataSource {
     try {
       final snap = await _ordersCol
           .orderBy('created_at', descending: true)
-          .limit(300)
+          .limit(100)
           .get();
-      for (final doc in snap.docs) {
-        try {
-          byId[doc.id] = _docToOrder(doc);
-        } catch (_) {}
+      for (final order in _parseOrderDocs(snap.docs)) {
+        byId[order.id] = order;
       }
     } catch (_) {
-      final snap = await _ordersCol.limit(300).get();
-      for (final doc in snap.docs) {
-        try {
-          byId[doc.id] = _docToOrder(doc);
-        } catch (_) {}
+      final snap = await _ordersCol.limit(100).get();
+      for (final order in _parseOrderDocs(snap.docs)) {
+        byId[order.id] = order;
       }
     }
-    try {
-      final phoneSnap =
-          await _ordersCol.where('order_source', isEqualTo: 'phone').limit(100).get();
-      for (final doc in phoneSnap.docs) {
-        try {
-          byId[doc.id] = _docToOrder(doc);
-        } catch (_) {}
-      }
-    } catch (_) {}
-    try {
-      final failedSnap =
-          await _ordersCol.where('phone_failed', isEqualTo: true).limit(50).get();
-      for (final doc in failedSnap.docs) {
-        try {
-          byId[doc.id] = _docToOrder(doc);
-        } catch (_) {}
-      }
-    } catch (_) {}
-    await _mergeDineInSupplements(byId);
+    await _mergeOpenDineInSupplements(byId);
     return byId.values.toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  /// Salon yedek: sıralı dineIn + açık status’ler (sunucudan — yerel önbellek kaçırmasın).
-  Future<void> _mergeDineInSupplements(Map<String, Order> byId) async {
-    const server = GetOptions(source: Source.server);
+  /// Salon/garson: top-100 dışında kalan açık masa siparişlerini ekler.
+  /// Eski 15 sorgu yok — dineIn + 3 açık status (mutfak/kasa görünürlüğü).
+  Future<void> _mergeOpenDineInSupplements(Map<String, Order> byId) async {
     try {
-      final dineInSnap = await _ordersCol
+      final snap = await _ordersCol
           .where('order_type', isEqualTo: 'dineIn')
           .orderBy('created_at', descending: true)
-          .limit(300)
-          .get(server);
-      for (final doc in dineInSnap.docs) {
-        try {
-          byId[doc.id] = _docToOrder(doc);
-        } catch (_) {}
+          .limit(80)
+          .get();
+      for (final order in _parseOrderDocs(snap.docs)) {
+        byId[order.id] = order;
       }
     } catch (_) {
       try {
-        final dineInSnap = await _ordersCol
-            .where('order_type', isEqualTo: 'dineIn')
-            .limit(300)
-            .get(server);
-        for (final doc in dineInSnap.docs) {
-          try {
-            byId[doc.id] = _docToOrder(doc);
-          } catch (_) {}
+        final snap =
+            await _ordersCol.where('order_type', isEqualTo: 'dineIn').limit(80).get();
+        for (final order in _parseOrderDocs(snap.docs)) {
+          byId[order.id] = order;
         }
       } catch (_) {}
     }
+
     for (final status in const [
       OrderStatus.received,
       OrderStatus.preparing,
@@ -903,13 +944,10 @@ class FirestoreDataSource {
       try {
         final snap = await _ordersCol
             .where('status', isEqualTo: status.name)
-            .limit(100)
-            .get(server);
-        for (final doc in snap.docs) {
-          try {
-            final order = _docToOrder(doc);
-            if (order.isDineIn) byId[doc.id] = order;
-          } catch (_) {}
+            .limit(40)
+            .get();
+        for (final order in _parseOrderDocs(snap.docs)) {
+          if (order.isDineIn) byId[order.id] = order;
         }
       } catch (_) {}
     }
@@ -1004,38 +1042,16 @@ class FirestoreDataSource {
 
   Stream<List<Order>> watchOrders() {
     if (_rest != null) return _rest!.watchOrders();
+    // Snapshot yalnız top-100; salon kaçmasın diye ara sıra yedek birleştir.
     return _ordersCol
         .orderBy('created_at', descending: true)
-        .limit(300)
+        .limit(100)
         .snapshots()
         .asyncMap((snap) async {
-          final byId = <String, Order>{};
-          for (final order in _parseOrderDocs(snap.docs)) {
-            byId[order.id] = order;
-          }
-          try {
-            final phoneSnap = await _ordersCol
-                .where('order_source', isEqualTo: 'phone')
-                .limit(100)
-                .get();
-            for (final doc in phoneSnap.docs) {
-              try {
-                byId[doc.id] = _docToOrder(doc);
-              } catch (_) {}
-            }
-          } catch (_) {}
-          try {
-            final failedSnap = await _ordersCol
-                .where('phone_failed', isEqualTo: true)
-                .limit(50)
-                .get();
-            for (final doc in failedSnap.docs) {
-              try {
-                byId[doc.id] = _docToOrder(doc);
-              } catch (_) {}
-            }
-          } catch (_) {}
-          await _mergeDineInSupplements(byId);
+          final byId = <String, Order>{
+            for (final order in _parseOrderDocs(snap.docs)) order.id: order,
+          };
+          await _mergeOpenDineInSupplements(byId);
           return byId.values.toList()
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         });

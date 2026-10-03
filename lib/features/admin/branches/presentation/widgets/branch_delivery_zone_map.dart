@@ -190,6 +190,7 @@ class _BranchDeliveryZoneMapState extends State<BranchDeliveryZoneMap> {
                       polygon: widget.polygon,
                       onTap: (lat, lng) =>
                           _onMapTap(gmaps.LatLng(lat, lng)),
+                      onPolygonChanged: widget.onPolygonChanged,
                     ),
             ),
           ),
@@ -295,6 +296,7 @@ class _OsmZoneMap extends StatefulWidget {
     required this.radiusKm,
     required this.polygon,
     required this.onTap,
+    required this.onPolygonChanged,
   });
 
   final Branch branch;
@@ -302,6 +304,7 @@ class _OsmZoneMap extends StatefulWidget {
   final double radiusKm;
   final List<GeoPoint> polygon;
   final void Function(double lat, double lng) onTap;
+  final ValueChanged<List<GeoPoint>> onPolygonChanged;
 
   @override
   State<_OsmZoneMap> createState() => _OsmZoneMapState();
@@ -309,6 +312,11 @@ class _OsmZoneMap extends StatefulWidget {
 
 class _OsmZoneMapState extends State<_OsmZoneMap> {
   final _mapController = MapController();
+  var _mapReady = false;
+  var _fitted = false;
+  var _draggingVertex = false;
+  var _pointerMoved = false;
+  Offset? _pointerDown;
 
   latlong.LatLng get _center =>
       latlong.LatLng(widget.branch.latitude, widget.branch.longitude);
@@ -327,6 +335,42 @@ class _OsmZoneMapState extends State<_OsmZoneMap> {
             kmToLngDelta(radiusKm, center.latitude) * math.sin(angle),
       );
     });
+  }
+
+  void _fitZone() {
+    if (!_mapReady || _fitted || !mounted) return;
+    final points = widget.mode == DeliveryZoneMode.radius
+        ? _circleRing(_center, widget.radiusKm)
+        : _polygonPoints;
+    if (points.length < 2) return;
+    _fitted = true;
+    _mapController.fitCamera(
+      CameraFit.coordinates(
+        coordinates: points,
+        padding: const EdgeInsets.all(36),
+      ),
+    );
+  }
+
+  void _replacePoint(int index, latlong.LatLng point) {
+    final next = [
+      for (var i = 0; i < widget.polygon.length; i++)
+        if (i == index)
+          GeoPoint(latitude: point.latitude, longitude: point.longitude)
+        else
+          widget.polygon[i],
+    ];
+    widget.onPolygonChanged(next);
+  }
+
+  bool _nearVertex(Offset local) {
+    if (!_mapReady) return false;
+    final camera = _mapController.camera;
+    for (final point in _polygonPoints) {
+      final screen = camera.latLngToScreenOffset(point);
+      if ((screen - local).distance <= 22) return true;
+    }
+    return false;
   }
 
   @override
@@ -381,20 +425,63 @@ class _OsmZoneMapState extends State<_OsmZoneMap> {
       ...polygonPoints.asMap().entries.map(
             (entry) => Marker(
               point: entry.value,
-              width: 20,
-              height: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.warning,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+              width: 36,
+              height: 36,
+              child: GestureDetector(
+                onPanStart: (_) => _draggingVertex = true,
+                onPanUpdate: (details) {
+                  if (!_mapReady) return;
+                  final camera = _mapController.camera;
+                  final origin = camera.latLngToScreenOffset(entry.value);
+                  final moved = camera.screenOffsetToLatLng(
+                    origin + details.delta,
+                  );
+                  _replacePoint(entry.key, moved);
+                },
+                onPanEnd: (_) => _draggingVertex = true,
+                child: Center(
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: AppColors.warning,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
     ];
 
-    return FlutterMap(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        _pointerDown = event.localPosition;
+        _pointerMoved = false;
+      },
+      onPointerMove: (event) {
+        final down = _pointerDown;
+        if (down != null && (event.localPosition - down).distance > 12) {
+          _pointerMoved = true;
+        }
+      },
+      onPointerUp: (event) {
+        if (widget.mode != DeliveryZoneMode.polygon || !_mapReady) return;
+        final down = _pointerDown;
+        _pointerDown = null;
+        if (_draggingVertex || _pointerMoved || down == null) {
+          _draggingVertex = false;
+          return;
+        }
+        if (_nearVertex(event.localPosition)) return;
+        final point = _mapController.camera.screenOffsetToLatLng(
+          event.localPosition,
+        );
+        widget.onTap(point.latitude, point.longitude);
+      },
+      child: FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         initialCenter: _center,
@@ -404,16 +491,17 @@ class _OsmZoneMapState extends State<_OsmZoneMap> {
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
-        onTap: widget.mode == DeliveryZoneMode.polygon
-            ? (_, point) => widget.onTap(point.latitude, point.longitude)
-            : null,
+        onMapReady: () {
+          _mapReady = true;
+          _fitZone();
+        },
       ),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.tostusahane.tostu_sahane',
           tileProvider: NetworkTileProvider(
-            headers: const {
+            headers: {
               'User-Agent':
                   'TostuSahane/1.1 (Flutter Ops; +https://tostusahane.com)',
             },
@@ -423,6 +511,7 @@ class _OsmZoneMapState extends State<_OsmZoneMap> {
         if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
         MarkerLayer(markers: markers),
       ],
+      ),
     );
   }
 }

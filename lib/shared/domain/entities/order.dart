@@ -197,6 +197,9 @@ class Order extends Equatable {
 
   bool get isDelivery => orderType == OrderType.delivery;
 
+  /// Mobil uygulamadan verilen Gel Al. Garson tezgah gel-al siparişi değildir.
+  bool get isCustomerPickup => isPickup && isDelivery;
+
   bool get isPhoneOrder => orderSource == OrderSource.phone;
   bool get isWebOrder => orderSource == OrderSource.web;
 

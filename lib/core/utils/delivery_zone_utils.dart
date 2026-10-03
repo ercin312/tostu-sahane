@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../shared/domain/entities/branch.dart';
 import '../../shared/domain/entities/geo_point.dart';
 import '../services/location_service.dart';
@@ -64,6 +66,26 @@ abstract final class DeliveryZoneUtils {
       j = i;
     }
     return inside;
+  }
+
+  /// Haritada çizilen yarıçap halkası. Kontrol hâlâ kuş uçuşu mesafeyle yapılır.
+  static List<GeoPoint> circleOutline({
+    required double latitude,
+    required double longitude,
+    required double radiusKm,
+    int steps = 64,
+  }) {
+    if (radiusKm <= 0 || steps < 3) return const [];
+    return List.generate(steps, (index) {
+      final angle = 2 * math.pi * index / steps;
+      final latDelta = radiusKm / 111.0;
+      final lngScale = 111.0 * math.cos(latitude * math.pi / 180);
+      final lngDelta = lngScale.abs() < 0.01 ? 0.0 : radiusKm / lngScale;
+      return GeoPoint(
+        latitude: latitude + latDelta * math.cos(angle),
+        longitude: longitude + lngDelta * math.sin(angle),
+      );
+    });
   }
 
   /// Konuma hizmet veren en yakın şubeyi bulur.

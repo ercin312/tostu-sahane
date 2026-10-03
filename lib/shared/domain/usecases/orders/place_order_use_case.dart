@@ -48,6 +48,8 @@ class PlaceOrderParams {
 
     this.estimatedDeliveryMinutes,
 
+    this.isPickup = false,
+
   });
 
 
@@ -90,6 +92,8 @@ class PlaceOrderParams {
 
   final int? estimatedDeliveryMinutes;
 
+  final bool isPickup;
+
 }
 
 
@@ -108,7 +112,7 @@ class PlaceOrderUseCase extends UseCase<Order, PlaceOrderParams> {
 
   Future<Order> call(PlaceOrderParams params) async {
 
-    final order = await _repository.buildOrder(
+    var order = await _repository.buildOrder(
 
       items: params.items,
 
@@ -149,6 +153,10 @@ class PlaceOrderUseCase extends UseCase<Order, PlaceOrderParams> {
       estimatedDeliveryMinutes: params.estimatedDeliveryMinutes,
 
     );
+
+    if (params.isPickup) {
+      order = order.copyWith(isPickup: true);
+    }
 
     return _repository.placeOrder(order);
 

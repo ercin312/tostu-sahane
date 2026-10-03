@@ -7,10 +7,13 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../core/utils/format_utils.dart';
 import '../../../../../core/widgets/role_logout_action.dart';
+import '../../../../../core/utils/localized_text.dart';
 import '../../../../../shared/domain/entities/delivery_settings.dart';
+import '../../../../../shared/domain/entities/product.dart';
 import '../../../../../shared/domain/entities/promotion_campaign.dart';
 import '../../../../../shared/presentation/providers/delivery_settings_provider.dart';
 import '../../../../../shared/presentation/providers/promotion_providers.dart';
+import '../../../../customer/home/presentation/providers/branch_provider.dart';
 import '../widgets/promotion_campaign_editor.dart';
 
 class AdminPromotionsPage extends ConsumerStatefulWidget {
@@ -22,30 +25,40 @@ class AdminPromotionsPage extends ConsumerStatefulWidget {
 
 class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
   final _freeDeliveryController = TextEditingController();
+  final _belowMinFeeController = TextEditingController();
+  final _upsellSearchController = TextEditingController();
+  var _upsellIds = <String>[];
   var _deliveryLoaded = false;
   var _savingDelivery = false;
 
   @override
   void dispose() {
     _freeDeliveryController.dispose();
+    _belowMinFeeController.dispose();
+    _upsellSearchController.dispose();
     super.dispose();
   }
 
   void _ensureDeliveryLoaded(DeliverySettings settings) {
     if (_deliveryLoaded) return;
     _deliveryLoaded = true;
-    _freeDeliveryController.text = settings.freeDeliveryMinOrder.toStringAsFixed(
-      settings.freeDeliveryMinOrder == settings.freeDeliveryMinOrder.roundToDouble()
-          ? 0
-          : 0,
-    );
+    _freeDeliveryController.text = _amountText(settings.freeDeliveryMinOrder);
+    _belowMinFeeController.text = _amountText(settings.belowMinimumDeliveryFee);
+    _upsellIds = List<String>.of(settings.upsellProductIds);
+  }
+
+  String _amountText(double value) {
+    return value.toStringAsFixed(value == value.roundToDouble() ? 0 : 2);
   }
 
   Future<void> _saveDeliverySettings() async {
     final amount = double.tryParse(
       _freeDeliveryController.text.trim().replaceAll(',', '.'),
     );
-    if (amount == null || amount < 0) {
+    final fee = double.tryParse(
+      _belowMinFeeController.text.trim().replaceAll(',', '.'),
+    );
+    if (amount == null || amount < 0 || fee == null || fee < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(LocaleKeys.adminFreeDeliveryMinOrderInvalid.tr())),
       );
@@ -56,7 +69,11 @@ class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
     try {
       await saveDeliverySettings(
         ref,
-        DeliverySettings(freeDeliveryMinOrder: amount),
+        DeliverySettings(
+          freeDeliveryMinOrder: amount,
+          belowMinimumDeliveryFee: fee,
+          upsellProductIds: _upsellIds,
+        ),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -72,29 +89,29 @@ class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
     }
   }
 
-  String _typeLabel(PromotionType type) => switch (type) {
-        PromotionType.percentDiscount =>
-          LocaleKeys.adminPromotionTypePercent.tr(),
-        PromotionType.fixedDiscount => LocaleKeys.adminPromotionTypeFixed.tr(),
-        PromotionType.freeDrinks =>
-          LocaleKeys.adminPromotionTypeFreeDrinks.tr(),
-      };
+  String _typeLabel(PromotionType type) => type.localeKey.tr();
 
   String _campaignSubtitle(PromotionCampaign campaign) {
-    final min = FormatUtils.currency(campaign.minOrderAmount);
-    return switch (campaign.type) {
-      PromotionType.percentDiscount =>
-        '${campaign.value.toStringAsFixed(0)}% — min $min',
-      PromotionType.fixedDiscount =>
-        '${FormatUtils.currency(campaign.value)} — min $min',
-      PromotionType.freeDrinks => 'min $min',
-    };
+    final parts = <String>[_typeLabel(campaign.type)];
+    if (campaign.type == PromotionType.percentDiscount) {
+      parts.add('%${campaign.value.toStringAsFixed(0)}');
+    } else if (campaign.type == PromotionType.fixedDiscount) {
+      parts.add(FormatUtils.currency(campaign.value));
+    } else if (campaign.type == PromotionType.buyXGetY) {
+      parts.add('${campaign.buyQuantity} al ${campaign.freeQuantity}');
+    }
+    if (campaign.minOrderAmount > 0) {
+      parts.add('min ${FormatUtils.currency(campaign.minOrderAmount)}');
+    }
+    if (campaign.hasCode) parts.add(campaign.normalizedCode);
+    return parts.join(' · ');
   }
 
   @override
   Widget build(BuildContext context) {
     final deliveryAsync = ref.watch(deliverySettingsProvider);
     final campaignsAsync = ref.watch(promotionCampaignsProvider);
+    final products = ref.watch(productsProvider).value ?? const <Product>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -146,6 +163,20 @@ class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
                           border: const OutlineInputBorder(),
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        controller: _belowMinFeeController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: LocaleKeys.adminBelowMinDeliveryFee.tr(),
+                          hintText: '30',
+                          helperText:
+                              LocaleKeys.adminBelowMinDeliveryFeeHint.tr(),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.md),
                       ElevatedButton(
                         onPressed: _savingDelivery ? null : _saveDeliverySettings,
@@ -161,6 +192,15 @@ class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _UpsellPickerCard(
+                products: products,
+                selectedIds: _upsellIds,
+                searchController: _upsellSearchController,
+                onChanged: (ids) => setState(() => _upsellIds = ids),
+                saving: _savingDelivery,
+                onSave: _saveDeliverySettings,
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
@@ -209,6 +249,8 @@ class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
                                 if (campaign.hasCode) campaign.normalizedCode,
                                 if (campaign.autoApply && !campaign.hasCode)
                                   LocaleKeys.adminPromotionAutoApply.tr(),
+                                if (campaign.firstOrderOnly)
+                                  LocaleKeys.adminPromotionFirstOrder.tr(),
                               ].join(' · '),
                             ),
                             trailing: PopupMenuButton<String>(
@@ -267,6 +309,107 @@ class _AdminPromotionsPageState extends ConsumerState<AdminPromotionsPage> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _UpsellPickerCard extends StatelessWidget {
+  const _UpsellPickerCard({
+    required this.products,
+    required this.selectedIds,
+    required this.searchController,
+    required this.onChanged,
+    required this.saving,
+    required this.onSave,
+  });
+
+  final List<Product> products;
+  final List<String> selectedIds;
+  final TextEditingController searchController;
+  final ValueChanged<List<String>> onChanged;
+  final bool saving;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final query = searchController.text.trim().toLowerCase();
+    final visible = products.where((product) {
+      if (query.isEmpty) return true;
+      return localizedOrRaw(product.nameKey).toLowerCase().contains(query);
+    }).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              LocaleKeys.adminCartUpsellTitle.tr(),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              LocaleKeys.adminCartUpsellHint.tr(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: searchController,
+              onChanged: (_) => onChanged(List<String>.of(selectedIds)),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: LocaleKeys.customerSearchMenu.tr(),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (visible.isEmpty)
+              const SizedBox(height: AppSpacing.sm)
+            else
+              SizedBox(
+                height: 280,
+                child: ListView.builder(
+                  itemCount: visible.length,
+                  itemBuilder: (context, index) {
+                    final product = visible[index];
+                    final checked = selectedIds.contains(product.id);
+                    return CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: checked,
+                      title: Text(localizedOrRaw(product.nameKey)),
+                      subtitle: Text(FormatUtils.currency(product.price)),
+                      onChanged: (value) {
+                        final next = List<String>.of(selectedIds);
+                        if (value ?? false) {
+                          if (!next.contains(product.id)) next.add(product.id);
+                        } else {
+                          next.remove(product.id);
+                        }
+                        onChanged(next);
+                      },
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: AppSpacing.md),
+            ElevatedButton(
+              onPressed: saving ? null : onSave,
+              child: saving
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(LocaleKeys.commonSave.tr()),
+            ),
+          ],
+        ),
       ),
     );
   }

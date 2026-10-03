@@ -72,6 +72,14 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
                     ),
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   ),
+                if (order.isCustomerPickup)
+                  Chip(
+                    label: Text(
+                      LocaleKeys.pickupOrderBadge.tr(),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    backgroundColor: const Color(0xFFFFE14A),
+                  ),
                 if (isNew)
                   Chip(
                     label: Text(
@@ -191,9 +199,11 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
             successMessage: LocaleKeys.branchOrderReady.tr(),
           ),
           child: Text(
-            order.isDineIn
-                ? LocaleKeys.kitchenMarkReady.tr()
-                : LocaleKeys.branchMarkReady.tr(),
+            order.isCustomerPickup
+                ? LocaleKeys.pickupMarkReady.tr()
+                : order.isDineIn
+                    ? LocaleKeys.kitchenMarkReady.tr()
+                    : LocaleKeys.branchMarkReady.tr(),
           ),
         ),
       );
@@ -205,6 +215,24 @@ class _BranchOrderCardState extends ConsumerState<BranchOrderCard> {
           style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
           onPressed: () => _rejectOrder(context, ref, user),
           child: Text(LocaleKeys.branchRejectOrder.tr()),
+        ),
+      );
+    }
+
+    if (OrderWorkflow.canPerform(
+      user,
+      order,
+      OrderWorkflowAction.markDelivered,
+    )) {
+      actions.add(
+        ElevatedButton(
+          onPressed: () => _runAction(
+            context,
+            ref,
+            OrderWorkflowAction.markDelivered,
+            successMessage: LocaleKeys.pickupStatusCollected.tr(),
+          ),
+          child: Text(LocaleKeys.pickupMarkCollected.tr()),
         ),
       );
     }

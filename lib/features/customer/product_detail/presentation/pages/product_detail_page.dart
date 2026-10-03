@@ -18,6 +18,8 @@ import '../../../../../shared/domain/entities/product.dart';
 import '../../../../../shared/domain/entities/product_extra.dart';
 import '../../../../customer/cart/presentation/providers/cart_provider.dart';
 import '../../../home/presentation/providers/branch_provider.dart';
+import '../../../pickup/presentation/providers/fulfillment_mode_provider.dart';
+import '../../../../../shared/presentation/providers/pickup_settings_provider.dart';
 import '../../../profile/presentation/providers/favorites_provider.dart';
 import '../widgets/product_extras_section.dart';
 import '../widgets/product_reviews_section.dart';
@@ -51,8 +53,16 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
         .fold<double>(0, (sum, e) => sum + e.price);
   }
 
+  double _basePrice(Product product) {
+    return customerUnitPrice(
+      product: product,
+      pickupActive: ref.read(customerPickupActiveProvider),
+      settings: ref.read(pickupSettingsProvider).valueOrNull,
+    );
+  }
+
   double _unitPrice(Product product, List<ProductExtra> extras) {
-    var price = product.price + _extrasTotal(extras);
+    var price = _basePrice(product) + _extrasTotal(extras);
     if (_portionKey == LocaleKeys.portionLarge) {
       price += MockData.largePortionExtra;
     }
@@ -80,7 +90,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     final branch = ref.read(branchProvider).value;
     if (branch == null) return;
     final unitPrice = product.isCombo
-        ? product.price + _extrasTotal(extras)
+        ? _basePrice(product) + _extrasTotal(extras)
         : _unitPrice(product, extras);
     ref.read(cartProvider.notifier).addItem(
           CartItem(
@@ -92,6 +102,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
             selectedOptions: _selectedOptionLabels(extras),
             portionKey: product.isCombo ? null : _portionKey,
             note: _noteController.text.isEmpty ? null : _noteController.text,
+            productCategory: product.category.name,
           ),
           branchId: branch.id,
         );
@@ -228,12 +239,47 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                             ),
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        FormatUtils.currency(product.price),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      Builder(
+                        builder: (context) {
+                          final pickupActive =
+                              ref.watch(customerPickupActiveProvider);
+                          final settings =
+                              ref.watch(pickupSettingsProvider).valueOrNull;
+                          final price = customerUnitPrice(
+                            product: product,
+                            pickupActive: pickupActive,
+                            settings: settings,
+                          );
+                          final discounted =
+                              pickupActive && price + 0.009 < product.price;
+                          return Row(
+                            children: [
+                              Text(
+                                FormatUtils.currency(price),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              if (discounted) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  FormatUtils.currency(product.price),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: AppColors.textSecondary,
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
                       ),
                       Builder(
                         builder: (context) {

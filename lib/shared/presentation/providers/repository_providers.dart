@@ -54,6 +54,13 @@ final promotionRepositoryProvider = Provider<PromotionRepository>((ref) {
   );
 });
 
+final broadcastRepositoryProvider = Provider<BroadcastRepository>((ref) {
+  return BroadcastRepository(
+    mock: ref.watch(mockApiDataSourceProvider),
+    firestore: ref.watch(firestoreDataSourceProvider),
+  );
+});
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     remote: AuthRemoteDataSource(ref.watch(dioProvider)),

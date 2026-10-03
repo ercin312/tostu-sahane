@@ -22,7 +22,8 @@ abstract final class OrderStatusUtils {
   ];
 
   static List<OrderStatus> pipelineFor(Order order) {
-    return order.isDineIn ? dineInPipeline : fulfillmentPipeline;
+    if (order.isDineIn || order.isCustomerPickup) return dineInPipeline;
+    return fulfillmentPipeline;
   }
 
   static String labelKey(OrderStatus status) {
@@ -44,6 +45,13 @@ abstract final class OrderStatusUtils {
     if (order.phoneFailed) {
       return LocaleKeys.branchPhoneOrderFailedBadge.tr();
     }
+    if (order.isCustomerPickup) {
+      return switch (order.status) {
+        OrderStatus.ready => LocaleKeys.pickupStatusReady.tr(),
+        OrderStatus.delivered => LocaleKeys.pickupStatusCollected.tr(),
+        _ => label(order.status),
+      };
+    }
     if (order.isDineIn) {
       return switch (order.status) {
         OrderStatus.ready => LocaleKeys.orderStatusReady.tr(),
@@ -58,9 +66,14 @@ abstract final class OrderStatusUtils {
   static int stepIndex(OrderStatus status, {bool dineIn = false}) =>
       fulfillmentStepIndex(status, dineIn: dineIn);
 
-  static int fulfillmentStepIndex(OrderStatus status, {bool dineIn = false}) {
+  static int fulfillmentStepIndex(
+    OrderStatus status, {
+    bool dineIn = false,
+    bool customerPickup = false,
+  }) {
     if (status == OrderStatus.cancelled) return -1;
-    final pipeline = dineIn ? dineInPipeline : fulfillmentPipeline;
+    final pipeline =
+        dineIn || customerPickup ? dineInPipeline : fulfillmentPipeline;
     final idx = pipeline.indexOf(status);
     if (idx >= 0) return idx;
     if (dineIn &&
@@ -79,9 +92,18 @@ abstract final class OrderStatusUtils {
     OrderStatus step,
     OrderStatus current, {
     bool dineIn = false,
+    bool customerPickup = false,
   }) {
-    final stepIdx = fulfillmentStepIndex(step, dineIn: dineIn);
-    final currentIdx = fulfillmentStepIndex(current, dineIn: dineIn);
+    final stepIdx = fulfillmentStepIndex(
+      step,
+      dineIn: dineIn,
+      customerPickup: customerPickup,
+    );
+    final currentIdx = fulfillmentStepIndex(
+      current,
+      dineIn: dineIn,
+      customerPickup: customerPickup,
+    );
     if (stepIdx < 0 || currentIdx < 0) return false;
     return stepIdx < currentIdx;
   }
@@ -91,12 +113,23 @@ abstract final class OrderStatusUtils {
     OrderStatus from,
     OrderStatus to, {
     bool dineIn = false,
+    bool customerPickup = false,
   }) {
     if (to == OrderStatus.cancelled) {
       return from == OrderStatus.received || from == OrderStatus.preparing;
     }
     if (from == OrderStatus.cancelled || from == OrderStatus.delivered) {
       return false;
+    }
+    if (customerPickup) {
+      if (to == OrderStatus.ready) {
+        return from == OrderStatus.preparing || from == OrderStatus.received;
+      }
+      if (to == OrderStatus.delivered) return from == OrderStatus.ready;
+      final fromIdx = fulfillmentStepIndex(from, customerPickup: true);
+      final toIdx = fulfillmentStepIndex(to, customerPickup: true);
+      if (fromIdx < 0 || toIdx < 0) return false;
+      return toIdx == fromIdx + 1;
     }
     if (dineIn) {
       if (to == OrderStatus.ready) {

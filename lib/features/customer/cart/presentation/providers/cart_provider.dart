@@ -86,6 +86,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
         'selected_options': item.selectedOptions,
         'portion_key': item.portionKey,
         'note': item.note,
+        'product_category': item.productCategory,
       };
 
   CartItem _cartItemFromJson(Map<String, dynamic> json) => CartItem(
@@ -100,6 +101,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
             const [],
         portionKey: json['portion_key'] as String?,
         note: json['note'] as String?,
+        productCategory: json['product_category'] as String?,
       );
 
   void addItem(CartItem item, {required String branchId}) {
@@ -148,6 +150,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
           selectedOptions: item.selectedOptions,
           portionKey: item.portionKey,
           note: item.note,
+          productCategory: item.productCategory,
         ),
     ];
     _persist();
@@ -173,10 +176,6 @@ final cartSubtotalProvider = Provider<double>((ref) {
 final cartItemCountProvider = Provider<int>((ref) {
   final cart = ref.watch(cartProvider);
   return cart.fold<double>(0, (sum, item) => sum + item.quantity).round();
-});
-
-final cartMeetsMinimumProvider = Provider<bool>((ref) {
-  return ref.watch(cartSubtotalProvider) >= AppConstants.minimumOrderAmount;
 });
 
 String generateCartItemId() =>

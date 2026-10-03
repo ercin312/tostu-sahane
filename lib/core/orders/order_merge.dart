@@ -15,10 +15,12 @@ abstract final class OrderMerge {
       final localStep = OrderStatusUtils.fulfillmentStepIndex(
         local.status,
         dineIn: local.isDineIn,
+        customerPickup: local.isCustomerPickup,
       );
       final remoteStep = OrderStatusUtils.fulfillmentStepIndex(
         remote.status,
         dineIn: remote.isDineIn,
+        customerPickup: remote.isCustomerPickup,
       );
       if (localStep != remoteStep) {
         picked = remoteStep > localStep ? remote : local;
@@ -79,10 +81,12 @@ abstract final class OrderMerge {
     final localStep = OrderStatusUtils.fulfillmentStepIndex(
       local.status,
       dineIn: local.isDineIn,
+      customerPickup: local.isCustomerPickup,
     );
     final remoteStep = OrderStatusUtils.fulfillmentStepIndex(
       remote.status,
       dineIn: remote.isDineIn,
+      customerPickup: remote.isCustomerPickup,
     );
     if (remoteStep <= localStep) return false;
     if (remote.status == OrderStatus.delivered &&
@@ -98,6 +102,7 @@ abstract final class OrderMerge {
       local.status,
       remote.status,
       dineIn: local.isDineIn,
+      customerPickup: local.isCustomerPickup,
     );
   }
 

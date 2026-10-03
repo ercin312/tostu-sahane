@@ -29,6 +29,8 @@ import '../../../../../shared/presentation/providers/paytr_settings_provider.dar
 import '../models/paytr_checkout_args.dart';
 import '../../../cart/presentation/widgets/campaign_picker_sheet.dart';
 import '../providers/coupon_provider.dart';
+import '../../../../../shared/presentation/providers/pickup_settings_provider.dart';
+import '../../../pickup/presentation/providers/fulfillment_mode_provider.dart';
 
 class CheckoutPage extends ConsumerStatefulWidget {
   const CheckoutPage({super.key});
@@ -45,6 +47,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   var _isPlacingOrder = false;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () => ref.read(branchProvider.notifier).refreshSelectedZone(),
+    );
+  }
+
+  @override
   void dispose() {
     _noteController.dispose();
     super.dispose();
@@ -54,6 +64,21 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     final selected = ref.read(appliedCheckoutDiscountProvider);
     final campaignId = selected?.campaignId;
     if (campaignId == null) return;
+    if (ref.read(customerPickupActiveProvider)) {
+      final settings = ref.read(pickupSettingsProvider).valueOrNull;
+      if (settings == null) return;
+      final next = [
+        for (final campaign in settings.campaigns)
+          if (campaign.id == campaignId &&
+              campaign.remainingUses != null &&
+              campaign.remainingUses! > 0)
+            campaign.copyWith(remainingUses: campaign.remainingUses! - 1)
+          else
+            campaign,
+      ];
+      await savePickupSettings(ref, settings.copyWith(campaigns: next));
+      return;
+    }
     final campaigns = ref.read(activePromotionCampaignsProvider);
     PromotionCampaign? campaign;
     for (final item in campaigns) {
@@ -268,8 +293,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       }
     }
 
+    final pickupActive = ref.read(customerPickupActiveProvider);
     final addresses = ref.read(addressProvider).value ?? [];
-    if (addresses.isEmpty) {
+    if (!pickupActive && addresses.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(LocaleKeys.checkoutSelectAddress.tr())),
@@ -278,22 +304,31 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       return;
     }
 
-    final selectedAddress = ref.read(selectedCheckoutAddressProvider) ??
-        addresses.firstWhere(
-          (a) => a.isDefault,
-          orElse: () => addresses.first,
-        );
+    final selectedAddress = pickupActive
+        ? null
+        : ref.read(selectedCheckoutAddressProvider) ??
+            addresses.firstWhere(
+              (a) => a.isDefault,
+              orElse: () => addresses.first,
+            );
 
-    if (selectedAddress.latitude != null &&
-        selectedAddress.longitude != null &&
+    if (!pickupActive &&
         !ref.read(branchProvider.notifier).isAddressDeliverable(
               branch,
-              selectedAddress.latitude,
+              selectedAddress!.latitude,
               selectedAddress.longitude,
             )) {
       if (mounted) {
+        final missingPin = selectedAddress.latitude == null ||
+            selectedAddress.longitude == null;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(LocaleKeys.deliveryOutOfZone.tr())),
+          SnackBar(
+            content: Text(
+              missingPin
+                  ? LocaleKeys.checkoutAddressPinRequired.tr()
+                  : LocaleKeys.deliveryOutOfZone.tr(),
+            ),
+          ),
         );
       }
       return;
@@ -337,7 +372,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           email: email,
           customerName: auth.user.name.tr(),
           phone: auth.phone,
-          address: selectedAddress.fullAddress,
+          address: pickupActive
+              ? 'Gel Al — ${branch.name}'
+              : selectedAddress!.fullAddress,
           basketSummary: buildPaytrBasketSummary(cart),
           items: cart,
         ),
@@ -364,20 +401,25 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             customerId: auth.user.id,
             customerName: auth.user.name.tr(),
             branchId: branch.id,
-            address: selectedAddress.fullAddress,
+            address: pickupActive
+                ? 'Gel Al — ${branch.name}'
+                : selectedAddress!.fullAddress,
             paymentMethod: _paymentMethod,
             orderNote: orderNote.isEmpty ? null : orderNote,
-            deliveryNow: _deliveryNow,
-            scheduledAt: _deliveryNow ? null : _scheduledAt,
-            deliveryLatitude: selectedAddress.latitude,
-            deliveryLongitude: selectedAddress.longitude,
+            deliveryNow: pickupActive ? true : _deliveryNow,
+            scheduledAt: pickupActive || _deliveryNow ? null : _scheduledAt,
+            deliveryLatitude:
+                pickupActive ? branch.latitude : selectedAddress!.latitude,
+            deliveryLongitude:
+                pickupActive ? branch.longitude : selectedAddress!.longitude,
             customerPhone: auth.phone,
-            deliveryDirections: selectedAddress.note,
+            deliveryDirections: pickupActive ? null : selectedAddress!.note,
             paymentTransactionId: paymentTransactionId,
             couponCode: discountCode,
             discountAmount: discount,
             deliveryFeeAmount: deliveryFee,
             estimatedDeliveryMinutes: etaMinutes,
+            isPickup: pickupActive,
           );
 
       await MetaAnalytics.logPurchase(order);
@@ -436,6 +478,138 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     final addressesAsync = ref.watch(addressProvider);
     final selectedAddress = ref.watch(selectedCheckoutAddressProvider);
     final branch = ref.watch(branchProvider).value;
+    final pickupActive = ref.watch(customerPickupActiveProvider);
+    if (pickupActive) {
+      final branchClosedNow = branch != null && !branch.isOpenNow;
+      return Scaffold(
+        appBar: AppBar(title: Text(LocaleKeys.pickupCheckoutTitle.tr())),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (branchClosedNow)
+                MaterialBanner(
+                  backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                  content: Text(LocaleKeys.branchClosedMessage.tr()),
+                  leading: const Icon(Icons.schedule, color: AppColors.warning),
+                  actions: const [SizedBox.shrink()],
+                ),
+              Text(
+                LocaleKeys.pickupCheckoutBranch.tr(),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              ListTile(
+                leading: const Icon(Icons.store, color: AppColors.primary),
+                title: Text(branch?.name ?? ''),
+                subtitle: Text(branch?.address ?? ''),
+              ),
+              Text(
+                LocaleKeys.pickupReadyIn.tr(
+                  namedArgs: {'minutes': '$etaMinutes'},
+                ),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                LocaleKeys.checkoutPaymentMethod.tr(),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (paytrEnabled)
+                RadioListTile<PaymentMethod>(
+                  title: Text(LocaleKeys.checkoutPaymentCard.tr()),
+                  value: PaymentMethod.onlineCard,
+                  groupValue: _paymentMethod,
+                  onChanged: (v) => setState(() => _paymentMethod = v!),
+                ),
+              RadioListTile<PaymentMethod>(
+                title: Text(LocaleKeys.pickupPayCash.tr()),
+                value: PaymentMethod.cashOnDelivery,
+                groupValue: _paymentMethod,
+                onChanged: (v) => setState(() => _paymentMethod = v!),
+              ),
+              RadioListTile<PaymentMethod>(
+                title: Text(LocaleKeys.pickupPayCard.tr()),
+                value: PaymentMethod.cardOnDelivery,
+                groupValue: _paymentMethod,
+                onChanged: (v) => setState(() => _paymentMethod = v!),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const CampaignPickerTile(),
+              if (discount > 0 && discountLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Text(
+                    LocaleKeys.checkoutCouponDiscount.tr(
+                      namedArgs: {
+                        'code': discountCode ?? discountLabel,
+                        'amount': FormatUtils.currency(discount),
+                      },
+                    ),
+                    style: const TextStyle(color: AppColors.success),
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                LocaleKeys.pickupNoDeliveryFee.tr(),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _noteController,
+                decoration: InputDecoration(
+                  labelText: LocaleKeys.checkoutOrderNote.tr(),
+                  hintText: LocaleKeys.checkoutOrderNoteHint.tr(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              if (showVatLine)
+                Text(
+                  LocaleKeys.checkoutVatLine.tr(
+                    namedArgs: {
+                      'rate':
+                          '${paytrSettings?.vatRatePercent.toStringAsFixed(0) ?? '0'}',
+                      'amount': FormatUtils.currency(vatAmount),
+                      'mode': paytrSettings?.vatIncluded == true
+                          ? LocaleKeys.adminPaytrVatIncluded.tr()
+                          : LocaleKeys.adminPaytrVatExcluded.tr(),
+                    },
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              Text(
+                FormatUtils.currency(total),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.displayLarge,
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: AppButton(
+              labelKey: LocaleKeys.checkoutButtonText,
+              isLoading: _isPlacingOrder,
+              onPressed: branch != null &&
+                      branch.isOpenNow &&
+                      !_isPlacingOrder
+                  ? _placeOrder
+                  : null,
+            ),
+          ),
+        ),
+      );
+    }
     final canSubmitOrder = addressesAsync.maybeWhen(
       data: (addresses) {
         if (addresses.isEmpty) return false;
@@ -445,8 +619,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               orElse: () => addresses.first,
             );
         final outOfZone = branch != null &&
-            address.latitude != null &&
-            address.longitude != null &&
             !ref.read(branchProvider.notifier).isAddressDeliverable(
                   branch,
                   address.latitude,
@@ -517,9 +689,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 orElse: () => addresses.first,
               );
 
+          final missingPin =
+              address.latitude == null || address.longitude == null;
           final outOfZone = branch != null &&
-              address.latitude != null &&
-              address.longitude != null &&
               !ref.read(branchProvider.notifier).isAddressDeliverable(
                     branch,
                     address.latitude,
@@ -578,7 +750,11 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: MaterialBanner(
                       backgroundColor: AppColors.error.withValues(alpha: 0.08),
-                      content: Text(LocaleKeys.deliveryOutOfZone.tr()),
+                      content: Text(
+                        missingPin
+                            ? LocaleKeys.checkoutAddressPinRequired.tr()
+                            : LocaleKeys.deliveryOutOfZone.tr(),
+                      ),
                       leading: const Icon(Icons.warning_amber, color: AppColors.error),
                       actions: const [SizedBox.shrink()],
                     ),
@@ -712,6 +888,18 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                     ),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.success,
+                        ),
+                  )
+                else
+                  Text(
+                    LocaleKeys.customerBelowMinDeliveryFeeHint.tr(
+                      namedArgs: {
+                        'amount': freeDeliveryMinOrder.toStringAsFixed(0),
+                        'fee': deliveryFee.toStringAsFixed(0),
+                      },
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.warning,
                         ),
                   ),
                 const SizedBox(height: AppSpacing.md),

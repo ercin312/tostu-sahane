@@ -95,7 +95,7 @@ class _BranchOrderAlertListenerState
         return orders
             .where(
               (o) =>
-                  o.isPhoneOrder &&
+                  o.isDelivery &&
                   !o.phoneFailed &&
                   o.status != OrderStatus.delivered &&
                   o.status != OrderStatus.cancelled,

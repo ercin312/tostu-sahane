@@ -39,6 +39,10 @@ import '../../features/admin/phone_failed_orders/presentation/pages/admin_phone_
 import '../../features/admin/phone_ai/presentation/pages/admin_phone_ai_training_page.dart';
 import '../../features/admin/paytr_settings/presentation/pages/admin_paytr_settings_page.dart';
 import '../../features/admin/promotions/presentation/pages/admin_promotions_page.dart';
+import '../../features/admin/pickup/presentation/pages/admin_pickup_page.dart';
+import '../../features/admin/broadcasts/presentation/pages/admin_broadcasts_page.dart';
+import '../../features/customer/notifications/presentation/pages/customer_notifications_page.dart';
+import '../../features/customer/notifications/presentation/pages/customer_notification_detail_page.dart';
 import '../../features/admin/presentation/pages/admin_tools_page.dart';
 import '../../features/designer/presentation/pages/designer_studio_page.dart';
 import '../../features/customer/cart/presentation/pages/cart_page.dart';
@@ -48,6 +52,7 @@ import '../../features/customer/checkout/presentation/models/payment_page_args.d
 import '../../features/customer/checkout/presentation/pages/payment_page.dart';
 import '../../features/customer/checkout/presentation/pages/checkout_page.dart';
 import '../../features/customer/home/presentation/pages/customer_home_page.dart';
+import '../../features/customer/pickup/presentation/pages/customer_pickup_page.dart';
 import '../../features/customer/order_tracking/presentation/pages/order_tracking_page.dart';
 import '../../features/customer/product_detail/presentation/pages/product_detail_page.dart';
 import '../../features/customer/profile/presentation/pages/addresses_page.dart';
@@ -106,12 +111,20 @@ GoRouter createAppRouter(Ref ref) {
             builder: (context, state) => const CustomerHomePage(),
           ),
           GoRoute(
+            path: RoutePaths.customerPickup,
+            builder: (context, state) => const CustomerPickupPage(),
+          ),
+          GoRoute(
             path: RoutePaths.customerOrders,
             builder: (context, state) => const CustomerOrdersPage(),
           ),
           GoRoute(
             path: RoutePaths.customerProfile,
             builder: (context, state) => const CustomerProfilePage(),
+          ),
+          GoRoute(
+            path: RoutePaths.customerNotifications,
+            builder: (context, state) => const CustomerNotificationsPage(),
           ),
           GoRoute(
             path: RoutePaths.customerCart,
@@ -390,10 +403,24 @@ GoRouter createAppRouter(Ref ref) {
             builder: (context, state) => const AdminPromotionsPage(),
           ),
           GoRoute(
+            path: RoutePaths.adminPickup,
+            builder: (context, state) => const AdminPickupPage(),
+          ),
+          GoRoute(
+            path: RoutePaths.adminBroadcasts,
+            builder: (context, state) => const AdminBroadcastsPage(),
+          ),
+          GoRoute(
             path: RoutePaths.adminTools,
             builder: (context, state) => const AdminToolsPage(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/notification/:id',
+        builder: (context, state) => CustomerNotificationDetailPage(
+          broadcastId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: RoutePaths.designerStudio,

@@ -132,6 +132,7 @@ abstract final class LocaleKeys {
   static const customerBranchSelect = 'customer_branch_select';
   static const customerNearestBranch = 'customer_nearest_branch';
   static const customerCampaigns = 'customer_campaigns';
+  static const customerCampaignProducts = 'customer_campaign_products';
   static const customerCategoriesAll = 'customer_categories_all';
   static const customerCategoryTost = 'customer_category_tost';
   static const customerCategorySahanda = 'customer_category_sahanda';
@@ -149,6 +150,8 @@ abstract final class LocaleKeys {
   static const customerAddToCart = 'customer_add_to_cart';
   static const customerMinOrderWarning = 'customer_min_order_warning';
   static const customerCartEmpty = 'customer_cart_empty';
+  static const customerCartEmptyHint = 'customer_cart_empty_hint';
+  static const customerCartUpsellTitle = 'customer_cart_upsell_title';
   static const customerTotal = 'customer_total';
   static const customerSubtotal = 'customer_subtotal';
   static const customerDeliveryFee = 'customer_delivery_fee';
@@ -260,6 +263,11 @@ abstract final class LocaleKeys {
   static const orderTrack = 'order_track';
   static const orderNoOrders = 'order_no_orders';
   static const orderNoActiveOrders = 'order_no_active_orders';
+  static const ordersEmptyTitle = 'orders_empty_title';
+  static const ordersEmptyHint = 'orders_empty_hint';
+  static const ordersEmptyCta = 'orders_empty_cta';
+  static const ordersFirstCampaign = 'orders_first_campaign';
+  static const ordersOtherCampaigns = 'orders_other_campaigns';
   static const orderNoHistoryOrders = 'order_no_history_orders';
   static const orderMoreItems = 'order_more_items';
   static const orderActive = 'order_active';
@@ -546,6 +554,7 @@ abstract final class LocaleKeys {
   static const checkoutVatLine = 'checkout_vat_line';
   static const navPaytrSettings = 'nav_paytr_settings';
   static const navPromotions = 'nav_promotions';
+  static const navBroadcasts = 'nav_broadcasts';
   static const navQrMenu = 'nav_qr_menu';
   static const navPhoneCustomers = 'nav_phone_customers';
   static const adminPhoneCustomersTitle = 'admin_phone_customers_title';
@@ -688,6 +697,13 @@ abstract final class LocaleKeys {
   static const adminFreeDeliveryMinOrder = 'admin_free_delivery_min_order';
   static const adminFreeDeliveryMinOrderHint =
       'admin_free_delivery_min_order_hint';
+  static const adminBelowMinDeliveryFee = 'admin_below_min_delivery_fee';
+  static const adminBelowMinDeliveryFeeHint =
+      'admin_below_min_delivery_fee_hint';
+  static const adminCartUpsellTitle = 'admin_cart_upsell_title';
+  static const adminCartUpsellHint = 'admin_cart_upsell_hint';
+  static const customerBelowMinDeliveryFeeHint =
+      'customer_below_min_delivery_fee_hint';
   static const adminFreeDeliveryMinOrderInvalid =
       'admin_free_delivery_min_order_invalid';
   static const adminCampaignsTitle = 'admin_campaigns_title';
@@ -699,6 +715,40 @@ abstract final class LocaleKeys {
   static const adminPromotionTypePercent = 'admin_promotion_type_percent';
   static const adminPromotionTypeFixed = 'admin_promotion_type_fixed';
   static const adminPromotionTypeFreeDrinks = 'admin_promotion_type_free_drinks';
+  static const adminPromotionTypeFreeItem = 'admin_promotion_type_free_item';
+  static const adminPromotionTypeBogo = 'admin_promotion_type_bogo';
+  static const adminPromotionTypeFreeDelivery =
+      'admin_promotion_type_free_delivery';
+  static const adminPromotionTypeHintPercent =
+      'admin_promotion_type_hint_percent';
+  static const adminPromotionTypeHintFixed = 'admin_promotion_type_hint_fixed';
+  static const adminPromotionTypeHintDrinks =
+      'admin_promotion_type_hint_drinks';
+  static const adminPromotionTypeHintItem = 'admin_promotion_type_hint_item';
+  static const adminPromotionTypeHintBogo = 'admin_promotion_type_hint_bogo';
+  static const adminPromotionTypeHintDelivery =
+      'admin_promotion_type_hint_delivery';
+  static const adminPromotionDescription = 'admin_promotion_description';
+  static const adminPromotionDescriptionHint =
+      'admin_promotion_description_hint';
+  static const adminPromotionMaxDiscount = 'admin_promotion_max_discount';
+  static const adminPromotionMaxDiscountHint =
+      'admin_promotion_max_discount_hint';
+  static const adminPromotionScope = 'admin_promotion_scope';
+  static const adminPromotionScopeCart = 'admin_promotion_scope_cart';
+  static const adminPromotionScopeCategory = 'admin_promotion_scope_category';
+  static const adminPromotionScopeProducts = 'admin_promotion_scope_products';
+  static const adminPromotionCategory = 'admin_promotion_category';
+  static const adminPromotionProducts = 'admin_promotion_products';
+  static const adminPromotionBuyProducts = 'admin_promotion_buy_products';
+  static const adminPromotionRewardProducts = 'admin_promotion_reward_products';
+  static const adminPromotionRewardProductsHint =
+      'admin_promotion_reward_products_hint';
+  static const adminPromotionProductsEmpty = 'admin_promotion_products_empty';
+  static const adminPromotionBuyQuantity = 'admin_promotion_buy_quantity';
+  static const adminPromotionFreeQuantity = 'admin_promotion_free_quantity';
+  static const adminPromotionStarts = 'admin_promotion_starts';
+  static const adminPromotionMinOrderHint = 'admin_promotion_min_order_hint';
   static const adminPromotionValue = 'admin_promotion_value';
   static const adminPromotionValuePercentHint =
       'admin_promotion_value_percent_hint';
@@ -709,6 +759,8 @@ abstract final class LocaleKeys {
   static const adminPromotionAutoApply = 'admin_promotion_auto_apply';
   static const adminPromotionAutoApplyHint = 'admin_promotion_auto_apply_hint';
   static const adminPromotionActive = 'admin_promotion_active';
+  static const adminPromotionFirstOrder = 'admin_promotion_first_order';
+  static const adminPromotionFirstOrderHint = 'admin_promotion_first_order_hint';
   static const adminPromotionSaved = 'admin_promotion_saved';
   static const adminPromotionInvalid = 'admin_promotion_invalid';
   static const adminPromotionExpires = 'admin_promotion_expires';
@@ -818,6 +870,26 @@ abstract final class LocaleKeys {
 
   static const notificationChannelName = 'notification_channel_name';
   static const notificationNewOrderBody = 'notification_new_order_body';
+  static const adminBroadcastsTitle = 'admin_broadcasts_title';
+  static const adminBroadcastsHint = 'admin_broadcasts_hint';
+  static const adminBroadcastKindAll = 'admin_broadcast_kind_all';
+  static const adminBroadcastKindCampaign = 'admin_broadcast_kind_campaign';
+  static const adminBroadcastTitle = 'admin_broadcast_title';
+  static const adminBroadcastBody = 'admin_broadcast_body';
+  static const adminBroadcastBodyHint = 'admin_broadcast_body_hint';
+  static const adminBroadcastCampaign = 'admin_broadcast_campaign';
+  static const adminBroadcastSend = 'admin_broadcast_send';
+  static const adminBroadcastSent = 'admin_broadcast_sent';
+  static const adminBroadcastInvalid = 'admin_broadcast_invalid';
+  static const adminBroadcastHistory = 'admin_broadcast_history';
+  static const adminBroadcastEmpty = 'admin_broadcast_empty';
+  static const adminBroadcastNoCampaign = 'admin_broadcast_no_campaign';
+  static const customerNotificationsTitle = 'customer_notifications_title';
+  static const customerNotificationsEmpty = 'customer_notifications_empty';
+  static const customerNotificationDetail = 'customer_notification_detail';
+  static const customerNotificationCampaign = 'customer_notification_campaign';
+  static const customerNotificationMissing = 'customer_notification_missing';
+  static const customerNotificationOpenMenu = 'customer_notification_open_menu';
 
   static const adminDashboardTitle = 'admin_dashboard_title';
   static const adminWelcome = 'admin_welcome';
@@ -849,6 +921,7 @@ abstract final class LocaleKeys {
   static const adminZoneSummaryRadius = 'admin_zone_summary_radius';
   static const adminZoneSummaryPolygon = 'admin_zone_summary_polygon';
   static const deliveryOutOfZone = 'delivery_out_of_zone';
+  static const checkoutAddressPinRequired = 'checkout_address_pin_required';
   static const deliveryZoneUnavailable = 'delivery_zone_unavailable';
   static const adminNoBranches = 'admin_no_branches';
   static const adminAddProduct = 'admin_add_product';
@@ -1084,4 +1157,49 @@ abstract final class LocaleKeys {
   static const adminWaiterPrepLabelEn = 'admin_waiter_prep_label_en';
   static const adminWaiterSortProducts = 'admin_waiter_sort_products';
   static const adminWaiterSortExtras = 'admin_waiter_sort_extras';
+
+  static const navPickup = 'nav_pickup';
+  static const pickupEntryBadge = 'pickup_entry_badge';
+  static const pickupOpenMenu = 'pickup_open_menu';
+  static const pickupSwitchToDelivery = 'pickup_switch_to_delivery';
+  static const pickupModeActive = 'pickup_mode_active';
+  static const pickupReadyIn = 'pickup_ready_in';
+  static const pickupMenuTitle = 'pickup_menu_title';
+  static const pickupCampaigns = 'pickup_campaigns';
+  static const pickupNoDeliveryFee = 'pickup_no_delivery_fee';
+  static const pickupPerkNoFee = 'pickup_perk_no_fee';
+  static const pickupPerkPayAtStore = 'pickup_perk_pay_at_store';
+  static const pickupCartBanner = 'pickup_cart_banner';
+  static const pickupCheckoutTitle = 'pickup_checkout_title';
+  static const pickupCheckoutBranch = 'pickup_checkout_branch';
+  static const pickupPayCash = 'pickup_pay_cash';
+  static const pickupPayCard = 'pickup_pay_card';
+  static const pickupStatusReady = 'pickup_status_ready';
+  static const pickupStatusCollected = 'pickup_status_collected';
+  static const pickupMarkReady = 'pickup_mark_ready';
+  static const pickupMarkCollected = 'pickup_mark_collected';
+  static const pickupOrderBadge = 'pickup_order_badge';
+  static const pickupSwitchTitle = 'pickup_switch_title';
+  static const pickupSwitchMessage = 'pickup_switch_message';
+  static const pickupSwitchConfirm = 'pickup_switch_confirm';
+  static const pickupLeftCartCleared = 'pickup_left_cart_cleared';
+  static const adminPickupTitle = 'admin_pickup_title';
+  static const adminPickupSubtitle = 'admin_pickup_subtitle';
+  static const adminPickupEnabled = 'admin_pickup_enabled';
+  static const adminPickupEnabledHint = 'admin_pickup_enabled_hint';
+  static const adminPickupBadge = 'admin_pickup_badge';
+  static const adminPickupHeadline = 'admin_pickup_headline';
+  static const adminPickupSubtitleField = 'admin_pickup_subtitle_field';
+  static const adminPickupReadyMinutes = 'admin_pickup_ready_minutes';
+  static const adminPickupMinOrder = 'admin_pickup_min_order';
+  static const adminPickupMinOrderHint = 'admin_pickup_min_order_hint';
+  static const adminPickupPricesTitle = 'admin_pickup_prices_title';
+  static const adminPickupPricesHint = 'admin_pickup_prices_hint';
+  static const adminPickupMenuPrice = 'admin_pickup_menu_price';
+  static const adminPickupPrice = 'admin_pickup_price';
+  static const adminPickupCampaignsTitle = 'admin_pickup_campaigns_title';
+  static const adminPickupCampaignsHint = 'admin_pickup_campaigns_hint';
+  static const adminPickupSaved = 'admin_pickup_saved';
+  static const adminPickupSave = 'admin_pickup_save';
+  static const adminPickupCampaignEmpty = 'admin_pickup_campaign_empty';
 }

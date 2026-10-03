@@ -9,6 +9,9 @@ import '../../../core/utils/platform_layout_utils.dart';
 import '../../../core/auth/guest_access.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/branch_manager/presentation/widgets/branch_order_alert_listener.dart';
+import '../../../features/customer/notifications/presentation/widgets/broadcast_open_listener.dart';
+import '../../../features/customer/pickup/presentation/widgets/pickup_entry_button.dart';
+import '../../../features/customer/pickup/presentation/providers/fulfillment_mode_provider.dart';
 import '../../../features/customer/product_detail/presentation/providers/product_reviews_provider.dart';
 import '../../../features/waiter/presentation/widgets/table_service_request_listener.dart';
 import '../../../shared/domain/entities/user.dart';
@@ -23,6 +26,14 @@ class CustomerShell extends ConsumerWidget {
 
   static bool _isOrderTrackingPath(String location) {
     return RegExp(r'^/customer/order/[^/]+/track$').hasMatch(location);
+  }
+
+  /// Gel Al yalnızca kendi sayfasında ve oradan açılan ürün, sepet ve ödeme akışında sürer.
+  static bool _isOutsidePickupSection(String location) {
+    return location == RoutePaths.customerHome ||
+        location == RoutePaths.customerOrders ||
+        location == RoutePaths.customerProfile ||
+        _isOrderTrackingPath(location);
   }
 
   static bool _shouldShowNav(String location) {
@@ -67,36 +78,62 @@ class CustomerShell extends ConsumerWidget {
     }
   }
 
+  /// Sistem geri tuşu uygulamayı kapatmasın.
+  /// Üstteki sayfa kendi yığınından kapanır; başka sekmedeyken ana sayfaya dönülür.
+  void _onSystemBack(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    if (path == RoutePaths.customerHome) return;
+    GoRouter.of(context).go(RoutePaths.customerHome);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final showNav = _shouldShowNav(location);
+    if (_isOutsidePickupSection(location) &&
+        ref.read(fulfillmentModeProvider) == CustomerFulfillment.pickup) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        final clearedCart = leavePickupSection(ref);
+        if (!clearedCart || !context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(LocaleKeys.pickupLeftCartCleared.tr())),
+        );
+      });
+    }
 
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: showNav
-          ? BottomNavigationBar(
-              currentIndex: _selectedIndex(context),
-              onTap: (index) => _onItemTapped(context, ref, index),
-              items: [
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.home_outlined),
-                  activeIcon: const Icon(Icons.home),
-                  label: LocaleKeys.navHome.tr(),
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.receipt_long_outlined),
-                  activeIcon: const Icon(Icons.receipt_long),
-                  label: LocaleKeys.navOrders.tr(),
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.person_outline),
-                  activeIcon: const Icon(Icons.person),
-                  label: LocaleKeys.navProfile.tr(),
-                ),
-              ],
-            )
-          : null,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _onSystemBack(context);
+      },
+      child: Scaffold(
+        body: BroadcastOpenListener(child: child),
+        bottomNavigationBar: showNav
+            ? BottomNavigationBar(
+                currentIndex: _selectedIndex(context),
+                onTap: (index) => _onItemTapped(context, ref, index),
+                items: [
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.home_outlined),
+                    activeIcon: const Icon(Icons.home),
+                    label: LocaleKeys.navHome.tr(),
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    activeIcon: const Icon(Icons.receipt_long),
+                    label: LocaleKeys.navOrders.tr(),
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.person_outline),
+                    activeIcon: const Icon(Icons.person),
+                    label: LocaleKeys.navProfile.tr(),
+                  ),
+                ],
+              )
+            : null,
+      ),
     );
   }
 }
