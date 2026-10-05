@@ -60,20 +60,17 @@ Future<void> main() async {
         await BootLog.write('boot: firestore REST mode (windows ops)');
       }
 
-      try {
-        await NotificationService.instance.initialize();
-        await BootLog.write('boot: notifications ok');
-      } catch (e, st) {
-        await BootLog.write('boot: notifications FAIL $e');
-        await BootLog.write(st.toString());
-      }
-
       final container = ProviderContainer();
       NotificationService.onOrderUpdate =
           () => container.read(ordersProvider.notifier).refresh();
 
-      await container.read(authProvider.notifier).loadSavedAuth();
-      await BootLog.write('boot: auth ok');
+      try {
+        await container.read(authProvider.notifier).loadSavedAuth();
+        await BootLog.write('boot: auth ok');
+      } catch (e, st) {
+        await BootLog.write('boot: auth FAIL $e');
+        await BootLog.write(st.toString());
+      }
 
       if (PlatformLayout.isOpsDesktop) {
         await container.read(kitchenPrinterProvider.notifier).load();
@@ -99,6 +96,14 @@ Future<void> main() async {
 
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await BootLog.write('boot: first frame ok');
+        try {
+          await NotificationService.instance.initialize();
+          await BootLog.write('boot: notifications ok');
+          unawaited(NotificationService.instance.requestPermissions());
+        } catch (e, st) {
+          await BootLog.write('boot: notifications FAIL $e');
+          await BootLog.write(st.toString());
+        }
         if (_isMobilePlatform) {
           try {
             await MetaAnalytics.initialize();

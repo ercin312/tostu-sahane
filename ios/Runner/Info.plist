@@ -83,9 +83,9 @@
 	<key>FacebookDisplayName</key>
 	<string>Tostu Sahane</string>
 	<key>FacebookAutoLogAppEventsEnabled</key>
-	<true/>
+	<false/>
 	<key>FacebookAdvertiserIDCollectionEnabled</key>
-	<true/>
+	<false/>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

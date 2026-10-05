@@ -43,7 +43,13 @@ class NotificationService {
 
   Future<void> initialize() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings();
+    // Do not ask for permission here. On iOS the dialog needs a visible
+    // window; requesting it before the first frame leaves a white screen.
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestSoundPermission: false,
+      requestBadgePermission: false,
+    );
     await _local.initialize(
       const InitializationSettings(
         android: androidSettings,
@@ -76,6 +82,19 @@ class NotificationService {
       } catch (e) {
         debugPrint('FCM init skipped: $e');
       }
+    }
+  }
+
+  /// Call after the first frame so iOS can present the system dialog.
+  Future<void> requestPermissions() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      await _local
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+    } catch (e) {
+      debugPrint('Notification permission skipped: $e');
     }
   }
 
